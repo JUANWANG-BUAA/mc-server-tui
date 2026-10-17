@@ -1,0 +1,13 @@
+[package]
+name = "provider-paper"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+mc-core = { path = "../mc-core" }
+reqwest.workspace = true
+serde_json.workspace = true
+url.workspace = true

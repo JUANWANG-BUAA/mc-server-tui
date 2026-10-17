@@ -1,0 +1,82 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::{AppError, InstanceSummary};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskKind {
+    CreatePaperInstance,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskStatus {
+    Queued,
+    Running,
+    Succeeded,
+    Failed,
+    Interrupted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskPhase {
+    Queued,
+    ResolvingArtifact,
+    DownloadingArtifact,
+    InstallingInstance,
+    Completed,
+    Failed,
+    Interrupted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskProgress {
+    pub completed_steps: u16,
+    pub total_steps: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "data", rename_all = "snake_case")]
+pub enum TaskResult {
+    InstanceCreated(InstanceSummary),
+}
+
+impl TaskResult {
+    pub fn instance_id(&self) -> Uuid {
+        match self {
+            Self::InstanceCreated(instance) => instance.id,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskSnapshot {
+    pub id: Uuid,
+    pub kind: TaskKind,
+    pub instance_id: Option<Uuid>,
+    pub status: TaskStatus,
+    pub phase: TaskPhase,
+    pub message: String,
+    pub progress: Option<TaskProgress>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub result: Option<TaskResult>,
+    pub error: Option<AppError>,
+    pub last_event_sequence: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskEvent {
+    pub sequence: i64,
+    pub task_id: Uuid,
+    pub occurred_at: DateTime<Utc>,
+    pub status: TaskStatus,
+    pub phase: TaskPhase,
+    pub message: String,
+    pub progress: Option<TaskProgress>,
+    pub error: Option<AppError>,
+}

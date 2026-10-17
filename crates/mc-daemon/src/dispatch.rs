@@ -1,0 +1,189 @@
+use std::{path::PathBuf, sync::Arc};
+
+use mc_core::{
+    ApiRequest, ApiResponse, AppError, TaskKind, TaskPhase, TaskProgress, TaskResult, TaskSnapshot,
+};
+use mc_instance::InstanceSpec;
+use mc_task::TaskReporter;
+
+use crate::state::DaemonState;
+
+struct PaperCreateCommand {
+    name: String,
+    game_version: String,
+    build_id: Option<u64>,
+    java_path: PathBuf,
+    min_memory_mb: u32,
+    max_memory_mb: u32,
+    port: u16,
+    accept_eula: bool,
+}
+
+pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiResponse {
+    match request {
+        ApiRequest::Ping => ApiResponse::Pong,
+        ApiRequest::Doctor => ApiResponse::Doctor(mc_system::run_doctor().await),
+        ApiRequest::PaperVersions => state
+            .provider
+            .list_versions()
+            .await
+            .map(ApiResponse::PaperVersions)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::PaperBuilds { game_version } => state
+            .provider
+            .list_builds(&game_version)
+            .await
+            .map(ApiResponse::PaperBuilds)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::PaperPlan {
+            game_version,
+            build_id,
+        } => state
+            .provider
+            .resolve_build(&game_version, build_id)
+            .await
+            .map(|plan| ApiResponse::ArtifactPlan(Box::new(plan)))
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::ListInstances => state
+            .instances
+            .list_async()
+            .await
+            .map(ApiResponse::Instances)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::CreatePaperInstance {
+            name,
+            game_version,
+            build_id,
+            java_path,
+            min_memory_mb,
+            max_memory_mb,
+            port,
+            accept_eula,
+        } => match create_paper_task(
+            state,
+            PaperCreateCommand {
+                name,
+                game_version,
+                build_id,
+                java_path,
+                min_memory_mb,
+                max_memory_mb,
+                port,
+                accept_eula,
+            },
+        )
+        .await
+        {
+            Ok(task) => ApiResponse::TaskQueued(task),
+            Err(error) => ApiResponse::Error(error),
+        },
+        ApiRequest::ListTasks { limit } => state
+            .tasks
+            .list(limit)
+            .await
+            .map(ApiResponse::Tasks)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::GetTask { task_id } => state
+            .tasks
+            .get(task_id)
+            .await
+            .map(ApiResponse::Task)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::ListTaskEvents {
+            task_id,
+            after_sequence,
+        } => state
+            .tasks
+            .events(task_id, after_sequence, 200)
+            .await
+            .map(ApiResponse::TaskEvents)
+            .unwrap_or_else(ApiResponse::Error),
+    }
+}
+
+async fn create_paper_task(
+    state: &DaemonState,
+    command: PaperCreateCommand,
+) -> Result<TaskSnapshot, AppError> {
+    let spec = InstanceSpec {
+        name: command.name,
+        java_path: command.java_path,
+        min_memory_mb: command.min_memory_mb,
+        max_memory_mb: command.max_memory_mb,
+        port: command.port,
+        accept_eula: command.accept_eula,
+    };
+    spec.validate_for_creation_async().await?;
+
+    let provider = Arc::clone(&state.provider);
+    let downloader = state.downloader.clone();
+    let instances = state.instances.clone();
+    let game_version = command.game_version;
+    let build_id = command.build_id;
+    state
+        .tasks
+        .submit(
+            TaskKind::CreatePaperInstance,
+            None,
+            move |reporter| async move {
+                create_paper_instance(
+                    provider,
+                    downloader,
+                    instances,
+                    spec,
+                    game_version,
+                    build_id,
+                    reporter,
+                )
+                .await
+            },
+        )
+        .await
+}
+
+async fn create_paper_instance(
+    provider: Arc<dyn mc_core::ServerProvider>,
+    downloader: mc_download::DownloadManager,
+    instances: mc_instance::InstanceService,
+    spec: InstanceSpec,
+    game_version: String,
+    build_id: Option<u64>,
+    reporter: TaskReporter,
+) -> Result<TaskResult, AppError> {
+    reporter
+        .set_phase(
+            TaskPhase::ResolvingArtifact,
+            "Resolving an exact stable Paper build.",
+            Some(TaskProgress {
+                completed_steps: 0,
+                total_steps: 3,
+            }),
+        )
+        .await?;
+    let plan = provider.resolve_build(&game_version, build_id).await?;
+
+    reporter
+        .set_phase(
+            TaskPhase::DownloadingArtifact,
+            format!("Downloading and verifying {}.", plan.artifact_name),
+            Some(TaskProgress {
+                completed_steps: 1,
+                total_steps: 3,
+            }),
+        )
+        .await?;
+    let blob = downloader.fetch(&plan).await?;
+
+    reporter
+        .set_phase(
+            TaskPhase::InstallingInstance,
+            "Staging and committing the verified instance.",
+            Some(TaskProgress {
+                completed_steps: 2,
+                total_steps: 3,
+            }),
+        )
+        .await?;
+    let summary = instances.create(&plan, &blob, &spec).await?;
+    Ok(TaskResult::InstanceCreated(summary))
+}

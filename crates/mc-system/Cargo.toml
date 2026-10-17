@@ -1,0 +1,12 @@
+[package]
+name = "mc-system"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+directories.workspace = true
+fs2 = "0.4"
+mc-core = { path = "../mc-core" }
+tokio.workspace = true
+uuid.workspace = true
