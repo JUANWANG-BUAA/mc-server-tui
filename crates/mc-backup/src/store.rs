@@ -5,12 +5,12 @@ use std::{
 };
 
 use chrono::Utc;
-use mc_core::{InstanceSummary, StoppedInstanceLease};
+use mc_core::{BackupConsistency, InstanceSummary, StoppedInstanceLease};
 use uuid::Uuid;
 
 use crate::{
     error::{io_error, BackupError},
-    manifest::{BackupConsistency, BackupManifest, BACKUP_MANIFEST_FILE, BACKUP_SCHEMA_VERSION},
+    manifest::{BackupManifest, BACKUP_MANIFEST_FILE, BACKUP_SCHEMA_VERSION},
     tree::{
         copy_worlds, create_private_directory, measure_worlds, scan_backup_tree, sync_directory,
     },
@@ -144,70 +144,6 @@ impl BackupService {
         Ok(manifest)
     }
 
-    /// Lists valid backups newest-first. Any corrupt backup fails the listing
-    /// rather than silently disappearing from the user's history.
-    pub async fn list(
-        &self,
-        instance: &InstanceSummary,
-    ) -> Result<Vec<BackupManifest>, BackupError> {
-        let instance = instance.clone();
-        tokio::task::spawn_blocking(move || Self::list_blocking(&instance))
-            .await
-            .map_err(|error| BackupError::WorkerFailed(error.to_string()))?
-    }
-
-    fn list_blocking(instance: &InstanceSummary) -> Result<Vec<BackupManifest>, BackupError> {
-        ensure_real_directory(&instance.directory)?;
-        let backup_root = instance.directory.join("backups");
-        let metadata = match fs::symlink_metadata(&backup_root) {
-            Ok(metadata) => metadata,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-            Err(error) => {
-                return Err(io_error(
-                    "Could not inspect backup storage",
-                    &backup_root,
-                    error,
-                ))
-            }
-        };
-        if !metadata.file_type().is_dir() {
-            return Err(BackupError::UnsafeFilesystemEntry(backup_root));
-        }
-
-        let mut manifests = Vec::new();
-        let entries = fs::read_dir(&backup_root)
-            .map_err(|error| io_error("Could not list backups", &backup_root, error))?;
-        for entry in entries {
-            let entry =
-                entry.map_err(|error| io_error("Could not list backups", &backup_root, error))?;
-            let name = entry
-                .file_name()
-                .to_str()
-                .ok_or_else(|| BackupError::UnsafeFilesystemEntry(entry.path()))?
-                .to_owned();
-            if name.starts_with(".staging-") {
-                if !entry
-                    .file_type()
-                    .map_err(|error| {
-                        io_error("Could not inspect a staging backup", entry.path(), error)
-                    })?
-                    .is_dir()
-                {
-                    return Err(BackupError::UnsafeFilesystemEntry(entry.path()));
-                }
-                continue;
-            }
-            let id = Uuid::parse_str(&name)
-                .map_err(|_| BackupError::UnsafeFilesystemEntry(entry.path()))?;
-            if id.to_string() != name {
-                return Err(BackupError::UnsafeFilesystemEntry(entry.path()));
-            }
-            manifests.push(Self::verify_blocking(instance, id)?);
-        }
-        manifests.sort_by_key(|manifest| std::cmp::Reverse(manifest.created_at));
-        Ok(manifests)
-    }
-
     /// Rehashes a backup and rejects missing, extra, or changed files.
     pub async fn verify(
         &self,
@@ -221,6 +157,22 @@ impl BackupService {
     }
 
     pub(super) fn verify_blocking(
+        instance: &InstanceSummary,
+        backup_id: Uuid,
+    ) -> Result<BackupManifest, BackupError> {
+        let manifest = Self::read_manifest_blocking(instance, backup_id)?;
+        let backup_dir = instance
+            .directory
+            .join("backups")
+            .join(backup_id.to_string());
+        let actual_entries = scan_backup_tree(&backup_dir)?;
+        if actual_entries != manifest.entries {
+            return Err(BackupError::IntegrityMismatch(backup_dir));
+        }
+        Ok(manifest)
+    }
+
+    pub(super) fn read_manifest_blocking(
         instance: &InstanceSummary,
         backup_id: Uuid,
     ) -> Result<BackupManifest, BackupError> {
@@ -267,10 +219,6 @@ impl BackupService {
             .map_err(|error| io_error("Could not read a backup manifest", &manifest_path, error))?;
         let manifest: BackupManifest = serde_json::from_slice(&bytes)?;
         manifest.validate(instance.id, backup_id)?;
-        let actual_entries = scan_backup_tree(&backup_dir)?;
-        if actual_entries != manifest.entries {
-            return Err(BackupError::IntegrityMismatch(backup_dir));
-        }
         Ok(manifest)
     }
 }

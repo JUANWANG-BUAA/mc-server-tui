@@ -22,6 +22,7 @@ ANSI_SEQUENCE = re.compile(
 )
 INSTANCE_ID = "22222222-2222-4222-8222-222222222222"
 BACKUP_TASK_ID = "44444444-4444-4444-8444-444444444444"
+LIST_TASK_ID = "55555555-5555-4555-8555-555555555555"
 
 
 def instance_summary():
@@ -71,6 +72,47 @@ def backup_task_snapshot():
     }
 
 
+def list_task_snapshot():
+    task = backup_task_snapshot()
+    task["id"] = LIST_TASK_ID
+    task["kind"] = "list_world_backups"
+    task["message"] = "Reading backup metadata and verifying this page."
+    return task
+
+
+def completed_list_task_snapshot():
+    task = list_task_snapshot()
+    task.update(
+        {
+            "status": "succeeded",
+            "phase": "completed",
+            "message": "Backup page listed and its contents verified.",
+            "progress": {"completed_steps": 1, "total_steps": 1},
+            "finished_at": "2026-10-17T00:00:01Z",
+            "result": {
+                "kind": "world_backups_listed",
+                "data": {
+                    "instance_id": INSTANCE_ID,
+                    "page": {
+                        "backups": [
+                            {
+                                "id": "88888888-8888-4888-8888-888888888888",
+                                "created_at": "2026-10-17T00:00:00Z",
+                                "consistency": "server_stopped",
+                                "file_count": 12,
+                                "total_bytes": 2097152,
+                            }
+                        ],
+                        "next_cursor": None,
+                    },
+                },
+            },
+            "last_event_sequence": 2,
+        }
+    )
+    return task
+
+
 def response_for(request, state):
     payload = request["payload"]
     operation = payload["operation"]
@@ -78,8 +120,22 @@ def response_for(request, state):
     if operation == "list_instances":
         response = {"result": "instances", "data": [instance_summary()]}
     elif operation == "list_tasks":
-        tasks = [state["backup_task"]] if state["backup_task"] else []
+        tasks = [task for task in (state["list_task"], state["backup_task"]) if task]
         response = {"result": "tasks", "data": tasks}
+    elif operation == "get_task":
+        task_id = arguments["task_id"]
+        if task_id == LIST_TASK_ID and state["list_task"]:
+            response = {"result": "task", "data": completed_list_task_snapshot()}
+        else:
+            response = {"result": "error", "data": {
+                "code": "TASK_NOT_FOUND",
+                "reason": f"unexpected task ID: {task_id}",
+                "next_action": None,
+                "evidence": None,
+                "retryable": False,
+            }}
+    elif operation == "list_task_events":
+        response = {"result": "task_events", "data": []}
     elif operation == "get_instance_detail":
         response = {
             "result": "instance_detail",
@@ -107,6 +163,12 @@ def response_for(request, state):
         state["backup_instance_id"] = arguments["instance_id"]
         state["backup_task"] = backup_task_snapshot()
         response = {"result": "task_queued", "data": state["backup_task"]}
+    elif operation == "list_world_backups":
+        state["list_requests"] += 1
+        state["list_instance_id"] = arguments["instance_id"]
+        state["list_arguments"] = arguments
+        state["list_task"] = list_task_snapshot()
+        response = {"result": "task_queued", "data": state["list_task"]}
     elif operation == "start_server":
         state["server_state"] = "running"
         state["message"] = "Server is ready."
@@ -140,7 +202,7 @@ def response_for(request, state):
                 "retryable": False,
             },
         }
-    return {"protocol_version": 5, "payload": response}
+    return {"protocol_version": 6, "payload": response}
 
 
 def main():
@@ -166,6 +228,10 @@ def main():
             "backup_requests": 0,
             "backup_instance_id": None,
             "backup_task": None,
+            "list_requests": 0,
+            "list_instance_id": None,
+            "list_arguments": None,
+            "list_task": None,
             "console_commands": [],
         }
         lock = threading.Lock()
@@ -249,6 +315,19 @@ def main():
                 if state["backup_instance_id"] != INSTANCE_ID:
                     raise AssertionError("TUI submitted the backup for the wrong instance")
 
+            os.write(master, b"l")
+            if not wait_for("备份列表任务已加入后台队列".encode()):
+                raise AssertionError("backup list action did not show queued-task feedback")
+            with lock:
+                if state["list_requests"] != 1:
+                    raise AssertionError("TUI did not submit exactly one backup list request")
+                if state["list_instance_id"] != INSTANCE_ID:
+                    raise AssertionError("TUI listed backups for the wrong instance")
+                if state["list_arguments"].get("limit") != 3:
+                    raise AssertionError("TUI did not request the bounded first page")
+                if state["list_arguments"].get("cursor") is not None:
+                    raise AssertionError("TUI first-page request unexpectedly included a cursor")
+
             os.write(master, b"s")
             if not wait_for("SERVER_READY".encode()):
                 raise AssertionError("start action did not refresh readiness and console logs")
@@ -280,6 +359,17 @@ def main():
             os.write(master, b"\x1b")
             if not wait_for("Enter打开".encode(), start_offset=dashboard_offset):
                 raise AssertionError("Esc did not return to the dashboard")
+            os.write(master, b"\t\r")
+            if not wait_for("本页1个备份".encode()):
+                raise AssertionError("backup list task detail did not render its summary")
+            if not wait_for("12个文件".encode()):
+                raise AssertionError("backup list task detail did not render file count")
+            if not wait_for("2.0MiB".encode()):
+                raise AssertionError("backup list task detail did not render total size")
+            task_dashboard_offset = len(captured)
+            os.write(master, b"\x1b")
+            if not wait_for("Enter打开".encode(), start_offset=task_dashboard_offset):
+                raise AssertionError("Esc did not return from task detail")
             os.write(master, b"q")
             deadline = time.monotonic() + 4
             status = None
@@ -302,6 +392,8 @@ def main():
                 raise AssertionError("TUI did not restore the terminal screen")
             print("Instance detail at 80×24: passed")
             print("Stopped-world backup queue feedback: passed")
+            print("Bounded backup-list task feedback: passed")
+            print("Backup page result in task detail: passed")
             print("Start and readiness refresh: passed")
             print("Console command and incremental output: passed")
             print("Graceful stop and dashboard return: passed")

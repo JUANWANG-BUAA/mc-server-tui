@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use mc_core::ApiRequest;
+use mc_core::{ApiRequest, BackupCursor};
 use uuid::Uuid;
 
 #[derive(Debug, Parser)]
@@ -84,6 +84,16 @@ pub(crate) enum PaperCommand {
 pub(crate) enum BackupCommand {
     /// Queue a checksummed backup of a stopped instance's world directories.
     Create { instance_id: Uuid },
+    /// Queue a bounded page of backup summaries, verifying the returned page.
+    List {
+        instance_id: Uuid,
+        #[arg(long, default_value_t = 20)]
+        limit: u16,
+        #[arg(long)]
+        cursor: Option<BackupCursor>,
+    },
+    /// Queue an integrity verification for one backup ID.
+    Verify { instance_id: Uuid, backup_id: Uuid },
 }
 
 #[derive(Debug, Subcommand)]
@@ -156,6 +166,28 @@ impl Command {
                 BackupCommand::Create { instance_id } => {
                     (ApiRequest::CreateWorldBackup { instance_id }, false)
                 }
+                BackupCommand::List {
+                    instance_id,
+                    limit,
+                    cursor,
+                } => (
+                    ApiRequest::ListWorldBackups {
+                        instance_id,
+                        limit,
+                        cursor,
+                    },
+                    false,
+                ),
+                BackupCommand::Verify {
+                    instance_id,
+                    backup_id,
+                } => (
+                    ApiRequest::VerifyWorldBackup {
+                        instance_id,
+                        backup_id,
+                    },
+                    false,
+                ),
             },
             Self::Task { command } => match command {
                 TaskCommand::List { limit } => (ApiRequest::ListTasks { limit }, false),
@@ -198,6 +230,53 @@ mod tests {
         assert!(matches!(
             request,
             ApiRequest::CreateWorldBackup { instance_id: parsed_id } if parsed_id == instance_id
+        ));
+    }
+
+    #[test]
+    fn backup_list_and_verify_cli_commands_map_to_the_shared_api() {
+        let instance_id = Uuid::new_v4();
+        let backup_id = Uuid::new_v4();
+        let cursor: mc_core::BackupCursor = format!("2026-10-17T00:00:00Z~{backup_id}")
+            .parse()
+            .expect("parse cursor");
+        let cursor_text = cursor.to_string();
+        let args = Args::try_parse_from([
+            "mc-server-tui",
+            "backup",
+            "list",
+            &instance_id.to_string(),
+            "--limit",
+            "7",
+            "--cursor",
+            &cursor_text,
+        ])
+        .expect("parse backup list command");
+        let (request, _) = args.command.into_request();
+        assert!(matches!(
+            request,
+            ApiRequest::ListWorldBackups {
+                instance_id: parsed_instance_id,
+                limit: 7,
+                cursor: Some(parsed_cursor),
+            } if parsed_instance_id == instance_id && parsed_cursor == cursor
+        ));
+
+        let args = Args::try_parse_from([
+            "mc-server-tui",
+            "backup",
+            "verify",
+            &instance_id.to_string(),
+            &backup_id.to_string(),
+        ])
+        .expect("parse backup verify command");
+        let (request, _) = args.command.into_request();
+        assert!(matches!(
+            request,
+            ApiRequest::VerifyWorldBackup {
+                instance_id: parsed_instance_id,
+                backup_id: parsed_backup_id,
+            } if parsed_instance_id == instance_id && parsed_backup_id == backup_id
         ));
     }
 }

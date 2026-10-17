@@ -11,6 +11,8 @@ use crate::{
     wizard::CreateInstanceInput,
 };
 
+const BACKUP_PREVIEW_PAGE_LIMIT: u16 = 3;
+
 #[async_trait]
 pub(crate) trait ManagementSource: Send + Sync {
     async fn load(&self) -> Result<DashboardData, AppError>;
@@ -30,6 +32,10 @@ pub(crate) trait ManagementSource: Send + Sync {
     async fn start_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
     async fn stop_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
     async fn create_backup(
+        &self,
+        instance_id: uuid::Uuid,
+    ) -> Result<mc_core::TaskSnapshot, AppError>;
+    async fn list_backups(
         &self,
         instance_id: uuid::Uuid,
     ) -> Result<mc_core::TaskSnapshot, AppError>;
@@ -167,6 +173,25 @@ impl ManagementSource for DaemonDashboardSource {
             ApiResponse::TaskQueued(task) => Ok(task),
             ApiResponse::Error(error) => Err(error),
             _ => Err(unexpected_response("world backup")),
+        }
+    }
+
+    async fn list_backups(
+        &self,
+        instance_id: uuid::Uuid,
+    ) -> Result<mc_core::TaskSnapshot, AppError> {
+        match self
+            .client
+            .request(ApiRequest::ListWorldBackups {
+                instance_id,
+                limit: BACKUP_PREVIEW_PAGE_LIMIT,
+                cursor: None,
+            })
+            .await?
+        {
+            ApiResponse::TaskQueued(task) => Ok(task),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("world backup list")),
         }
     }
 

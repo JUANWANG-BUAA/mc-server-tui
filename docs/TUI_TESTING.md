@@ -20,13 +20,13 @@ The screen sequence is tested independently:
 | Dashboard | Empty and populated layout at 80×24; compact layout at 40×12 | Concurrent initial refresh while daemon replies are stalled |
 | Creation wizard | All three steps, field validation, review and EULA at both sizes | Field entry, submit, and Ctrl-C while list requests are stalled |
 | Task detail | Status, events, cursor at both sizes | Events `1→2→3`, refresh cursor, close and reopen from `3` |
-| Instance detail | State, address, logs and controls at both sizes | Enter detail, queue a stopped-world backup and see task feedback, start, incremental console log, console command, graceful stop, return and restore terminal |
+| Instance detail | State, address, logs and controls at both sizes | Enter detail, queue a stopped-world backup and bounded first-page listing, inspect the list result in task detail, start, incremental console log, console command, graceful stop, return and restore terminal |
 
 Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 scripts/tui_task_detail_pty.py && python3 scripts/tui_instance_detail_pty.py`. These PTY checks validate the terminal stream and key path against fake daemons.
 
-## 实际终端验收记录（2026-10-17）
+## 历史真实终端验收记录（2026-10-17）
 
-使用 `scripts/tui_visual_fake_daemon.py` 启动协议 v5 假 daemon，并在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件。假 daemon 只返回固定实例、任务、日志和生命周期响应，不会启动 Java 或访问 Paper 下载服务。
+历史真实终端记录使用协议 v5 假 daemon，在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件。当前接口扩展后，`scripts/tui_visual_fake_daemon.py` 和 PTY 假 daemon 已升级到协议 v6，并提供分页列表结果；本轮通过实际 TUI 进程的 PTY 测试验证 `l` 请求及任务详情结果。此轮没有重新采集可用于像素检查的宿主终端截图。
 
 复跑时先执行 `cargo build -p mc-tui`，然后在一个终端启动 `python3 -u scripts/tui_visual_fake_daemon.py --socket /tmp/mc-tui-visual.sock`，再在另一个终端运行 `./target/debug/mc-server-tui --socket /tmp/mc-tui-visual.sock`。结束 TUI 后用 Ctrl-C 停止假 daemon。
 
@@ -42,10 +42,14 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 真实终端的无障碍文本回读确认了上述屏幕内容和 80 列布局。像素截图没有通过验收：对独立窗口调用 CUA 截图和 `take_screenshot.py --window-id` 后，得到的 PNG 只有约 `198×222` 像素，终端画面发生明显形变；CUA 返回的窗口截图约 `186×206` 像素。它们无法用于判断字形、颜色对比和边框对齐，因此没有保存为项目截图或作为视觉通过证据。真实截图复核以及真实终端中的缩放/resize 视觉检查仍待宿主截图链路恢复后完成；40×12 紧凑布局目前由 `TestBackend` 渲染测试覆盖。
 
+### 协议 v6 备份列表闭环（2026-10-17）
+
+重新构建 `mc-server-tui`，由真实 TUI 进程连接协议 v6 PTY fake daemon，在 80×24 终端尺寸依次执行实例详情 `l`、返回任务面板、打开列表任务。已确认请求携带目标实例、`limit=3` 和空 cursor；详情页显示一条备份摘要的 ID 前缀、文件数 `12`、大小 `2.0 MiB`，并能返回仪表盘。随后继续验证启停、控制台命令、日志增量和 alternate screen 恢复。该回归覆盖真实终端事件与渲染字节流，不是像素截图验收。
+
 ## 本轮自动化回归
 
-- `cargo test --workspace --all-features --no-fail-fast`：通过，62 项单元测试全部通过。
+- `cargo test --workspace --all-features --no-fail-fast`：通过，85 项单元测试全部通过。
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`：通过。
 - `cargo fmt --all --check`：通过。
 - `python3 -m py_compile scripts/tui_visual_fake_daemon.py scripts/tui_pty_smoke.py scripts/tui_task_detail_pty.py scripts/tui_instance_detail_pty.py`：通过。
-- 三个 PTY 脚本全部通过：仪表盘及向导在 daemon 请求挂起时保持响应，Ctrl-C 在 0.00 秒内退出并恢复 alternate screen；任务事件游标 `0 → 2 → 3` 且重开从最后游标继续；实例页备份按键提交目标实例任务并显示排队反馈，之后启动、日志增量、控制台命令、优雅停止和终端恢复均通过。
+- 三个 PTY 脚本全部通过：仪表盘及向导在 daemon 请求挂起时保持响应，Ctrl-C 在 0.00 秒内退出并恢复 alternate screen；任务事件游标 `0 → 2 → 3` 且重开从最后游标继续；实例页 `b`/`l` 分别提交目标实例备份和有界列表任务，任务详情显示文件数与总字节数，之后启动、日志增量、控制台命令、优雅停止和终端恢复均通过。

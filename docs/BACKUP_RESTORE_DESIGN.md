@@ -8,7 +8,7 @@ This contract narrows the backup and recovery work in [the Base implementation p
 
 - `mc-core` defines the `StoppedInstanceLease` contract. `mc-supervisor` implements it and owns the per-instance stopped-state reservation: it verifies the recorded runner identity, rejects a live or unknown process, checks for an occupied server port, and holds both the in-process mutex and filesystem lifecycle lock for the lease's lifetime.
 - `mc-backup` discovers world roots, stages copies, writes and checks manifests, and verifies existing backups. It does not start or stop a server and does not write instance configuration.
-- The daemon/API layer owns durable task records and maps `BackupError` into the shared structured error model. `backup create <instance-id>` and the instance-detail `b` action submit through this API rather than editing instance files.
+- The daemon/API layer owns durable task records and maps `BackupError` into the shared structured error model. `backup create <instance-id>`, `backup list <instance-id>`, `backup verify <instance-id> <backup-id>`, and the instance-detail `b`/`l` actions submit through this API rather than editing instance files.
 
 ## Version 1: stopped-server backup
 
@@ -41,7 +41,11 @@ Any returned error before rename removes the staging directory. A process or mac
 
 Schema version 1 stores the backup UUID, instance UUID, UTC creation time, stopped consistency marker, sorted world roots, and sorted relative entry records. Manifest paths are UTF-8, relative, canonical, and confined to the listed worlds. Manifest reads are capped at 16 MiB.
 
-`verify` validates schema and identities, rejects unsafe paths and filesystem entries, hashes the complete stored tree, and rejects missing, extra, or changed entries. `list` verifies every completed backup before returning it, newest first; corrupt entries fail the operation instead of silently disappearing. Leftover staging directories are skipped.
+`verify` validates schema and identities, rejects unsafe paths and filesystem entries, hashes the complete stored tree, and rejects missing, extra, or changed entries. The library `list` verifies every completed backup before returning it, newest first; corrupt entries fail the operation instead of silently disappearing. Leftover staging directories are skipped.
+
+The API exposes bounded `ListWorldBackups { instance_id, limit, cursor }` and `VerifyWorldBackup { instance_id, backup_id }` requests as durable tasks. `limit` must be 1–50. The paged listing reads and validates candidate manifests to establish a deterministic newest-first order (`created_at`, then UUID), caps the catalog at 1,000 entries, and fully rehashes only the returned page. The cursor contains the last row's timestamp and UUID, so equal timestamps do not cause duplicates or omissions. Returned task results contain only small summaries: ID, timestamp, consistency, file count, total bytes, and an optional next cursor. Full tree hashing and directory scans run on Tokio's blocking pool under the task manager's per-instance lock and global worker/outstanding limits. `backup verify` fully hashes the selected backup and returns the same bounded summary shape.
+
+The CLI provides `backup list <instance-id> [--limit N] [--cursor <RFC3339>~<UUID>]` and `backup verify <instance-id> <backup-id>`. In instance detail, `l` queues a three-item first page so the complete page fits in task detail. The TUI does not yet offer cursor navigation or a backup selection control for verification; those remain follow-up UI work.
 
 Create, list, and verify expose async methods. They run blocking filesystem and hash work on `tokio::task::spawn_blocking`; a worker join failure is returned as a typed `BackupError`.
 
@@ -60,4 +64,4 @@ Online backups, save-command acknowledgements, timeouts, and automatic retention
 
 ## Verification status
 
-The first implementation covers stopped-world discovery, space preflight, staged copy, SHA-256 manifest, list, and verify. Create is exposed as a durable daemon task through the versioned API, the CLI, and the instance-detail TUI; duplicate requests reuse the active backup task for that instance. Tests exercise the lifecycle reservation, primary and dimension roots, safe-name and symlink rejection, duplicate IDs, active-task reuse, listing, content tampering, task reporting, and the TUI backup queue interaction. List and verify remain library operations without CLI/TUI commands. Restore, recovery journaling, and a real server backup/restore drill remain follow-up work; this is not yet a complete recovery flow.
+The first implementation covers stopped-world discovery, space preflight, staged copy, SHA-256 manifest, paged listing, and verify. Create is exposed as a durable daemon task through the versioned API, the CLI, and the instance-detail TUI; duplicate create requests reuse the active backup task for that instance. Listing and verification run as bounded daemon tasks and are available through CLI commands; the TUI can queue and inspect a first-page listing. Tests exercise the lifecycle reservation, primary and dimension roots, safe-name and symlink rejection, duplicate IDs, active-task reuse, cursor ordering, page integrity, content tampering, bounded task results, and TUI queue feedback. Restore, recovery journaling, cursor navigation and verification selection in the TUI, and a real server backup/restore drill remain follow-up work; this is not yet a complete recovery flow.

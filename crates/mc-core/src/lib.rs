@@ -1,6 +1,7 @@
 //! Domain types and transport-neutral management contracts.
 
 mod api;
+mod backup;
 mod doctor;
 mod domain;
 mod error;
@@ -10,6 +11,9 @@ mod task;
 
 pub use api::{
     ApiRequest, ApiRequestEnvelope, ApiResponse, ApiResponseEnvelope, API_PROTOCOL_VERSION,
+};
+pub use backup::{
+    BackupConsistency, BackupCursor, BackupPage, BackupSummary, MAX_BACKUP_PAGE_LIMIT,
 };
 pub use doctor::{DoctorCheck, DoctorCheckStatus, DoctorReport, JavaRuntime};
 pub use domain::{

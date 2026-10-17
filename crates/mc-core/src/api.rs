@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AppError, ArtifactPlan, BuildInfo, DoctorReport, InstanceSummary, ServerVersion, TaskEvent,
-    TaskSnapshot,
+    AppError, ArtifactPlan, BackupCursor, BuildInfo, DoctorReport, InstanceSummary, ServerVersion,
+    TaskEvent, TaskSnapshot,
 };
 
-pub const API_PROTOCOL_VERSION: u16 = 5;
+pub const API_PROTOCOL_VERSION: u16 = 6;
 
 /// Versioned request envelope shared by CLI, TUI, and the local daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,6 +68,15 @@ pub enum ApiRequest {
     },
     CreateWorldBackup {
         instance_id: uuid::Uuid,
+    },
+    ListWorldBackups {
+        instance_id: uuid::Uuid,
+        limit: u16,
+        cursor: Option<BackupCursor>,
+    },
+    VerifyWorldBackup {
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
     },
     StartServer {
         instance_id: uuid::Uuid,
@@ -140,10 +149,57 @@ mod tests {
         let decoded: ApiRequestEnvelope =
             serde_json::from_str(&encoded).expect("deserialize backup request");
 
-        assert_eq!(decoded.protocol_version, 5);
+        assert_eq!(decoded.protocol_version, API_PROTOCOL_VERSION);
         assert!(matches!(
             decoded.payload,
             ApiRequest::CreateWorldBackup { instance_id: decoded_id } if decoded_id == instance_id
         ));
+    }
+
+    #[test]
+    fn backup_listing_and_verification_requests_round_trip() {
+        let instance_id = uuid::Uuid::new_v4();
+        let backup_id = uuid::Uuid::new_v4();
+        let cursor = BackupCursor {
+            created_at: chrono::Utc::now(),
+            id: backup_id,
+        };
+        let requests = [
+            ApiRequest::ListWorldBackups {
+                instance_id,
+                limit: 7,
+                cursor: Some(cursor.clone()),
+            },
+            ApiRequest::VerifyWorldBackup {
+                instance_id,
+                backup_id,
+            },
+        ];
+        for request in requests {
+            let envelope = ApiRequestEnvelope::current(request);
+            let encoded = serde_json::to_string(&envelope).expect("serialize request");
+            let decoded: ApiRequestEnvelope =
+                serde_json::from_str(&encoded).expect("deserialize request");
+            assert_eq!(decoded.protocol_version, API_PROTOCOL_VERSION);
+            match decoded.payload {
+                ApiRequest::ListWorldBackups {
+                    instance_id: decoded_instance_id,
+                    limit,
+                    cursor: Some(decoded_cursor),
+                } => {
+                    assert_eq!(decoded_instance_id, instance_id);
+                    assert_eq!(limit, 7);
+                    assert_eq!(decoded_cursor, cursor);
+                }
+                ApiRequest::VerifyWorldBackup {
+                    instance_id: decoded_instance_id,
+                    backup_id: decoded_backup_id,
+                } => {
+                    assert_eq!(decoded_instance_id, instance_id);
+                    assert_eq!(decoded_backup_id, backup_id);
+                }
+                _ => panic!("decoded a different backup request"),
+            }
+        }
     }
 }

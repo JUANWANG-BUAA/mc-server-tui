@@ -51,6 +51,14 @@ impl TaskReporter {
                 )
                 .await
             }
+            mc_core::TaskKind::ListWorldBackups | mc_core::TaskKind::VerifyWorldBackup => {
+                self.set_phase(
+                    TaskPhase::WaitingForInstance,
+                    "Waiting for other work on this instance to finish.",
+                    None,
+                )
+                .await
+            }
         }
     }
 
@@ -65,6 +73,12 @@ impl TaskReporter {
                 completed_steps: 1,
                 total_steps: 1,
             },
+            TaskResult::WorldBackupsListed { .. } | TaskResult::WorldBackupVerified { .. } => {
+                TaskProgress {
+                    completed_steps: 1,
+                    total_steps: 1,
+                }
+            }
         };
         if let Err(error) = self
             .update(|snapshot| {

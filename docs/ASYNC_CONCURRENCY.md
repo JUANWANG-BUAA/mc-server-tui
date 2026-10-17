@@ -14,6 +14,7 @@ This contract keeps slow network, filesystem, and SQLite work from blocking the 
 - At most two task bodies run concurrently; at most eight tasks may be queued or running. Admission beyond that returns retryable `TASK_QUEUE_FULL`.
 - The limit covers spawned workers waiting for execution permits as well as active work, so repeated submissions cannot create an unbounded number of Tokio tasks.
 - Operations tied to an existing instance can submit its UUID as a lock key. The task manager serializes work for that UUID while allowing work for different UUIDs to run concurrently. New-instance creation has no existing key.
+- Backup page listing and integrity verification use this same durable task queue. Their directory scans and hashes run on `spawn_blocking`; the listing limit is 1–50, the catalog is capped at 1,000 entries, and task results contain only bounded summaries. A list task verifies only the page it returns; `backup verify` scans one selected backup completely.
 - A worker panic becomes a structured failed task. Queued and running tasks found on daemon startup become `interrupted`; operations are not replayed automatically because their external side effects may already have occurred.
 
 ## Progress and UI contract

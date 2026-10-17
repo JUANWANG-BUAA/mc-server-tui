@@ -30,6 +30,7 @@ pub(crate) enum Action {
     StartServer,
     StopServer,
     CreateBackup,
+    ListBackups,
     BeginConsoleInput,
     ConsoleInsert(char),
     ConsoleBackspace,
@@ -143,6 +144,7 @@ impl AppState {
             Action::StartServer => self.queue_server_command(false),
             Action::StopServer => self.queue_server_command(true),
             Action::CreateBackup => self.queue_backup(),
+            Action::ListBackups => self.queue_list_backups(),
             Action::BeginConsoleInput => self.begin_console_input(),
             Action::ConsoleInsert(character) => self.insert_console_character(character),
             Action::ConsoleBackspace => self.backspace_console(),
@@ -473,6 +475,42 @@ mod tests {
 
         assert_eq!(state.tasks, vec![task]);
         assert!(state.status.contains("后台队列"));
+        assert!(state.take_refresh_request());
+    }
+
+    #[test]
+    fn list_backups_action_queues_a_task_for_the_open_instance() {
+        let instance_id = Uuid::new_v4();
+        let mut state = AppState {
+            instance_detail_id: Some(instance_id),
+            instance_detail_visible: true,
+            ..AppState::default()
+        };
+        state.update(Action::ListBackups);
+        assert!(matches!(
+            state.take_instance_command(),
+            Some(InstanceCommand::ListBackups(id)) if id == instance_id
+        ));
+
+        state.apply_instance_command_result(InstanceCommandResult::Task(Ok(Box::new(
+            TaskSnapshot {
+                id: Uuid::new_v4(),
+                kind: TaskKind::ListWorldBackups,
+                instance_id: Some(instance_id),
+                status: TaskStatus::Queued,
+                phase: TaskPhase::Queued,
+                message: "Backup list queued".to_owned(),
+                progress: None,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+                finished_at: None,
+                result: None,
+                error: None,
+                last_event_sequence: 0,
+            },
+        ))));
+        assert_eq!(state.tasks[0].kind, TaskKind::ListWorldBackups);
+        assert!(state.status.contains("备份列表任务"));
         assert!(state.take_refresh_request());
     }
 

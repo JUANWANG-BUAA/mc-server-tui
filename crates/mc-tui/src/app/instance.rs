@@ -86,6 +86,25 @@ impl AppState {
         }
     }
 
+    pub(super) fn queue_list_backups(&mut self) {
+        let Some(instance_id) = self
+            .instance_detail_id
+            .filter(|_| self.instance_detail_visible)
+        else {
+            return;
+        };
+        if self.instance_operation_pending {
+            self.status = "上一项实例操作仍在运行。".to_owned();
+            return;
+        }
+        self.instance_operation_pending = true;
+        self.instance_command_requested = Some(InstanceCommand::ListBackups(instance_id));
+        self.status = "正在提交备份列表任务…".to_owned();
+        if let Some(detail) = self.instance_detail.as_mut() {
+            detail.notice = Some(self.status.clone());
+        }
+    }
+
     pub(super) fn begin_console_input(&mut self) {
         if !self.instance_operation_pending {
             if let Some(detail) = self.instance_detail.as_mut() {
@@ -192,9 +211,15 @@ impl AppState {
             },
             InstanceCommandResult::Task(result) => match result {
                 Ok(task) => {
+                    let message = match task.kind {
+                        mc_core::TaskKind::CreateWorldBackup => "世界备份任务已加入后台队列。",
+                        mc_core::TaskKind::ListWorldBackups => "备份列表任务已加入后台队列。",
+                        mc_core::TaskKind::VerifyWorldBackup => "备份校验任务已加入后台队列。",
+                        mc_core::TaskKind::CreatePaperInstance => "后台任务已加入队列。",
+                    };
                     self.tasks.insert(0, *task);
                     self.selected_task = 0;
-                    self.status = "世界备份任务已加入后台队列。".to_owned();
+                    self.status = message.to_owned();
                     if let Some(detail) = self.instance_detail.as_mut() {
                         detail.notice = Some(self.status.clone());
                     }
@@ -209,7 +234,7 @@ impl AppState {
                         detail.error = Some(message.clone());
                         detail.notice = Some(message.clone());
                     }
-                    self.status = format!("世界备份提交失败：{message}");
+                    self.status = format!("实例后台任务提交失败：{message}");
                 }
             },
         }

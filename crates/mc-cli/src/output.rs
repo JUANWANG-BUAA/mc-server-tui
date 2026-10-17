@@ -169,6 +169,36 @@ fn print_task(task: &TaskSnapshot) {
                 println!("  Backup: {backup_id}");
                 println!("  Instance: {instance_id}");
             }
+            mc_core::TaskResult::WorldBackupsListed { instance_id, page } => {
+                println!("  Instance: {instance_id}");
+                for backup in &page.backups {
+                    println!(
+                        "  Backup {}\t{}\t{} files\t{}",
+                        backup.id,
+                        backup.created_at.to_rfc3339(),
+                        backup.file_count,
+                        format_bytes(backup.total_bytes)
+                    );
+                }
+                if let Some(cursor) = &page.next_cursor {
+                    println!("  Next page: backup list {instance_id} --cursor '{cursor}'");
+                } else {
+                    println!("  No more backups.");
+                }
+            }
+            mc_core::TaskResult::WorldBackupVerified {
+                instance_id,
+                backup,
+            } => {
+                println!("  Instance: {instance_id}");
+                println!("  Verified backup: {}", backup.id);
+                println!("  Created: {}", backup.created_at.to_rfc3339());
+                println!(
+                    "  Content: {} files, {}",
+                    backup.file_count,
+                    format_bytes(backup.total_bytes)
+                );
+            }
         }
     }
     if let Some(error) = &task.error {

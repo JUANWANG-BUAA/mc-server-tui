@@ -27,7 +27,17 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState) {
         areas[0],
     );
 
-    let summary_height = if compact { 3 } else { 7 };
+    let has_backup_page = matches!(
+        &detail.task.result,
+        Some(mc_core::TaskResult::WorldBackupsListed { .. })
+    );
+    let summary_height = if compact {
+        3
+    } else if has_backup_page {
+        8
+    } else {
+        7
+    };
     let body = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(summary_height), Constraint::Min(1)])
@@ -88,8 +98,8 @@ fn render_summary(
         );
     } else {
         lines.push(Line::from(format!("任务 ID {}", task.id)));
-        lines.push(Line::from(task.message.clone()));
         if let Some(error) = &task.error {
+            lines.push(Line::from(task.message.clone()));
             let next_action = error
                 .next_action
                 .as_ref()
@@ -99,7 +109,30 @@ fn render_summary(
                 format!("错误：{}{next_action}", error.reason),
                 Style::default().fg(Color::Red),
             )));
+        } else if let Some(mc_core::TaskResult::WorldBackupsListed { instance_id, page }) =
+            &task.result
+        {
+            lines.push(Line::from(format!(
+                "实例：{instance_id} · 本页 {} 个备份",
+                page.backups.len()
+            )));
+            for backup in &page.backups {
+                let short_id = backup.id.to_string();
+                lines.push(Line::from(format!(
+                    "{} · {} · {} 个文件 · {}",
+                    &short_id[..8],
+                    backup.created_at.format("%Y-%m-%d %H:%M UTC"),
+                    backup.file_count,
+                    format_bytes(backup.total_bytes)
+                )));
+            }
+            if let Some(cursor) = &page.next_cursor {
+                lines.push(Line::from(format!("下一页游标：{cursor}")));
+            } else {
+                lines.push(Line::from("没有更多备份"));
+            }
         } else if let Some(result) = &task.result {
+            lines.push(Line::from(task.message.clone()));
             match result {
                 mc_core::TaskResult::InstanceCreated(instance) => {
                     lines.push(Line::from(format!("实例：{}", instance.name)));
@@ -111,8 +144,22 @@ fn render_summary(
                     lines.push(Line::from(format!("实例：{instance_id}")));
                     lines.push(Line::from(format!("备份 ID：{backup_id}")));
                 }
+                mc_core::TaskResult::WorldBackupsListed { .. } => {}
+                mc_core::TaskResult::WorldBackupVerified {
+                    instance_id,
+                    backup,
+                } => {
+                    lines.push(Line::from(format!("实例：{instance_id}")));
+                    lines.push(Line::from(format!("已验证备份：{}", backup.id)));
+                    lines.push(Line::from(format!(
+                        "内容：{} 个文件 · {}",
+                        backup.file_count,
+                        format_bytes(backup.total_bytes)
+                    )));
+                }
             }
         } else {
+            lines.push(Line::from(task.message.clone()));
             lines.push(Line::from(format!(
                 "创建于 {} UTC",
                 task.created_at.format("%Y-%m-%d %H:%M:%S")
@@ -127,6 +174,15 @@ fn render_summary(
         Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("任务状态")),
         area,
     );
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const MIB: u64 = 1024 * 1024;
+    if bytes >= MIB {
+        format!("{:.1} MiB", bytes as f64 / MIB as f64)
+    } else {
+        format!("{bytes} bytes")
+    }
 }
 
 fn render_events(frame: &mut Frame<'_>, area: ratatui::layout::Rect, detail: &TaskDetailState) {
@@ -208,6 +264,34 @@ mod tests {
             assert!(text.contains("事件"));
         }
         assert!(render_to_text(&detail, 80, 24).contains("Paperartifactverified"));
+    }
+
+    #[test]
+    fn renders_backup_page_summaries_in_task_detail() {
+        let instance_id = Uuid::new_v4();
+        let backup_id = Uuid::new_v4();
+        let mut task = task_snapshot();
+        task.kind = TaskKind::ListWorldBackups;
+        task.status = TaskStatus::Succeeded;
+        task.phase = TaskPhase::Completed;
+        task.result = Some(mc_core::TaskResult::WorldBackupsListed {
+            instance_id,
+            page: mc_core::BackupPage {
+                backups: vec![mc_core::BackupSummary {
+                    id: backup_id,
+                    created_at: Utc::now(),
+                    consistency: mc_core::BackupConsistency::ServerStopped,
+                    file_count: 12,
+                    total_bytes: 2 * 1024 * 1024,
+                }],
+                next_cursor: None,
+            },
+        });
+        let detail = TaskDetailState::new(task);
+        let text = render_to_text(&detail, 100, 30);
+        assert!(text.contains("本页1个备份"));
+        assert!(text.contains("12个文件"));
+        assert!(text.contains("2.0MiB"));
     }
 
     fn task_snapshot() -> TaskSnapshot {

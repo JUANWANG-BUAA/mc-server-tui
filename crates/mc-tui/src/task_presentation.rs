@@ -6,6 +6,8 @@ pub(crate) fn kind_label(kind: TaskKind) -> &'static str {
     match kind {
         TaskKind::CreatePaperInstance => "创建 Paper 实例",
         TaskKind::CreateWorldBackup => "备份世界",
+        TaskKind::ListWorldBackups => "列出世界备份",
+        TaskKind::VerifyWorldBackup => "校验世界备份",
     }
 }
 
@@ -27,6 +29,8 @@ pub(crate) fn phase_label(phase: TaskPhase) -> &'static str {
         TaskPhase::DownloadingArtifact => "下载校验",
         TaskPhase::InstallingInstance => "安装实例",
         TaskPhase::BackingUpWorld => "备份世界",
+        TaskPhase::ListingBackups => "读取备份列表",
+        TaskPhase::VerifyingBackup => "校验备份",
         TaskPhase::Completed => "完成",
         TaskPhase::Failed => "失败",
         TaskPhase::Interrupted => "中断",

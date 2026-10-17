@@ -31,6 +31,10 @@ pub enum BackupError {
     AlreadyExists(Uuid),
     #[error("Backup {0} does not exist")]
     NotFound(Uuid),
+    #[error("Backup page limit must be between 1 and {maximum}, got {limit}")]
+    InvalidPageLimit { limit: u16, maximum: u16 },
+    #[error("Backup catalog exceeds the supported limit of {maximum} entries")]
+    CatalogTooLarge { maximum: usize },
     #[error("Backup {backup_id} was renamed into place, but durability could not be confirmed at {path}: {detail}")]
     CommitUncertain {
         backup_id: Uuid,
@@ -74,8 +78,13 @@ impl From<BackupError> for AppError {
             | BackupError::UnsafeFilesystemEntry(_)
             | BackupError::NoWorlds
             | BackupError::AlreadyExists(_)
-            | BackupError::NotFound(_) => AppError::new(ErrorCode::InvalidInput, reason)
-                .with_action("Check the instance world directories and backup ID, then retry."),
+            | BackupError::NotFound(_)
+            | BackupError::InvalidPageLimit { .. } => {
+                AppError::new(ErrorCode::InvalidInput, reason)
+                    .with_action("Check the instance world directories and backup ID, then retry.")
+            }
+            BackupError::CatalogTooLarge { .. } => AppError::new(ErrorCode::BackupFailed, reason)
+                .with_action("Archive or remove old backup directories, then retry the listing."),
             BackupError::SourceChanged(_) => AppError::new(ErrorCode::BackupFailed, reason)
                 .with_action("Ensure no process is changing world files, then retry.")
                 .retryable(),

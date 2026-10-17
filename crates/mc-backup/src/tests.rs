@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use chrono::Utc;
+use chrono::{DateTime, TimeZone, Utc};
 use mc_core::InstanceSummary;
 use uuid::Uuid;
 
@@ -38,6 +38,21 @@ fn write_world_file(world: &Path, relative: &str, contents: &[u8]) {
     fs::create_dir_all(path.parent().expect("world file parent"))
         .expect("create world file parent");
     fs::write(path, contents).expect("write world file");
+}
+
+fn set_manifest_created_at(instance: &InstanceSummary, backup_id: Uuid, created_at: DateTime<Utc>) {
+    let manifest_path = instance
+        .directory
+        .join(format!("backups/{backup_id}/manifest.json"));
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).expect("read manifest"))
+            .expect("decode manifest");
+    manifest["created_at"] = serde_json::to_value(created_at).expect("encode timestamp");
+    fs::write(
+        manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("encode updated manifest"),
+    )
+    .expect("write updated manifest");
 }
 
 #[tokio::test]
@@ -89,6 +104,133 @@ async fn verification_detects_changed_world_bytes() {
     assert!(matches!(
         BackupService.verify(&instance, backup_id).await,
         Err(BackupError::IntegrityMismatch(_))
+    ));
+}
+
+#[tokio::test]
+async fn paginated_listing_uses_a_stable_cursor_without_duplicates() {
+    let (_root, instance) = fixture();
+    let service = BackupService;
+    let timestamp = Utc.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).unwrap();
+    for value in 1..=3 {
+        let id = Uuid::from_u128(value);
+        BackupService::create_blocking(instance.id, &instance.directory, id)
+            .expect("create backup");
+        set_manifest_created_at(&instance, id, timestamp);
+    }
+
+    let first = service
+        .list_page(&instance, 1, None)
+        .await
+        .expect("list first page");
+    assert_eq!(
+        first
+            .backups
+            .iter()
+            .map(|backup| backup.id)
+            .collect::<Vec<_>>(),
+        [Uuid::from_u128(3)]
+    );
+    let cursor = first.next_cursor.expect("more backups remain");
+
+    let second = service
+        .list_page(&instance, 1, Some(cursor))
+        .await
+        .expect("list second page");
+    assert_eq!(
+        second
+            .backups
+            .iter()
+            .map(|backup| backup.id)
+            .collect::<Vec<_>>(),
+        [Uuid::from_u128(2)]
+    );
+    let cursor = second.next_cursor.expect("last backup remains");
+
+    let third = service
+        .list_page(&instance, 1, Some(cursor))
+        .await
+        .expect("list third page");
+    assert_eq!(
+        third
+            .backups
+            .iter()
+            .map(|backup| backup.id)
+            .collect::<Vec<_>>(),
+        [Uuid::from_u128(1)]
+    );
+    assert!(third.next_cursor.is_none());
+}
+
+#[tokio::test]
+async fn page_summaries_are_rehashed_and_verification_returns_bounded_metadata() {
+    let (_root, instance) = fixture();
+    let backup_id = Uuid::new_v4();
+    let manifest = BackupService::create_blocking(instance.id, &instance.directory, backup_id)
+        .expect("create backup");
+    let files = manifest
+        .entries
+        .iter()
+        .filter(|entry| entry.kind == crate::BackupEntryKind::File)
+        .collect::<Vec<_>>();
+
+    let listed = BackupService
+        .list_page(&instance, 10, None)
+        .await
+        .expect("list and verify returned page");
+    assert_eq!(listed.backups.len(), 1);
+    assert_eq!(listed.backups[0].id, backup_id);
+    assert_eq!(listed.backups[0].file_count, files.len() as u64);
+    assert_eq!(
+        listed.backups[0].total_bytes,
+        files.iter().map(|entry| entry.size_bytes).sum::<u64>()
+    );
+    assert!(listed.next_cursor.is_none());
+
+    let verified = BackupService
+        .verify_summary(&instance, backup_id)
+        .await
+        .expect("verify and summarize backup");
+    assert_eq!(verified, listed.backups[0]);
+}
+
+#[tokio::test]
+async fn paginated_listing_rejects_tampered_returned_backup_and_invalid_limit() {
+    let (_root, instance) = fixture();
+    let backup_id = Uuid::new_v4();
+    BackupService::create_blocking(instance.id, &instance.directory, backup_id)
+        .expect("create backup");
+    fs::write(
+        instance
+            .directory
+            .join(format!("backups/{backup_id}/primary/level.dat")),
+        b"tampered bytes",
+    )
+    .expect("tamper with backup content");
+
+    assert!(matches!(
+        BackupService.list_page(&instance, 10, None).await,
+        Err(BackupError::IntegrityMismatch(_))
+    ));
+    assert!(matches!(
+        BackupService.list_page(&instance, 0, None).await,
+        Err(BackupError::InvalidPageLimit { limit: 0, .. })
+    ));
+}
+
+#[tokio::test]
+async fn paginated_listing_caps_catalog_entries_before_reading_manifests() {
+    let (_root, instance) = fixture();
+    let backup_root = instance.directory.join("backups");
+    fs::create_dir(&backup_root).expect("create backup root");
+    for value in 1..=1_001 {
+        fs::create_dir(backup_root.join(Uuid::from_u128(value).to_string()))
+            .expect("create catalog entry");
+    }
+
+    assert!(matches!(
+        BackupService.list_page(&instance, 1, None).await,
+        Err(BackupError::CatalogTooLarge { maximum: 1_000 })
     ));
 }
 

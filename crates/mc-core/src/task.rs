@@ -2,13 +2,15 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AppError, InstanceSummary};
+use crate::{AppError, BackupPage, BackupSummary, InstanceSummary};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskKind {
     CreatePaperInstance,
     CreateWorldBackup,
+    ListWorldBackups,
+    VerifyWorldBackup,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,6 +32,8 @@ pub enum TaskPhase {
     DownloadingArtifact,
     InstallingInstance,
     BackingUpWorld,
+    ListingBackups,
+    VerifyingBackup,
     Completed,
     Failed,
     Interrupted,
@@ -45,7 +49,18 @@ pub struct TaskProgress {
 #[serde(tag = "kind", content = "data", rename_all = "snake_case")]
 pub enum TaskResult {
     InstanceCreated(InstanceSummary),
-    WorldBackupCreated { instance_id: Uuid, backup_id: Uuid },
+    WorldBackupCreated {
+        instance_id: Uuid,
+        backup_id: Uuid,
+    },
+    WorldBackupsListed {
+        instance_id: Uuid,
+        page: BackupPage,
+    },
+    WorldBackupVerified {
+        instance_id: Uuid,
+        backup: BackupSummary,
+    },
 }
 
 impl TaskResult {
@@ -53,6 +68,8 @@ impl TaskResult {
         match self {
             Self::InstanceCreated(instance) => instance.id,
             Self::WorldBackupCreated { instance_id, .. } => *instance_id,
+            Self::WorldBackupsListed { instance_id, .. }
+            | Self::WorldBackupVerified { instance_id, .. } => *instance_id,
         }
     }
 }

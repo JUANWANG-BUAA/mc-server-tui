@@ -1,6 +1,6 @@
 # Server lifecycle and process identity contract
 
-> API protocol 5 · implemented in `mc-supervisor` and wired through `mc-daemon`
+> API protocol 6 · implemented in `mc-supervisor` and wired through `mc-daemon`
 
 ## API operations
 
@@ -8,6 +8,8 @@
 | --- | --- | --- |
 | `GetInstanceDetail { instance_id }` | `InstanceDetail` | Returns immutable instance summary plus observed server state. |
 | `CreateWorldBackup { instance_id }` | `TaskQueued` | Queues a durable task, or returns the active backup task for the same instance. The task reserves the stopped instance and holds its lifecycle lease while the backup is copied and verified. |
+| `ListWorldBackups { instance_id, limit, cursor }` | `TaskQueued` | Queues bounded metadata discovery and full verification of the returned page. Limits are 1–50; cursors order by creation time and UUID. The task result contains summaries and an optional next cursor. |
+| `VerifyWorldBackup { instance_id, backup_id }` | `TaskQueued` | Queues a full integrity scan for one backup and returns its bounded summary. |
 | `StartServer { instance_id }` | `ServerStatus` | Starts Java or returns the status of the already verified process. |
 | `StopServer { instance_id, timeout_seconds }` | `ServerStatus` or structured error | Sends the Minecraft `stop` command and waits up to 25 seconds. A zero timeout selects the 20-second default. |
 | `SendConsoleCommand { instance_id, command }` | `ConsoleCommandAccepted` | Sends one line to a ready, verified process. Commands are limited to 512 printable bytes. |

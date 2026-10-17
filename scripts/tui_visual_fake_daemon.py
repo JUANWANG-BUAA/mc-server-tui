@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve deterministic protocol-v5 responses for a real Terminal visual run."""
+"""Serve deterministic protocol-v6 responses for a real Terminal visual run."""
 
 import argparse
 import json
@@ -12,6 +12,7 @@ import threading
 INSTANCE_ID = "22222222-2222-4222-8222-222222222222"
 TASK_ID = "11111111-1111-4111-8111-111111111111"
 CREATED_TASK_ID = "33333333-3333-4333-8333-333333333333"
+BACKUP_LIST_TASK_ID = "55555555-5555-4555-8555-555555555555"
 NOW = "2026-10-17T00:00:00Z"
 
 
@@ -54,6 +55,58 @@ def task_snapshot(task_id=TASK_ID, sequence=3, status="running"):
         "error": None,
         "last_event_sequence": sequence,
     }
+
+
+def backup_list_task_snapshot():
+    return {
+        "id": BACKUP_LIST_TASK_ID,
+        "kind": "list_world_backups",
+        "instance_id": INSTANCE_ID,
+        "status": "queued",
+        "phase": "queued",
+        "message": "Waiting for an execution slot.",
+        "progress": None,
+        "created_at": NOW,
+        "updated_at": NOW,
+        "finished_at": None,
+        "result": None,
+        "error": None,
+        "last_event_sequence": 0,
+    }
+
+
+def completed_backup_list_task_snapshot():
+    backup_id = "88888888-8888-4888-8888-888888888888"
+    task = backup_list_task_snapshot()
+    task.update(
+        {
+            "status": "succeeded",
+            "phase": "completed",
+            "message": "Backup page listed and its contents verified.",
+            "progress": {"completed_steps": 1, "total_steps": 1},
+            "finished_at": NOW,
+            "result": {
+                "kind": "world_backups_listed",
+                "data": {
+                    "instance_id": INSTANCE_ID,
+                    "page": {
+                        "backups": [
+                            {
+                                "id": backup_id,
+                                "created_at": NOW,
+                                "consistency": "server_stopped",
+                                "file_count": 12,
+                                "total_bytes": 2097152,
+                            }
+                        ],
+                        "next_cursor": None,
+                    },
+                },
+            },
+            "last_event_sequence": 2,
+        }
+    )
+    return task
 
 
 def task_events(after_sequence):
@@ -103,10 +156,16 @@ def response_for(request, state):
         tasks = [task_snapshot()]
         if state["created_task"]:
             tasks.insert(0, state["created_task"])
+        if state["backup_list_task"]:
+            tasks.insert(0, completed_backup_list_task_snapshot())
         return {"result": "tasks", "data": tasks}
     if operation == "get_task":
+        if arguments["task_id"] == BACKUP_LIST_TASK_ID and state["backup_list_task"]:
+            return {"result": "task", "data": completed_backup_list_task_snapshot()}
         return {"result": "task", "data": task_snapshot()}
     if operation == "list_task_events":
+        if arguments["task_id"] == BACKUP_LIST_TASK_ID:
+            return {"result": "task_events", "data": []}
         return {
             "result": "task_events",
             "data": task_events(arguments["after_sequence"]),
@@ -157,6 +216,11 @@ def response_for(request, state):
             "result": "server_status",
             "data": server_snapshot(state),
         }
+    if operation == "list_world_backups":
+        if arguments.get("instance_id") != INSTANCE_ID or arguments.get("limit") != 3:
+            raise ValueError("unexpected backup list request arguments")
+        state["backup_list_task"] = backup_list_task_snapshot()
+        return {"result": "task_queued", "data": state["backup_list_task"]}
     if operation == "create_paper_instance":
         state["created_task"] = task_snapshot(
             CREATED_TASK_ID, sequence=0, status="queued"
@@ -191,7 +255,7 @@ def serve_connection(connection, state, lock):
             request = json.loads(line)
             with lock:
                 payload = response_for(request, state)
-            response = {"protocol_version": 5, "payload": payload}
+            response = {"protocol_version": 6, "payload": payload}
             connection.sendall(json.dumps(response, ensure_ascii=False).encode() + b"\n")
         except (KeyError, ValueError, OSError) as error:
             print(f"request failed: {error}", flush=True)
@@ -209,6 +273,7 @@ def main():
         "logs": "",
         "console_commands": [],
         "created_task": None,
+        "backup_list_task": None,
     }
     lock = threading.Lock()
     listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

@@ -139,9 +139,9 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &InstanceDetailState) {
         Line::from(Span::styled(notice, Style::default().fg(Color::Yellow)))
     } else {
         Line::from(if compact {
-            "s 启动 · x 停止 · b 备份"
+            "s 启动 · x 停止 · b 备份 · l 列表"
         } else {
-            "s 启动 · x 停止 · b 备份 · : 控制台命令 · r 刷新"
+            "s 启动 · x 停止 · b 备份 · l 备份列表 · : 控制台命令 · r 刷新"
         })
     };
     let help = if detail.editing_console {

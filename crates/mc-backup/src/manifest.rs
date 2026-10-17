@@ -1,6 +1,7 @@
 use std::path::{Component, Path};
 
 use chrono::{DateTime, Utc};
+use mc_core::BackupConsistency;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -8,12 +9,6 @@ use crate::error::BackupError;
 
 pub const BACKUP_SCHEMA_VERSION: u32 = 1;
 pub const BACKUP_MANIFEST_FILE: &str = "manifest.json";
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BackupConsistency {
-    ServerStopped,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

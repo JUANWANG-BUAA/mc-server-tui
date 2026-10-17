@@ -18,6 +18,7 @@ pub(crate) enum InstanceCommand {
     Start(Uuid),
     Stop(Uuid),
     Backup(Uuid),
+    ListBackups(Uuid),
     Console { instance_id: Uuid, command: String },
 }
 
