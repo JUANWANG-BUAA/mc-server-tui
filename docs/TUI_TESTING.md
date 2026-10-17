@@ -2,6 +2,21 @@
 
 The TUI uses the daemon API and durable task event cursor; rendering and input handling stay separate from daemon I/O. This makes the UI testable without contacting Paper or waiting on real downloads.
 
+## Module boundaries and visual behavior
+
+Keep the TUI split along responsibilities so screen growth does not turn the runtime into a screen-sized module:
+
+- `app.rs` owns the screen-level state and action transitions. Feature state and behavior that need their own lifecycle belong in `app/`, `instance_detail.rs`, `task_detail.rs`, or `wizard.rs` with colocated tests.
+- `runtime.rs` owns the async event loop, request scheduling, and result delivery. Key mapping is isolated in `runtime/input.rs`; daemon access is behind `ManagementSource` in `source.rs`.
+- `view.rs` routes to the dashboard, wizard, task-detail, and instance-detail renderers. Each screen renderer owns its layout and presentation, while `theme.rs` is the single palette and shared-style boundary.
+- Renderers consume state and return no I/O effects. User actions update state; the runtime observes the resulting queries/commands and schedules bounded asynchronous work. Keep daemon protocol details out of view modules.
+
+The shared theme uses 24-bit RGB colors for the page, surfaces, focus, status, and key hints. Crossterm honors `NO_COLOR`; the browser color-review command removes that variable only for the visual check. Status meaning remains available through text and symbols when color is unavailable.
+
+Animation is presentation-only. The runtime advances its four-frame status symbol every 160 ms while `AppState::has_animated_work` reports queued/running tasks, a pending operation, wizard submission, or a visible server start/stop transition. The Tokio interval uses `MissedTickBehavior::Skip`, so a delayed frame is dropped instead of causing a catch-up redraw burst. The normal two-second refresh and terminal event stream remain independent of animation; all waits are selected asynchronously, so animation does not block input or daemon replies. When adding an animated state, add both a state predicate test and a PTY assertion that observes at least two distinct frames.
+
+The `TestBackend` tests own deterministic layout and content checks. PTY tests own terminal byte-stream, input, responsiveness, and animation checks. Browser screenshots own human visual review of color, spacing, and hierarchy; screenshots alone do not prove that an animation advances.
+
 ## Automated checks
 
 1. Keep screen state and wizard input separate from rendering and daemon I/O. State tests cover field validation, back navigation with retained values, explicit EULA acceptance, queued task success, retry after a submission error, monotonic event cursors, duplicate event replay, and retaining the last good detail after a failed refresh.
