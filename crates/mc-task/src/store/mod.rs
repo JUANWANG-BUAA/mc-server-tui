@@ -60,6 +60,15 @@ impl TaskStore {
             .await
     }
 
+    pub async fn find_active(
+        &self,
+        kind: TaskKind,
+        instance_id: Uuid,
+    ) -> Result<Option<TaskSnapshot>, AppError> {
+        self.run(move |connection| records::find_active(connection, kind, instance_id))
+            .await
+    }
+
     pub async fn list(&self, limit: u16) -> Result<Vec<TaskSnapshot>, AppError> {
         if !(1..=100).contains(&limit) {
             return Err(AppError::new(

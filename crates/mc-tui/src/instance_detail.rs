@@ -1,4 +1,4 @@
-use mc_core::{AppError, InstanceDetail, ServerLogChunk, ServerSnapshot};
+use mc_core::{AppError, InstanceDetail, ServerLogChunk, ServerSnapshot, TaskSnapshot};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,6 +17,7 @@ pub(crate) struct InstanceDetailUpdate {
 pub(crate) enum InstanceCommand {
     Start(Uuid),
     Stop(Uuid),
+    Backup(Uuid),
     Console { instance_id: Uuid, command: String },
 }
 
@@ -24,6 +25,7 @@ pub(crate) enum InstanceCommand {
 pub(crate) enum InstanceCommandResult {
     Status(Result<ServerSnapshot, AppError>),
     Console(Result<(), AppError>),
+    Task(Result<Box<TaskSnapshot>, AppError>),
 }
 
 #[derive(Debug)]

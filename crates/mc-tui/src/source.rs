@@ -29,6 +29,10 @@ pub(crate) trait ManagementSource: Send + Sync {
     ) -> Result<InstanceDetailUpdate, AppError>;
     async fn start_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
     async fn stop_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
+    async fn create_backup(
+        &self,
+        instance_id: uuid::Uuid,
+    ) -> Result<mc_core::TaskSnapshot, AppError>;
     async fn send_console_command(
         &self,
         instance_id: uuid::Uuid,
@@ -149,6 +153,21 @@ impl ManagementSource for DaemonDashboardSource {
                 .await?,
             "stop server",
         )
+    }
+
+    async fn create_backup(
+        &self,
+        instance_id: uuid::Uuid,
+    ) -> Result<mc_core::TaskSnapshot, AppError> {
+        match self
+            .client
+            .request(ApiRequest::CreateWorldBackup { instance_id })
+            .await?
+        {
+            ApiResponse::TaskQueued(task) => Ok(task),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("world backup")),
+        }
     }
 
     async fn send_console_command(

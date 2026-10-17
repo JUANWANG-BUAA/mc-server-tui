@@ -10,7 +10,7 @@ use std::sync::{
 };
 use tempfile::TempDir;
 use tokio::{
-    sync::{mpsc, Semaphore},
+    sync::{mpsc, Notify, Semaphore},
     time::{timeout, Duration},
 };
 use uuid::Uuid;
@@ -115,6 +115,119 @@ async fn task_phases_and_events_are_durable_and_ordered() {
     assert_eq!(
         reopened.get(queued.id).await.expect("persisted task"),
         completed
+    );
+}
+
+#[tokio::test]
+async fn backup_task_records_wait_phase_and_persists_its_backup_identity() {
+    let temp = TempDir::new().expect("temporary state directory");
+    let manager = TaskManager::with_limits(database(&temp), 1, 2)
+        .await
+        .expect("task manager opens");
+    let instance_id = Uuid::new_v4();
+    let backup_id = Uuid::new_v4();
+    let queued = manager
+        .submit(
+            TaskKind::CreateWorldBackup,
+            Some(instance_id),
+            move |_| async move {
+                Ok(TaskResult::WorldBackupCreated {
+                    instance_id,
+                    backup_id,
+                })
+            },
+        )
+        .await
+        .expect("backup task is accepted");
+    let completed = wait_until_finished(&manager, queued.id).await;
+
+    assert_eq!(completed.status, TaskStatus::Succeeded);
+    assert_eq!(completed.progress.unwrap().completed_steps, 1);
+    assert_eq!(
+        completed.result,
+        Some(TaskResult::WorldBackupCreated {
+            instance_id,
+            backup_id,
+        })
+    );
+    let events = manager
+        .events(queued.id, 0, 10)
+        .await
+        .expect("read backup events");
+    assert_eq!(events[1].phase, TaskPhase::WaitingForInstance);
+}
+
+#[tokio::test]
+async fn duplicate_active_backup_submissions_reuse_the_same_task() {
+    let temp = TempDir::new().expect("temporary state directory");
+    let manager = TaskManager::with_limits(database(&temp), 1, 2)
+        .await
+        .expect("task manager opens");
+    let instance_id = Uuid::new_v4();
+    let started = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let work_calls = Arc::new(AtomicUsize::new(0));
+
+    let first_started = Arc::clone(&started);
+    let first_release = Arc::clone(&release);
+    let first_calls = Arc::clone(&work_calls);
+    let first_submission = manager.submit_or_reuse_active(
+        TaskKind::CreateWorldBackup,
+        instance_id,
+        move |_| async move {
+            first_calls.fetch_add(1, Ordering::SeqCst);
+            first_started.notify_one();
+            first_release.notified().await;
+            Ok(TaskResult::WorldBackupCreated {
+                instance_id,
+                backup_id: Uuid::new_v4(),
+            })
+        },
+    );
+    let second_started = Arc::clone(&started);
+    let second_release = Arc::clone(&release);
+    let second_calls = Arc::clone(&work_calls);
+    let second_submission = manager.submit_or_reuse_active(
+        TaskKind::CreateWorldBackup,
+        instance_id,
+        move |_| async move {
+            second_calls.fetch_add(1, Ordering::SeqCst);
+            second_started.notify_one();
+            second_release.notified().await;
+            Ok(TaskResult::WorldBackupCreated {
+                instance_id,
+                backup_id: Uuid::new_v4(),
+            })
+        },
+    );
+    let (first, duplicate) = tokio::join!(first_submission, second_submission);
+    let first = first.expect("first backup task is accepted");
+    let duplicate = duplicate.expect("duplicate request returns the active task");
+    started.notified().await;
+
+    assert_eq!(duplicate.id, first.id);
+    assert_eq!(work_calls.load(Ordering::SeqCst), 1);
+    release.notify_one();
+    let completed = wait_until_finished(&manager, first.id).await;
+    assert_eq!(completed.status, TaskStatus::Succeeded);
+
+    let next = manager
+        .submit_or_reuse_active(
+            TaskKind::CreateWorldBackup,
+            instance_id,
+            move |_| async move {
+                Ok(TaskResult::WorldBackupCreated {
+                    instance_id,
+                    backup_id: Uuid::new_v4(),
+                })
+            },
+        )
+        .await
+        .expect("a completed backup can be followed by a new backup");
+    assert_ne!(next.id, first.id);
+    assert_eq!(
+        wait_until_finished(&manager, next.id).await.status,
+        TaskStatus::Succeeded
     );
 }
 

@@ -16,6 +16,7 @@ pub struct TaskManager {
     execution_slots: Arc<Semaphore>,
     outstanding_slots: Arc<Semaphore>,
     instance_locks: InstanceLockRegistry,
+    submission_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl TaskManager {
@@ -42,6 +43,7 @@ impl TaskManager {
             execution_slots: Arc::new(Semaphore::new(max_concurrent)),
             outstanding_slots: Arc::new(Semaphore::new(max_outstanding)),
             instance_locks: InstanceLockRegistry::default(),
+            submission_lock: Arc::new(tokio::sync::Mutex::new(())),
         })
     }
 
@@ -125,6 +127,25 @@ impl TaskManager {
             drop(execution_permit);
         });
         Ok(snapshot)
+    }
+
+    /// Reuses an active task with the same kind and instance, or submits one.
+    /// The admission lock serializes this check with other deduplicated submits.
+    pub async fn submit_or_reuse_active<F, Fut>(
+        &self,
+        kind: TaskKind,
+        instance_id: Uuid,
+        work: F,
+    ) -> Result<TaskSnapshot, AppError>
+    where
+        F: FnOnce(TaskReporter) -> Fut + Send + 'static,
+        Fut: Future<Output = Result<TaskResult, AppError>> + Send + 'static,
+    {
+        let _submission_guard = self.submission_lock.lock().await;
+        if let Some(active) = self.store.find_active(kind, instance_id).await? {
+            return Ok(active);
+        }
+        self.submit(kind, Some(instance_id), work).await
     }
 
     pub async fn get(&self, id: Uuid) -> Result<TaskSnapshot, AppError> {

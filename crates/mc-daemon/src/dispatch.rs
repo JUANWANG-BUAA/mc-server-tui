@@ -6,6 +6,7 @@ use mc_core::{
 use mc_instance::InstanceSpec;
 use mc_task::TaskReporter;
 
+use crate::backup::create_world_backup_task;
 use crate::state::DaemonState;
 
 struct PaperCreateCommand {
@@ -83,6 +84,19 @@ pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiRes
             Ok(task) => ApiResponse::TaskQueued(task),
             Err(error) => ApiResponse::Error(error),
         },
+        ApiRequest::CreateWorldBackup { instance_id } => {
+            match create_world_backup_task(
+                &state.tasks,
+                &state.supervisor,
+                state.backups,
+                instance_id,
+            )
+            .await
+            {
+                Ok(task) => ApiResponse::TaskQueued(task),
+                Err(error) => ApiResponse::Error(error),
+            }
+        }
         ApiRequest::StartServer { instance_id } => state
             .supervisor
             .start(instance_id)

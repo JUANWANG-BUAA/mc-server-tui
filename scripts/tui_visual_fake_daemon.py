@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve deterministic protocol-v4 responses for a real Terminal visual run."""
+"""Serve deterministic protocol-v5 responses for a real Terminal visual run."""
 
 import argparse
 import json
@@ -191,7 +191,7 @@ def serve_connection(connection, state, lock):
             request = json.loads(line)
             with lock:
                 payload = response_for(request, state)
-            response = {"protocol_version": 4, "payload": payload}
+            response = {"protocol_version": 5, "payload": payload}
             connection.sendall(json.dumps(response, ensure_ascii=False).encode() + b"\n")
         except (KeyError, ValueError, OSError) as error:
             print(f"request failed: {error}", flush=True)

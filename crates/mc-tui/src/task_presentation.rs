@@ -5,6 +5,7 @@ use mc_core::{TaskKind, TaskPhase, TaskStatus};
 pub(crate) fn kind_label(kind: TaskKind) -> &'static str {
     match kind {
         TaskKind::CreatePaperInstance => "创建 Paper 实例",
+        TaskKind::CreateWorldBackup => "备份世界",
     }
 }
 
@@ -21,9 +22,11 @@ pub(crate) fn status_label(status: TaskStatus) -> &'static str {
 pub(crate) fn phase_label(phase: TaskPhase) -> &'static str {
     match phase {
         TaskPhase::Queued => "等待执行",
+        TaskPhase::WaitingForInstance => "等待实例锁",
         TaskPhase::ResolvingArtifact => "解析版本",
         TaskPhase::DownloadingArtifact => "下载校验",
         TaskPhase::InstallingInstance => "安装实例",
+        TaskPhase::BackingUpWorld => "备份世界",
         TaskPhase::Completed => "完成",
         TaskPhase::Failed => "失败",
         TaskPhase::Interrupted => "中断",

@@ -34,6 +34,30 @@ pub(super) fn list(connection: &Connection, limit: u16) -> Result<Vec<TaskSnapsh
         .collect()
 }
 
+pub(super) fn find_active(
+    connection: &Connection,
+    kind: mc_core::TaskKind,
+    instance_id: Uuid,
+) -> Result<Option<TaskSnapshot>, AppError> {
+    let mut statement = connection
+        .prepare(
+            "SELECT snapshot_json FROM mc_tasks \
+             WHERE status IN ('queued', 'running') \
+             ORDER BY created_at DESC, id DESC",
+        )
+        .map_err(storage_error)?;
+    let rows = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(storage_error)?;
+    for row in rows {
+        let snapshot = decode_snapshot(&row.map_err(storage_error)?)?;
+        if snapshot.kind == kind && snapshot.instance_id == Some(instance_id) {
+            return Ok(Some(snapshot));
+        }
+    }
+    Ok(None)
+}
+
 pub(super) fn events(
     connection: &Connection,
     id: Uuid,

@@ -138,7 +138,11 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &InstanceDetailState) {
     } else if let Some(notice) = &detail.notice {
         Line::from(Span::styled(notice, Style::default().fg(Color::Yellow)))
     } else {
-        Line::from("s 启动 · x 停止 · : 控制台命令 · r 刷新")
+        Line::from(if compact {
+            "s 启动 · x 停止 · b 备份"
+        } else {
+            "s 启动 · x 停止 · b 备份 · : 控制台命令 · r 刷新"
+        })
     };
     let help = if detail.editing_console {
         "Enter 发送 · Esc 取消"
@@ -221,10 +225,12 @@ mod tests {
         assert!(standard.contains("运行中"));
         assert!(standard.contains("控制台日志"));
         assert!(standard.contains("启动"));
+        assert!(standard.contains("备份"));
 
         let compact = render_to_text(&state, 40, 12);
         assert!(compact.contains("运行中"));
         assert!(compact.contains("已就绪"));
+        assert!(compact.contains("备份"));
     }
 
     fn render_to_text(state: &InstanceDetailState, width: u16, height: u16) -> String {

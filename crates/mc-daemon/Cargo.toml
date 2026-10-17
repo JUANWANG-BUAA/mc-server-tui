@@ -11,6 +11,7 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 directories.workspace = true
+mc-backup = { path = "../mc-backup" }
 mc-core = { path = "../mc-core" }
 mc-download = { path = "../mc-download" }
 mc-instance = { path = "../mc-instance" }
@@ -23,3 +24,6 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

@@ -8,7 +8,7 @@ This contract narrows the backup and recovery work in [the Base implementation p
 
 - `mc-core` defines the `StoppedInstanceLease` contract. `mc-supervisor` implements it and owns the per-instance stopped-state reservation: it verifies the recorded runner identity, rejects a live or unknown process, checks for an occupied server port, and holds both the in-process mutex and filesystem lifecycle lock for the lease's lifetime.
 - `mc-backup` discovers world roots, stages copies, writes and checks manifests, and verifies existing backups. It does not start or stop a server and does not write instance configuration.
-- The daemon/API layer will own user-facing task records and map `BackupError` into the shared structured error model. The TUI and CLI must use that API rather than editing instance files.
+- The daemon/API layer owns durable task records and maps `BackupError` into the shared structured error model. `backup create <instance-id>` and the instance-detail `b` action submit through this API rather than editing instance files.
 
 ## Version 1: stopped-server backup
 
@@ -60,4 +60,4 @@ Online backups, save-command acknowledgements, timeouts, and automatic retention
 
 ## Verification status
 
-The first implementation covers stopped-world discovery, space preflight, staged copy, SHA-256 manifest, list, and verify. Tests exercise the lifecycle reservation, primary and dimension roots, safe-name and symlink rejection, duplicate IDs, listing, and content tampering. Restore, daemon task/API wiring, and user-facing CLI/TUI actions remain follow-up work.
+The first implementation covers stopped-world discovery, space preflight, staged copy, SHA-256 manifest, list, and verify. Create is exposed as a durable daemon task through the versioned API, the CLI, and the instance-detail TUI; duplicate requests reuse the active backup task for that instance. Tests exercise the lifecycle reservation, primary and dimension roots, safe-name and symlink rejection, duplicate IDs, active-task reuse, listing, content tampering, task reporting, and the TUI backup queue interaction. List and verify remain library operations without CLI/TUI commands. Restore, recovery journaling, and a real server backup/restore drill remain follow-up work; this is not yet a complete recovery flow.

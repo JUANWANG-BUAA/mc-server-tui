@@ -104,6 +104,13 @@ fn render_summary(
                 mc_core::TaskResult::InstanceCreated(instance) => {
                     lines.push(Line::from(format!("实例：{}", instance.name)));
                 }
+                mc_core::TaskResult::WorldBackupCreated {
+                    instance_id,
+                    backup_id,
+                } => {
+                    lines.push(Line::from(format!("实例：{instance_id}")));
+                    lines.push(Line::from(format!("备份 ID：{backup_id}")));
+                }
             }
         } else {
             lines.push(Line::from(format!(

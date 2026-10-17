@@ -5,7 +5,7 @@ use crate::{
     TaskSnapshot,
 };
 
-pub const API_PROTOCOL_VERSION: u16 = 4;
+pub const API_PROTOCOL_VERSION: u16 = 5;
 
 /// Versioned request envelope shared by CLI, TUI, and the local daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +65,9 @@ pub enum ApiRequest {
         max_memory_mb: u32,
         port: u16,
         accept_eula: bool,
+    },
+    CreateWorldBackup {
+        instance_id: uuid::Uuid,
     },
     StartServer {
         instance_id: uuid::Uuid,
@@ -127,5 +130,20 @@ mod tests {
 
         assert_eq!(decoded.protocol_version, API_PROTOCOL_VERSION);
         assert!(matches!(decoded.payload, ApiRequest::Ping));
+    }
+
+    #[test]
+    fn world_backup_request_round_trips_through_the_versioned_protocol() {
+        let instance_id = uuid::Uuid::new_v4();
+        let envelope = ApiRequestEnvelope::current(ApiRequest::CreateWorldBackup { instance_id });
+        let encoded = serde_json::to_string(&envelope).expect("serialize backup request");
+        let decoded: ApiRequestEnvelope =
+            serde_json::from_str(&encoded).expect("deserialize backup request");
+
+        assert_eq!(decoded.protocol_version, 5);
+        assert!(matches!(
+            decoded.payload,
+            ApiRequest::CreateWorldBackup { instance_id: decoded_id } if decoded_id == instance_id
+        ));
     }
 }

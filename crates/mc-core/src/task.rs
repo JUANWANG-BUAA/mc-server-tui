@@ -8,6 +8,7 @@ use crate::{AppError, InstanceSummary};
 #[serde(rename_all = "snake_case")]
 pub enum TaskKind {
     CreatePaperInstance,
+    CreateWorldBackup,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,9 +25,11 @@ pub enum TaskStatus {
 #[serde(rename_all = "snake_case")]
 pub enum TaskPhase {
     Queued,
+    WaitingForInstance,
     ResolvingArtifact,
     DownloadingArtifact,
     InstallingInstance,
+    BackingUpWorld,
     Completed,
     Failed,
     Interrupted,
@@ -42,12 +45,14 @@ pub struct TaskProgress {
 #[serde(tag = "kind", content = "data", rename_all = "snake_case")]
 pub enum TaskResult {
     InstanceCreated(InstanceSummary),
+    WorldBackupCreated { instance_id: Uuid, backup_id: Uuid },
 }
 
 impl TaskResult {
     pub fn instance_id(&self) -> Uuid {
         match self {
             Self::InstanceCreated(instance) => instance.id,
+            Self::WorldBackupCreated { instance_id, .. } => *instance_id,
         }
     }
 }

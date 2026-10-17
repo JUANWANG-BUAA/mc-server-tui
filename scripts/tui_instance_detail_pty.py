@@ -21,6 +21,7 @@ ANSI_SEQUENCE = re.compile(
     rb"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))"
 )
 INSTANCE_ID = "22222222-2222-4222-8222-222222222222"
+BACKUP_TASK_ID = "44444444-4444-4444-8444-444444444444"
 
 
 def instance_summary():
@@ -52,6 +53,24 @@ def server_snapshot(state, message):
     }
 
 
+def backup_task_snapshot():
+    return {
+        "id": BACKUP_TASK_ID,
+        "kind": "create_world_backup",
+        "instance_id": INSTANCE_ID,
+        "status": "queued",
+        "phase": "queued",
+        "message": "Waiting for an execution slot.",
+        "progress": None,
+        "created_at": "2026-10-17T00:00:00Z",
+        "updated_at": "2026-10-17T00:00:00Z",
+        "finished_at": None,
+        "result": None,
+        "error": None,
+        "last_event_sequence": 0,
+    }
+
+
 def response_for(request, state):
     payload = request["payload"]
     operation = payload["operation"]
@@ -59,7 +78,8 @@ def response_for(request, state):
     if operation == "list_instances":
         response = {"result": "instances", "data": [instance_summary()]}
     elif operation == "list_tasks":
-        response = {"result": "tasks", "data": []}
+        tasks = [state["backup_task"]] if state["backup_task"] else []
+        response = {"result": "tasks", "data": tasks}
     elif operation == "get_instance_detail":
         response = {
             "result": "instance_detail",
@@ -82,6 +102,11 @@ def response_for(request, state):
                 "truncated": False,
             },
         }
+    elif operation == "create_world_backup":
+        state["backup_requests"] += 1
+        state["backup_instance_id"] = arguments["instance_id"]
+        state["backup_task"] = backup_task_snapshot()
+        response = {"result": "task_queued", "data": state["backup_task"]}
     elif operation == "start_server":
         state["server_state"] = "running"
         state["message"] = "Server is ready."
@@ -115,7 +140,7 @@ def response_for(request, state):
                 "retryable": False,
             },
         }
-    return {"protocol_version": 4, "payload": response}
+    return {"protocol_version": 5, "payload": response}
 
 
 def main():
@@ -138,6 +163,9 @@ def main():
             "requests": [],
             "start_requests": 0,
             "stop_requests": 0,
+            "backup_requests": 0,
+            "backup_instance_id": None,
+            "backup_task": None,
             "console_commands": [],
         }
         lock = threading.Lock()
@@ -212,6 +240,15 @@ def main():
             if not wait_for("s启动".encode()):
                 raise AssertionError("instance detail did not render lifecycle controls")
 
+            os.write(master, b"b")
+            if not wait_for("世界备份任务已加入后台队列".encode()):
+                raise AssertionError("backup action did not show queued-task feedback")
+            with lock:
+                if state["backup_requests"] != 1:
+                    raise AssertionError("TUI did not submit exactly one backup request")
+                if state["backup_instance_id"] != INSTANCE_ID:
+                    raise AssertionError("TUI submitted the backup for the wrong instance")
+
             os.write(master, b"s")
             if not wait_for("SERVER_READY".encode()):
                 raise AssertionError("start action did not refresh readiness and console logs")
@@ -264,6 +301,7 @@ def main():
             if b"\x1b[?1049l" not in captured:
                 raise AssertionError("TUI did not restore the terminal screen")
             print("Instance detail at 80×24: passed")
+            print("Stopped-world backup queue feedback: passed")
             print("Start and readiness refresh: passed")
             print("Console command and incremental output: passed")
             print("Graceful stop and dashboard return: passed")

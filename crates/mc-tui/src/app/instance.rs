@@ -67,6 +67,25 @@ impl AppState {
         }
     }
 
+    pub(super) fn queue_backup(&mut self) {
+        let Some(instance_id) = self
+            .instance_detail_id
+            .filter(|_| self.instance_detail_visible)
+        else {
+            return;
+        };
+        if self.instance_operation_pending {
+            self.status = "上一项实例操作仍在运行。".to_owned();
+            return;
+        }
+        self.instance_operation_pending = true;
+        self.instance_command_requested = Some(InstanceCommand::Backup(instance_id));
+        self.status = "正在提交世界备份任务…".to_owned();
+        if let Some(detail) = self.instance_detail.as_mut() {
+            detail.notice = Some(self.status.clone());
+        }
+    }
+
     pub(super) fn begin_console_input(&mut self) {
         if !self.instance_operation_pending {
             if let Some(detail) = self.instance_detail.as_mut() {
@@ -169,6 +188,28 @@ impl AppState {
                         detail.notice = Some(message.clone());
                     }
                     self.status = format!("控制台命令失败：{message}");
+                }
+            },
+            InstanceCommandResult::Task(result) => match result {
+                Ok(task) => {
+                    self.tasks.insert(0, *task);
+                    self.selected_task = 0;
+                    self.status = "世界备份任务已加入后台队列。".to_owned();
+                    if let Some(detail) = self.instance_detail.as_mut() {
+                        detail.notice = Some(self.status.clone());
+                    }
+                    self.refresh_requested = true;
+                }
+                Err(error) => {
+                    let message = match error.next_action {
+                        Some(action) => format!("{} · 下一步：{action}", error.reason),
+                        None => error.reason,
+                    };
+                    if let Some(detail) = self.instance_detail.as_mut() {
+                        detail.error = Some(message.clone());
+                        detail.notice = Some(message.clone());
+                    }
+                    self.status = format!("世界备份提交失败：{message}");
                 }
             },
         }

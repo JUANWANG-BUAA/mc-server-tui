@@ -41,7 +41,7 @@
 
 ### 备份模块进度
 
-停服备份核心已经进入 workspace：同一实例的备份与启停共享 supervisor 生命周期锁；大文件复制和哈希在 Tokio blocking pool 执行；阶段目录、SHA-256 清单、复验和损坏拒绝均已实现。当前还没有 restore、恢复 journal、daemon task/API 或 TUI/CLI 入口，因此不能宣称“备份 → 修改 → 恢复 → 启动”的纵向闭环通过。恢复开发前应按 `docs/BACKUP_RESTORE_DESIGN.md` 实现可回退的目录交换与崩溃恢复。
+停服备份核心和创建入口已经进入 workspace：同一实例的备份与启停共享 supervisor 生命周期锁；大文件复制和哈希在 Tokio blocking pool 执行；阶段目录、SHA-256 清单、复验和损坏拒绝均已实现；daemon 以持久任务暴露创建 API，CLI 和实例详情页 `b` 操作复用该 API。列表/校验尚无 CLI/TUI 命令，restore 和恢复 journal 也未实现，因此不能宣称“备份 → 修改 → 恢复 → 启动”的纵向闭环通过。恢复开发前应按 `docs/BACKUP_RESTORE_DESIGN.md` 实现可回退的目录交换与崩溃恢复。
 
 ## 建议的第一批提交
 

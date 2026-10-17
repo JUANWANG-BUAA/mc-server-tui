@@ -37,21 +37,41 @@ impl TaskReporter {
     }
 
     pub(crate) async fn start(&self) -> Result<(), AppError> {
-        self.set_phase(TaskPhase::ResolvingArtifact, "Starting task.", None)
-            .await
+        let kind = self.snapshot.lock().await.kind;
+        match kind {
+            mc_core::TaskKind::CreatePaperInstance => {
+                self.set_phase(TaskPhase::ResolvingArtifact, "Starting task.", None)
+                    .await
+            }
+            mc_core::TaskKind::CreateWorldBackup => {
+                self.set_phase(
+                    TaskPhase::WaitingForInstance,
+                    "Waiting to reserve the stopped instance.",
+                    None,
+                )
+                .await
+            }
+        }
     }
 
     pub(crate) async fn succeed(&self, result: TaskResult) {
         let instance_id = result.instance_id();
+        let progress = match &result {
+            TaskResult::InstanceCreated(_) => TaskProgress {
+                completed_steps: 3,
+                total_steps: 3,
+            },
+            TaskResult::WorldBackupCreated { .. } => TaskProgress {
+                completed_steps: 1,
+                total_steps: 1,
+            },
+        };
         if let Err(error) = self
             .update(|snapshot| {
                 snapshot.status = TaskStatus::Succeeded;
                 snapshot.phase = TaskPhase::Completed;
                 snapshot.message = "Task completed successfully.".to_owned();
-                snapshot.progress = Some(TaskProgress {
-                    completed_steps: 3,
-                    total_steps: 3,
-                });
+                snapshot.progress = Some(progress);
                 snapshot.instance_id = Some(instance_id);
                 snapshot.finished_at = Some(Utc::now());
                 snapshot.result = Some(result);

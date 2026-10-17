@@ -242,6 +242,9 @@ fn start_instance_command(
             InstanceCommand::Stop(instance_id) => {
                 InstanceCommandResult::Status(source.stop_server(instance_id).await)
             }
+            InstanceCommand::Backup(instance_id) => {
+                InstanceCommandResult::Task(source.create_backup(instance_id).await.map(Box::new))
+            }
             InstanceCommand::Console {
                 instance_id,
                 command,
@@ -299,6 +302,7 @@ fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMode) -> Actio
                     KeyCode::Char('r') => Action::RefreshInstanceDetail,
                     KeyCode::Char('s') => Action::StartServer,
                     KeyCode::Char('x') => Action::StopServer,
+                    KeyCode::Char('b') => Action::CreateBackup,
                     KeyCode::Char(':') => Action::BeginConsoleInput,
                     _ => Action::Ignore,
                 }
@@ -378,6 +382,16 @@ mod tests {
                 },
             ),
             Action::StartServer
+        );
+        assert_eq!(
+            action_for_key(
+                KeyCode::Char('b'),
+                KeyModifiers::NONE,
+                UiMode::InstanceDetail {
+                    editing_console: false,
+                },
+            ),
+            Action::CreateBackup
         );
         assert_eq!(
             action_for_key(

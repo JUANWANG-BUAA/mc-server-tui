@@ -162,6 +162,13 @@ fn print_task(task: &TaskSnapshot) {
     if let Some(result) = &task.result {
         match result {
             mc_core::TaskResult::InstanceCreated(instance) => print_instance(instance),
+            mc_core::TaskResult::WorldBackupCreated {
+                instance_id,
+                backup_id,
+            } => {
+                println!("  Backup: {backup_id}");
+                println!("  Instance: {instance_id}");
+            }
         }
     }
     if let Some(error) = &task.error {

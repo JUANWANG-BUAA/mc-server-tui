@@ -29,6 +29,7 @@ pub(crate) enum Action {
     RefreshInstanceDetail,
     StartServer,
     StopServer,
+    CreateBackup,
     BeginConsoleInput,
     ConsoleInsert(char),
     ConsoleBackspace,
@@ -141,6 +142,7 @@ impl AppState {
             Action::RefreshInstanceDetail => self.request_instance_detail_refresh(),
             Action::StartServer => self.queue_server_command(false),
             Action::StopServer => self.queue_server_command(true),
+            Action::CreateBackup => self.queue_backup(),
             Action::BeginConsoleInput => self.begin_console_input(),
             Action::ConsoleInsert(character) => self.insert_console_character(character),
             Action::ConsoleBackspace => self.backspace_console(),
@@ -282,6 +284,7 @@ mod tests {
     };
     use uuid::Uuid;
 
+    use crate::instance_detail::{InstanceCommand, InstanceCommandResult};
     use crate::task_detail::TaskDetailUpdate;
 
     use super::{Action, AppState, DashboardData};
@@ -422,6 +425,55 @@ mod tests {
         assert!(state.instance_detail_visible);
         assert_eq!(query.instance_id, instance_id);
         assert_eq!(query.after_offset, 0);
+    }
+
+    #[test]
+    fn backup_action_queues_a_task_and_surfaces_its_result() {
+        let instance_id = Uuid::new_v4();
+        let mut state = AppState {
+            instances: vec![InstanceSummary {
+                id: instance_id,
+                name: "生存服".to_owned(),
+                provider: "Paper".to_owned(),
+                game_version: "1.21.11".to_owned(),
+                build_id: 17,
+                java_path: "/opt/java/bin/java".into(),
+                min_memory_mb: 1024,
+                max_memory_mb: 4096,
+                port: 25565,
+                directory: "/tmp/server".into(),
+                created_at: Utc::now(),
+            }],
+            ..AppState::default()
+        };
+        state.update(Action::OpenInstanceDetail);
+        state.update(Action::CreateBackup);
+        assert!(matches!(
+            state.take_instance_command(),
+            Some(InstanceCommand::Backup(id)) if id == instance_id
+        ));
+
+        let task = TaskSnapshot {
+            id: Uuid::new_v4(),
+            kind: TaskKind::CreateWorldBackup,
+            instance_id: Some(instance_id),
+            status: TaskStatus::Queued,
+            phase: TaskPhase::Queued,
+            message: "World backup queued".to_owned(),
+            progress: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            finished_at: None,
+            result: None,
+            error: None,
+            last_event_sequence: 0,
+        };
+        state
+            .apply_instance_command_result(InstanceCommandResult::Task(Ok(Box::new(task.clone()))));
+
+        assert_eq!(state.tasks, vec![task]);
+        assert!(state.status.contains("后台队列"));
+        assert!(state.take_refresh_request());
     }
 
     fn task_snapshot() -> TaskSnapshot {

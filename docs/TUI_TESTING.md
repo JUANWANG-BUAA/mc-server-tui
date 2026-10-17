@@ -20,13 +20,13 @@ The screen sequence is tested independently:
 | Dashboard | Empty and populated layout at 80×24; compact layout at 40×12 | Concurrent initial refresh while daemon replies are stalled |
 | Creation wizard | All three steps, field validation, review and EULA at both sizes | Field entry, submit, and Ctrl-C while list requests are stalled |
 | Task detail | Status, events, cursor at both sizes | Events `1→2→3`, refresh cursor, close and reopen from `3` |
-| Instance detail | State, address, logs and controls at both sizes | Enter detail, start, incremental console log, console command, graceful stop, return and restore terminal |
+| Instance detail | State, address, logs and controls at both sizes | Enter detail, queue a stopped-world backup and see task feedback, start, incremental console log, console command, graceful stop, return and restore terminal |
 
 Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 scripts/tui_task_detail_pty.py && python3 scripts/tui_instance_detail_pty.py`. These PTY checks validate the terminal stream and key path against fake daemons.
 
 ## 实际终端验收记录（2026-10-17）
 
-使用 `scripts/tui_visual_fake_daemon.py` 启动协议 v4 假 daemon，并在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件。假 daemon 只返回固定实例、任务、日志和生命周期响应，不会启动 Java 或访问 Paper 下载服务。
+使用 `scripts/tui_visual_fake_daemon.py` 启动协议 v5 假 daemon，并在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件。假 daemon 只返回固定实例、任务、日志和生命周期响应，不会启动 Java 或访问 Paper 下载服务。
 
 复跑时先执行 `cargo build -p mc-tui`，然后在一个终端启动 `python3 -u scripts/tui_visual_fake_daemon.py --socket /tmp/mc-tui-visual.sock`，再在另一个终端运行 `./target/debug/mc-server-tui --socket /tmp/mc-tui-visual.sock`。结束 TUI 后用 Ctrl-C 停止假 daemon。
 
@@ -48,4 +48,4 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`：通过。
 - `cargo fmt --all --check`：通过。
 - `python3 -m py_compile scripts/tui_visual_fake_daemon.py scripts/tui_pty_smoke.py scripts/tui_task_detail_pty.py scripts/tui_instance_detail_pty.py`：通过。
-- 三个 PTY 脚本全部通过：仪表盘及向导在 daemon 请求挂起时保持响应，Ctrl-C 在 0.00 秒内退出并恢复 alternate screen；任务事件游标 `0 → 2 → 3` 且重开从最后游标继续；实例启动、日志增量、控制台命令、优雅停止和终端恢复均通过。
+- 三个 PTY 脚本全部通过：仪表盘及向导在 daemon 请求挂起时保持响应，Ctrl-C 在 0.00 秒内退出并恢复 alternate screen；任务事件游标 `0 → 2 → 3` 且重开从最后游标继续；实例页备份按键提交目标实例任务并显示排队反馈，之后启动、日志增量、控制台命令、优雅停止和终端恢复均通过。

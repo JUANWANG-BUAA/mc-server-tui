@@ -1,3 +1,4 @@
+mod backup;
 mod config;
 mod dispatch;
 mod state;
@@ -8,6 +9,7 @@ use std::{io, os::unix::fs::PermissionsExt, sync::Arc};
 use clap::Parser;
 use config::Args;
 use directories::ProjectDirs;
+use mc_backup::BackupService;
 use mc_core::{AppError, ErrorCode, ServerProvider};
 use mc_download::{DownloadConfig, DownloadManager};
 use mc_instance::InstanceService;
@@ -65,6 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         downloader,
         instances,
         supervisor,
+        backups: BackupService,
         tasks,
     });
 
