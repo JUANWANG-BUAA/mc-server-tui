@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use mc_client::DaemonClient;
 use mc_core::{ApiRequest, ApiResponse, AppError, ErrorCode};
 
-use crate::{app::DashboardData, wizard::CreateInstanceInput};
+use crate::{app::DashboardData, task_detail::TaskDetailUpdate, wizard::CreateInstanceInput};
 
 #[async_trait]
 pub(crate) trait ManagementSource: Send + Sync {
@@ -13,6 +13,11 @@ pub(crate) trait ManagementSource: Send + Sync {
         &self,
         input: CreateInstanceInput,
     ) -> Result<mc_core::TaskSnapshot, AppError>;
+    async fn load_task_detail(
+        &self,
+        task_id: uuid::Uuid,
+        after_sequence: i64,
+    ) -> Result<TaskDetailUpdate, AppError>;
 }
 
 pub(crate) struct DaemonDashboardSource {
@@ -63,6 +68,26 @@ impl ManagementSource for DaemonDashboardSource {
             _ => Err(unexpected_response("instance creation")),
         }
     }
+
+    async fn load_task_detail(
+        &self,
+        task_id: uuid::Uuid,
+        after_sequence: i64,
+    ) -> Result<TaskDetailUpdate, AppError> {
+        let (task, events) = tokio::join!(
+            self.client.request(ApiRequest::GetTask { task_id }),
+            self.client.request(ApiRequest::ListTaskEvents {
+                task_id,
+                after_sequence,
+            }),
+        );
+        let task = expect_task(task?)?;
+        let events = expect_task_events(events?)?;
+        if task.id != task_id || events.iter().any(|event| event.task_id != task_id) {
+            return Err(unexpected_response("task detail"));
+        }
+        Ok(TaskDetailUpdate { task, events })
+    }
 }
 
 fn expect_instances(response: ApiResponse) -> Result<Vec<mc_core::InstanceSummary>, AppError> {
@@ -78,6 +103,22 @@ fn expect_tasks(response: ApiResponse) -> Result<Vec<mc_core::TaskSnapshot>, App
         ApiResponse::Tasks(tasks) => Ok(tasks),
         ApiResponse::Error(error) => Err(error),
         _ => Err(unexpected_response("task list")),
+    }
+}
+
+fn expect_task(response: ApiResponse) -> Result<mc_core::TaskSnapshot, AppError> {
+    match response {
+        ApiResponse::Task(task) => Ok(task),
+        ApiResponse::Error(error) => Err(error),
+        _ => Err(unexpected_response("task detail")),
+    }
+}
+
+fn expect_task_events(response: ApiResponse) -> Result<Vec<mc_core::TaskEvent>, AppError> {
+    match response {
+        ApiResponse::TaskEvents(events) => Ok(events),
+        ApiResponse::Error(error) => Err(error),
+        _ => Err(unexpected_response("task event list")),
     }
 }
 

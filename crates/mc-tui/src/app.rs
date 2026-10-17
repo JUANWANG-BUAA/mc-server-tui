@@ -1,6 +1,9 @@
 use mc_core::{AppError, InstanceSummary, TaskSnapshot};
 
-use crate::wizard::{CreateInstanceInput, CreateWizard, WizardAction, WizardOutcome};
+use crate::{
+    task_detail::{TaskDetailQuery, TaskDetailState, TaskDetailUpdate},
+    wizard::{CreateInstanceInput, CreateWizard, WizardAction, WizardOutcome},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Panel {
@@ -15,6 +18,9 @@ pub(crate) enum Action {
     Next,
     TogglePanel,
     Refresh,
+    OpenTaskDetail,
+    BackFromTaskDetail,
+    RefreshTaskDetail,
     OpenCreate,
     Wizard(WizardAction),
     Ignore,
@@ -35,8 +41,11 @@ pub(crate) struct AppState {
     pub selected_task: usize,
     pub status: String,
     pub wizard: Option<CreateWizard>,
+    pub task_detail: Option<TaskDetailState>,
+    pub task_detail_visible: bool,
     refresh_requested: bool,
     create_requested: Option<CreateInstanceInput>,
+    task_detail_refresh_requested: bool,
     should_quit: bool,
 }
 
@@ -50,8 +59,11 @@ impl Default for AppState {
             selected_task: 0,
             status: "正在连接后台服务…".to_owned(),
             wizard: None,
+            task_detail: None,
+            task_detail_visible: false,
             refresh_requested: false,
             create_requested: None,
+            task_detail_refresh_requested: false,
             should_quit: false,
         }
     }
@@ -61,8 +73,24 @@ impl AppState {
     pub fn update(&mut self, action: Action) {
         match action {
             Action::Quit => self.should_quit = true,
-            Action::Previous => self.move_selection(false),
-            Action::Next => self.move_selection(true),
+            Action::Previous => {
+                if self.task_detail_visible {
+                    if let Some(detail) = self.task_detail.as_mut() {
+                        detail.scroll_older();
+                    }
+                } else {
+                    self.move_selection(false);
+                }
+            }
+            Action::Next => {
+                if self.task_detail_visible {
+                    if let Some(detail) = self.task_detail.as_mut() {
+                        detail.scroll_newer();
+                    }
+                } else {
+                    self.move_selection(true);
+                }
+            }
             Action::TogglePanel => {
                 self.focused_panel = match self.focused_panel {
                     Panel::Instances => Panel::Tasks,
@@ -72,6 +100,16 @@ impl AppState {
             Action::Refresh => {
                 self.refresh_requested = true;
                 self.status = "正在刷新…".to_owned();
+            }
+            Action::OpenTaskDetail => self.open_selected_task_detail(),
+            Action::BackFromTaskDetail => {
+                self.task_detail_visible = false;
+                self.task_detail_refresh_requested = false;
+            }
+            Action::RefreshTaskDetail => {
+                if self.task_detail_visible {
+                    self.task_detail_refresh_requested = true;
+                }
             }
             Action::OpenCreate => {
                 self.wizard = Some(CreateWizard::default());
@@ -137,6 +175,18 @@ impl AppState {
         }
     }
 
+    pub fn apply_task_detail_result(&mut self, result: Result<TaskDetailUpdate, AppError>) {
+        let Some(detail) = self.task_detail.as_mut() else {
+            return;
+        };
+        detail.apply_result(result);
+        if let Some(error) = &detail.error {
+            self.status = format!("任务详情刷新失败：{error}");
+        } else {
+            self.status = format!("任务事件游标：{}", detail.last_event_sequence);
+        }
+    }
+
     pub fn take_refresh_request(&mut self) -> bool {
         std::mem::take(&mut self.refresh_requested)
     }
@@ -145,8 +195,32 @@ impl AppState {
         self.create_requested.take()
     }
 
+    pub fn take_task_detail_query(&mut self) -> Option<TaskDetailQuery> {
+        if !self.task_detail_visible || !std::mem::take(&mut self.task_detail_refresh_requested) {
+            return None;
+        }
+        self.task_detail.as_ref().map(TaskDetailState::query)
+    }
+
     pub fn should_quit(&self) -> bool {
         self.should_quit
+    }
+
+    fn open_selected_task_detail(&mut self) {
+        if self.focused_panel != Panel::Tasks {
+            self.status = "请先切换到后台任务面板。".to_owned();
+            return;
+        }
+        let Some(task) = self.tasks.get(self.selected_task).cloned() else {
+            self.status = "当前没有可查看的后台任务。".to_owned();
+            return;
+        };
+        match self.task_detail.as_mut() {
+            Some(detail) if detail.task.id == task.id => detail.task = task,
+            _ => self.task_detail = Some(TaskDetailState::new(task)),
+        }
+        self.task_detail_visible = true;
+        self.task_detail_refresh_requested = true;
     }
 
     fn move_selection(&mut self, forward: bool) {
@@ -167,8 +241,13 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
-    use mc_core::{ErrorCode, InstanceSummary, TaskKind, TaskPhase, TaskSnapshot, TaskStatus};
+    use mc_core::{
+        ErrorCode, InstanceSummary, TaskEvent, TaskKind, TaskPhase, TaskProgress, TaskSnapshot,
+        TaskStatus,
+    };
     use uuid::Uuid;
+
+    use crate::task_detail::TaskDetailUpdate;
 
     use super::{Action, AppState, DashboardData};
 
@@ -246,5 +325,58 @@ mod tests {
         assert_eq!(state.tasks.len(), 1);
         assert!(state.take_refresh_request());
         assert!(state.status.contains("后台队列"));
+    }
+
+    #[test]
+    fn reopening_task_detail_resumes_from_the_last_event_sequence() {
+        let task = task_snapshot();
+        let task_id = task.id;
+        let mut state = AppState {
+            focused_panel: super::Panel::Tasks,
+            tasks: vec![task.clone()],
+            ..AppState::default()
+        };
+        state.update(Action::OpenTaskDetail);
+        assert!(state.task_detail_visible);
+        assert_eq!(state.take_task_detail_query().unwrap().after_sequence, 0);
+
+        state.apply_task_detail_result(Ok(TaskDetailUpdate {
+            task,
+            events: vec![TaskEvent {
+                sequence: 1,
+                task_id,
+                occurred_at: Utc::now(),
+                status: TaskStatus::Running,
+                phase: TaskPhase::DownloadingArtifact,
+                message: "download started".to_owned(),
+                progress: Some(TaskProgress {
+                    completed_steps: 1,
+                    total_steps: 3,
+                }),
+                error: None,
+            }],
+        }));
+        state.update(Action::BackFromTaskDetail);
+        state.update(Action::OpenTaskDetail);
+
+        assert_eq!(state.take_task_detail_query().unwrap().after_sequence, 1);
+    }
+
+    fn task_snapshot() -> TaskSnapshot {
+        TaskSnapshot {
+            id: Uuid::new_v4(),
+            kind: TaskKind::CreatePaperInstance,
+            instance_id: None,
+            status: TaskStatus::Running,
+            phase: TaskPhase::ResolvingArtifact,
+            message: "Resolving Paper build".to_owned(),
+            progress: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            finished_at: None,
+            result: None,
+            error: None,
+            last_event_sequence: 0,
+        }
     }
 }

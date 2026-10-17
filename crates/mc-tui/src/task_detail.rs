@@ -1,0 +1,167 @@
+use uuid::Uuid;
+
+use mc_core::{AppError, TaskEvent, TaskSnapshot};
+
+const MAX_RETAINED_EVENTS: usize = 200;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TaskDetailQuery {
+    pub task_id: Uuid,
+    pub after_sequence: i64,
+}
+
+#[derive(Debug)]
+pub(crate) struct TaskDetailUpdate {
+    pub task: TaskSnapshot,
+    pub events: Vec<TaskEvent>,
+}
+
+#[derive(Debug)]
+pub(crate) struct TaskDetailState {
+    pub task: TaskSnapshot,
+    pub events: Vec<TaskEvent>,
+    pub last_event_sequence: i64,
+    pub scroll_offset: usize,
+    pub error: Option<String>,
+}
+
+impl TaskDetailState {
+    pub fn new(task: TaskSnapshot) -> Self {
+        Self {
+            task,
+            events: Vec::new(),
+            last_event_sequence: 0,
+            scroll_offset: 0,
+            error: None,
+        }
+    }
+
+    pub fn query(&self) -> TaskDetailQuery {
+        TaskDetailQuery {
+            task_id: self.task.id,
+            after_sequence: self.last_event_sequence,
+        }
+    }
+
+    pub fn apply_result(&mut self, result: Result<TaskDetailUpdate, AppError>) {
+        let update = match result {
+            Ok(update) => update,
+            Err(error) => {
+                self.error = Some(match error.next_action {
+                    Some(action) => format!("{} · 下一步：{}", error.reason, action),
+                    None => error.reason,
+                });
+                return;
+            }
+        };
+        if update.task.id != self.task.id {
+            self.error = Some("daemon returned a different task".to_owned());
+            return;
+        }
+
+        self.task = update.task;
+        let mut incoming = update.events;
+        incoming.sort_by_key(|event| event.sequence);
+        for event in incoming {
+            if event.task_id == self.task.id && event.sequence > self.last_event_sequence {
+                self.last_event_sequence = event.sequence;
+                self.events.push(event);
+            }
+        }
+        self.events.sort_by_key(|event| event.sequence);
+        if self.events.len() > MAX_RETAINED_EVENTS {
+            let discard = self.events.len() - MAX_RETAINED_EVENTS;
+            self.events.drain(..discard);
+        }
+        self.scroll_offset = self.scroll_offset.min(self.events.len().saturating_sub(1));
+        self.error = None;
+    }
+
+    pub fn scroll_older(&mut self) {
+        self.scroll_offset = (self.scroll_offset + 1).min(self.events.len().saturating_sub(1));
+    }
+
+    pub fn scroll_newer(&mut self) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+    use mc_core::{ErrorCode, TaskEvent, TaskKind, TaskPhase, TaskSnapshot, TaskStatus};
+    use uuid::Uuid;
+
+    use super::{TaskDetailState, TaskDetailUpdate};
+
+    #[test]
+    fn event_cursor_advances_monotonically_and_deduplicates_replayed_events() {
+        let task = task_snapshot();
+        let id = task.id;
+        let mut detail = TaskDetailState::new(task.clone());
+        detail.apply_result(Ok(TaskDetailUpdate {
+            task: task.clone(),
+            events: vec![event(id, 1, "queued"), event(id, 2, "downloading")],
+        }));
+        assert_eq!(detail.last_event_sequence, 2);
+        assert_eq!(detail.query().after_sequence, 2);
+
+        detail.apply_result(Ok(TaskDetailUpdate {
+            task,
+            events: vec![event(id, 2, "duplicate"), event(id, 3, "installed")],
+        }));
+        assert_eq!(detail.last_event_sequence, 3);
+        assert_eq!(detail.events.len(), 3);
+        assert_eq!(detail.events[1].message, "downloading");
+    }
+
+    #[test]
+    fn failed_refresh_preserves_task_events_and_cursor_for_reconnect() {
+        let task = task_snapshot();
+        let id = task.id;
+        let mut detail = TaskDetailState::new(task.clone());
+        detail.apply_result(Ok(TaskDetailUpdate {
+            task,
+            events: vec![event(id, 1, "queued")],
+        }));
+        detail.apply_result(Err(mc_core::AppError::new(
+            ErrorCode::SourceUnavailable,
+            "daemon unavailable",
+        )));
+
+        assert_eq!(detail.query().after_sequence, 1);
+        assert_eq!(detail.events.len(), 1);
+        assert_eq!(detail.error.as_deref(), Some("daemon unavailable"));
+    }
+
+    fn task_snapshot() -> TaskSnapshot {
+        TaskSnapshot {
+            id: Uuid::new_v4(),
+            kind: TaskKind::CreatePaperInstance,
+            instance_id: None,
+            status: TaskStatus::Running,
+            phase: TaskPhase::ResolvingArtifact,
+            message: "Resolving Paper build".to_owned(),
+            progress: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            finished_at: None,
+            result: None,
+            error: None,
+            last_event_sequence: 0,
+        }
+    }
+
+    fn event(task_id: Uuid, sequence: i64, message: &str) -> TaskEvent {
+        TaskEvent {
+            sequence,
+            task_id,
+            occurred_at: Utc::now(),
+            status: TaskStatus::Running,
+            phase: TaskPhase::DownloadingArtifact,
+            message: message.to_owned(),
+            progress: None,
+            error: None,
+        }
+    }
+}

@@ -7,8 +7,9 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 use tokio::sync::mpsc;
 
 use crate::{
-    app::{Action, AppState, DashboardData},
+    app::{Action, AppState, DashboardData, Panel},
     source::ManagementSource,
+    task_detail::{TaskDetailQuery, TaskDetailUpdate},
     view::render,
     wizard::{CreateInstanceInput, WizardAction, WizardStep},
 };
@@ -28,9 +29,12 @@ pub(crate) async fn run_app(
     refresh_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let (refresh_tx, mut refresh_rx) = mpsc::channel::<Result<DashboardData, AppError>>(1);
     let (create_tx, mut create_rx) = mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
+    let (detail_tx, mut detail_rx) = mpsc::channel::<Result<TaskDetailUpdate, AppError>>(1);
     let mut refresh_in_flight = true;
     let mut create_in_flight = false;
+    let mut detail_in_flight = false;
     let mut refresh_pending = false;
+    let mut detail_pending = false;
     start_refresh(Arc::clone(&source), refresh_tx.clone());
 
     while !state.should_quit() {
@@ -38,8 +42,15 @@ pub(crate) async fn run_app(
         tokio::select! {
             event = events.next() => match event {
                 Some(Ok(Event::Key(key))) if key.kind != KeyEventKind::Release => {
-                    let wizard_step = state.wizard.as_ref().map(|wizard| wizard.step);
-                    state.update(action_for_key(key.code, key.modifiers, wizard_step));
+                    let mode = if let Some(wizard) = &state.wizard {
+                        UiMode::Wizard(wizard.step)
+                    } else if state.task_detail_visible {
+                        UiMode::TaskDetail
+                    } else {
+                        UiMode::Dashboard(state.focused_panel)
+                    };
+                    let action = action_for_key(key.code, key.modifiers, mode);
+                    state.update(action);
                 }
                 Some(Ok(Event::Resize(_, _))) => {}
                 Some(Ok(_)) => {}
@@ -49,8 +60,13 @@ pub(crate) async fn run_app(
                 ).with_evidence(error.to_string()))),
                 None => break,
             },
-            _ = refresh_timer.tick(), if !refresh_in_flight => {
-                state.update(Action::Refresh);
+            _ = refresh_timer.tick(), if (state.task_detail_visible && !detail_in_flight)
+                || (!state.task_detail_visible && !refresh_in_flight) => {
+                if state.task_detail_visible {
+                    state.update(Action::RefreshTaskDetail);
+                } else {
+                    state.update(Action::Refresh);
+                }
             }
             result = refresh_rx.recv(), if refresh_in_flight => {
                 refresh_in_flight = false;
@@ -64,12 +80,31 @@ pub(crate) async fn run_app(
                     state.apply_create_result(result);
                 }
             }
+            result = detail_rx.recv(), if detail_in_flight => {
+                detail_in_flight = false;
+                if let Some(result) = result {
+                    state.apply_task_detail_result(result);
+                }
+            }
+        }
+
+        if !state.task_detail_visible {
+            detail_pending = false;
         }
 
         if let Some(input) = state.take_create_request() {
             if !create_in_flight {
                 create_in_flight = true;
                 start_create(Arc::clone(&source), create_tx.clone(), input);
+            }
+        }
+
+        if let Some(query) = state.take_task_detail_query() {
+            if detail_in_flight {
+                detail_pending = true;
+            } else {
+                detail_in_flight = true;
+                start_task_detail(Arc::clone(&source), detail_tx.clone(), query);
             }
         }
 
@@ -85,6 +120,10 @@ pub(crate) async fn run_app(
             refresh_pending = false;
             refresh_in_flight = true;
             start_refresh(Arc::clone(&source), refresh_tx.clone());
+        }
+        if detail_pending && !detail_in_flight && state.task_detail_visible {
+            detail_pending = false;
+            state.update(Action::RefreshTaskDetail);
         }
     }
     Ok(())
@@ -109,36 +148,62 @@ fn start_create(
     });
 }
 
-fn action_for_key(
-    code: KeyCode,
-    modifiers: KeyModifiers,
-    wizard_step: Option<WizardStep>,
-) -> Action {
+fn start_task_detail(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<Result<TaskDetailUpdate, AppError>>,
+    query: TaskDetailQuery,
+) {
+    tokio::spawn(async move {
+        let _ = sender
+            .send(
+                source
+                    .load_task_detail(query.task_id, query.after_sequence)
+                    .await,
+            )
+            .await;
+    });
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UiMode {
+    Dashboard(Panel),
+    Wizard(WizardStep),
+    TaskDetail,
+}
+
+fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMode) -> Action {
     if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
         return Action::Quit;
     }
-    if wizard_step.is_some() {
-        return Action::Wizard(match code {
+    match mode {
+        UiMode::Wizard(step) => Action::Wizard(match code {
             KeyCode::Esc => WizardAction::Back,
             KeyCode::Enter => WizardAction::Advance,
             KeyCode::Tab | KeyCode::Down => WizardAction::FocusNext,
             KeyCode::BackTab | KeyCode::Up => WizardAction::FocusPrevious,
             KeyCode::Backspace => WizardAction::Backspace,
-            KeyCode::Char(' ') if wizard_step == Some(WizardStep::Review) => {
-                WizardAction::ToggleAcceptance
-            }
+            KeyCode::Char(' ') if step == WizardStep::Review => WizardAction::ToggleAcceptance,
             KeyCode::Char(character) => WizardAction::Insert(character),
             _ => return Action::Ignore,
-        });
-    }
-    match code {
-        KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
-        KeyCode::Char('n') => Action::OpenCreate,
-        KeyCode::Up | KeyCode::Char('k') => Action::Previous,
-        KeyCode::Down | KeyCode::Char('j') => Action::Next,
-        KeyCode::Tab => Action::TogglePanel,
-        KeyCode::Char('r') => Action::Refresh,
-        _ => Action::Ignore,
+        }),
+        UiMode::TaskDetail => match code {
+            KeyCode::Char('q') => Action::Quit,
+            KeyCode::Esc | KeyCode::Backspace => Action::BackFromTaskDetail,
+            KeyCode::Up | KeyCode::Char('k') => Action::Previous,
+            KeyCode::Down | KeyCode::Char('j') => Action::Next,
+            KeyCode::Char('r') => Action::RefreshTaskDetail,
+            _ => Action::Ignore,
+        },
+        UiMode::Dashboard(panel) => match code {
+            KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
+            KeyCode::Enter if panel == Panel::Tasks => Action::OpenTaskDetail,
+            KeyCode::Char('n') => Action::OpenCreate,
+            KeyCode::Up | KeyCode::Char('k') => Action::Previous,
+            KeyCode::Down | KeyCode::Char('j') => Action::Next,
+            KeyCode::Tab => Action::TogglePanel,
+            KeyCode::Char('r') => Action::Refresh,
+            _ => Action::Ignore,
+        },
     }
 }
 
@@ -146,31 +211,51 @@ fn action_for_key(
 mod tests {
     use crossterm::event::{KeyCode, KeyModifiers};
 
-    use crate::app::Action;
+    use crate::app::{Action, Panel};
     use crate::wizard::WizardStep;
 
-    use super::action_for_key;
+    use super::{action_for_key, UiMode};
 
     #[test]
     fn maps_common_keyboard_actions_without_terminal_io() {
         assert_eq!(
-            action_for_key(KeyCode::Char('q'), KeyModifiers::NONE, None),
+            action_for_key(
+                KeyCode::Char('q'),
+                KeyModifiers::NONE,
+                UiMode::Dashboard(Panel::Instances),
+            ),
             Action::Quit
         );
         assert_eq!(
-            action_for_key(KeyCode::Down, KeyModifiers::NONE, None),
+            action_for_key(
+                KeyCode::Down,
+                KeyModifiers::NONE,
+                UiMode::Dashboard(Panel::Instances),
+            ),
             Action::Next
         );
         assert_eq!(
-            action_for_key(KeyCode::Tab, KeyModifiers::NONE, None),
+            action_for_key(
+                KeyCode::Tab,
+                KeyModifiers::NONE,
+                UiMode::Dashboard(Panel::Instances),
+            ),
             Action::TogglePanel
         );
         assert_eq!(
-            action_for_key(KeyCode::Char('r'), KeyModifiers::NONE, None),
+            action_for_key(
+                KeyCode::Char('r'),
+                KeyModifiers::NONE,
+                UiMode::Dashboard(Panel::Instances),
+            ),
             Action::Refresh
         );
         assert_eq!(
-            action_for_key(KeyCode::Char('c'), KeyModifiers::CONTROL, None),
+            action_for_key(
+                KeyCode::Char('c'),
+                KeyModifiers::CONTROL,
+                UiMode::Dashboard(Panel::Instances),
+            ),
             Action::Quit
         );
     }
@@ -181,23 +266,31 @@ mod tests {
             action_for_key(
                 KeyCode::Char('q'),
                 KeyModifiers::NONE,
-                Some(WizardStep::Server)
+                UiMode::Wizard(WizardStep::Server)
             ),
             Action::Wizard(crate::wizard::WizardAction::Insert('q'))
         );
         assert_eq!(
-            action_for_key(KeyCode::Esc, KeyModifiers::NONE, Some(WizardStep::Server)),
+            action_for_key(
+                KeyCode::Esc,
+                KeyModifiers::NONE,
+                UiMode::Wizard(WizardStep::Server)
+            ),
             Action::Wizard(crate::wizard::WizardAction::Back)
         );
         assert_eq!(
-            action_for_key(KeyCode::Char('n'), KeyModifiers::NONE, None),
+            action_for_key(
+                KeyCode::Char('n'),
+                KeyModifiers::NONE,
+                UiMode::Dashboard(Panel::Instances),
+            ),
             Action::OpenCreate
         );
         assert_eq!(
             action_for_key(
                 KeyCode::Char(' '),
                 KeyModifiers::NONE,
-                Some(WizardStep::Server)
+                UiMode::Wizard(WizardStep::Server)
             ),
             Action::Wizard(crate::wizard::WizardAction::Insert(' '))
         );
@@ -205,9 +298,21 @@ mod tests {
             action_for_key(
                 KeyCode::Char(' '),
                 KeyModifiers::NONE,
-                Some(WizardStep::Review)
+                UiMode::Wizard(WizardStep::Review)
             ),
             Action::Wizard(crate::wizard::WizardAction::ToggleAcceptance)
+        );
+        assert_eq!(
+            action_for_key(
+                KeyCode::Enter,
+                KeyModifiers::NONE,
+                UiMode::Dashboard(Panel::Tasks),
+            ),
+            Action::OpenTaskDetail
+        );
+        assert_eq!(
+            action_for_key(KeyCode::Esc, KeyModifiers::NONE, UiMode::TaskDetail),
+            Action::BackFromTaskDetail
         );
     }
 }

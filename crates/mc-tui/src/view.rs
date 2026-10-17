@@ -7,11 +7,18 @@ use ratatui::{
 };
 
 use crate::app::{AppState, Panel};
+use crate::task_presentation::{phase_label, status_label, status_style as task_style};
 
 pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState) {
     if let Some(wizard) = &app.wizard {
         crate::wizard_view::render(frame, wizard);
         return;
+    }
+    if app.task_detail_visible {
+        if let Some(detail) = &app.task_detail {
+            crate::task_detail_view::render(frame, detail);
+            return;
+        }
     }
     render_dashboard(frame, app);
 }
@@ -145,43 +152,9 @@ fn render_tasks(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
 fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
     let lines = vec![
         Line::from(Span::styled(app.status.clone(), status_style(&app.status))),
-        Line::from("↑/↓ 选择 · Tab 切换面板 · n 新建 · r 刷新 · q 退出"),
+        Line::from("↑/↓ 选择 · Tab 切换 · Enter 任务详情 · n 新建 · r 刷新 · q 退出"),
     ];
     frame.render_widget(Paragraph::new(lines), area);
-}
-
-fn status_label(status: mc_core::TaskStatus) -> &'static str {
-    match status {
-        mc_core::TaskStatus::Queued => "排队中",
-        mc_core::TaskStatus::Running => "进行中",
-        mc_core::TaskStatus::Succeeded => "已完成",
-        mc_core::TaskStatus::Failed => "失败",
-        mc_core::TaskStatus::Interrupted => "已中断",
-    }
-}
-
-fn phase_label(phase: mc_core::TaskPhase) -> &'static str {
-    match phase {
-        mc_core::TaskPhase::Queued => "等待执行",
-        mc_core::TaskPhase::ResolvingArtifact => "解析版本",
-        mc_core::TaskPhase::DownloadingArtifact => "下载校验",
-        mc_core::TaskPhase::InstallingInstance => "安装实例",
-        mc_core::TaskPhase::Completed => "完成",
-        mc_core::TaskPhase::Failed => "失败",
-        mc_core::TaskPhase::Interrupted => "中断",
-    }
-}
-
-fn task_style(status: mc_core::TaskStatus) -> Style {
-    match status {
-        mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running => {
-            Style::default().fg(Color::Yellow)
-        }
-        mc_core::TaskStatus::Succeeded => Style::default().fg(Color::Green),
-        mc_core::TaskStatus::Failed | mc_core::TaskStatus::Interrupted => {
-            Style::default().fg(Color::Red)
-        }
-    }
 }
 
 fn status_style(status: &str) -> Style {

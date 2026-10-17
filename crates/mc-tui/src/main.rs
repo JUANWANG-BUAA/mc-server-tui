@@ -1,6 +1,9 @@
 mod app;
 mod runtime;
 mod source;
+mod task_detail;
+mod task_detail_view;
+mod task_presentation;
 mod terminal;
 mod view;
 mod wizard;

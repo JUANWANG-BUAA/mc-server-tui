@@ -4,7 +4,7 @@ Rust workspace for managing local Minecraft Java server instances on macOS and L
 
 ## Current implementation slice
 
-The workspace has shared API and error contracts, a reusable async daemon client, local `doctor` checks, a Paper Fill v3 adapter, a foreground Unix-socket daemon, a verified downloader, persistent Paper instance creation/listing, and durable background tasks. Creation returns a task ID; metadata resolution, download, verification, and installation proceed asynchronously. The TUI has an instance/task dashboard and a three-step Paper creation wizard. Both dashboard refresh and wizard submission run asynchronously, so input remains responsive while daemon requests are pending. Startup recovery registers valid committed directories, quarantines interrupted staging data, and marks unfinished tasks interrupted.
+The workspace has shared API and error contracts, a reusable async daemon client, local `doctor` checks, a Paper Fill v3 adapter, a foreground Unix-socket daemon, a verified downloader, persistent Paper instance creation/listing, and durable background tasks. Creation returns a task ID; metadata resolution, download, verification, and installation proceed asynchronously. The TUI has an instance/task dashboard, a three-step Paper creation wizard, and task details with incremental event refresh. Dashboard refresh, wizard submission, and task detail polling run asynchronously, so input stays responsive while daemon requests are pending. Startup recovery registers valid committed directories, quarantines interrupted staging data, and marks unfinished tasks interrupted.
 
 ```sh
 cargo run -p mc-daemon
@@ -44,10 +44,10 @@ Use a real project URL or contact email; do not leave the example value in place
 - `mc-task`: durable task/event storage, phase reporting, bounded workers, per-instance operation locks, and restart interruption recovery.
 - `mc-daemon`: bounded local API transport and request dispatch; server process supervision is a later slice.
 - `mc-cli`: command parsing and text presentation through the local API.
-- `mc-tui`: keyboard-driven instance/task dashboard, validated Paper creation wizard, and async daemon integration; instance details, server lifecycle controls, and live console are subsequent slices.
+- `mc-tui`: keyboard-driven instance/task dashboard, validated Paper creation wizard, task detail/event cursor view, and async daemon integration; instance details, server lifecycle controls, and live console are subsequent slices.
 
 Instance storage and crash reconciliation rules are recorded in [docs/INSTANCE_SCHEMA.md](docs/INSTANCE_SCHEMA.md). TUI layout snapshots and the PTY/fake-daemon test plan are tracked in [docs/TUI_TESTING.md](docs/TUI_TESTING.md).
 
-On the dashboard, press `n` to open the creation wizard. Use Tab or the arrow keys to move between fields, Enter to advance, Esc to go back, and Space to explicitly accept the EULA on the review step. Creation is submitted as a background task and appears in the dashboard task list.
+On the dashboard, press `n` to open the creation wizard. Use Tab or the arrow keys to move between fields, Enter to advance, Esc to go back, and Space to explicitly accept the EULA on the review step. Creation is submitted as a background task and appears in the dashboard task list. Switch to the task panel with Tab and press Enter to open task details; `r` refreshes the snapshot and fetches events after the current sequence, and Esc returns to the dashboard.
 
-Run the UI renderer and state tests with `cargo test -p mc-tui`. The PTY smoke test drives the wizard through submission against a stalled fake daemon and checks that Ctrl-C still exits; build the TUI and run `python3 scripts/tui_pty_smoke.py`.
+Run the UI renderer and state tests with `cargo test -p mc-tui`. Build the TUI and run `python3 scripts/tui_pty_smoke.py` to test wizard submission while the daemon is stalled, and `python3 scripts/tui_task_detail_pty.py` to verify event cursor refresh and resume after reopening a task.

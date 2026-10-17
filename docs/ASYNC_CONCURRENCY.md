@@ -25,6 +25,7 @@ This contract keeps slow network, filesystem, and SQLite work from blocking the 
 - The TUI visual feedback and test loop is specified in [`TUI_TESTING.md`](TUI_TESTING.md). Its delayed fake daemon uses the shared socket protocol; event-cursor rendering will be covered with the later task-detail view.
 - The TUI reads keys through Crossterm's async event stream and selects alongside a two-second dashboard refresh. It allows one refresh in flight, coalesces a manual refresh while busy, and retains the last successful frame if a request fails.
 - Paper wizard submission runs in a separate Tokio task with a capacity-one result channel. The wizard disables duplicate submission while the request is in flight but continues drawing and handling Ctrl-C; a daemon error restores editing and retains the entered values. A successful queued task is shown immediately, then the dashboard refreshes.
+- Task detail loads the snapshot and event batch concurrently. It polls at the dashboard interval with one detail request in flight, sends `ListTaskEvents(after_sequence)` using the last event actually received, deduplicates replayed events, and retains the task view and cursor after transient errors or when the user returns to the dashboard.
 
 ## Requirements for later modules
 
