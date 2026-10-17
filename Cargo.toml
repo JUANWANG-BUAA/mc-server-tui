@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/mc-core",
+    "crates/mc-client",
     "crates/mc-download",
     "crates/mc-instance",
     "crates/mc-task",
@@ -9,6 +10,7 @@ members = [
     "crates/mc-system",
     "crates/mc-daemon",
     "crates/mc-cli",
+    "crates/mc-tui",
 ]
 
 [workspace.package]
@@ -20,11 +22,14 @@ version = "0.1.0"
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde", "clock"] }
 clap = { version = "4.5", features = ["derive", "env"] }
+crossterm = { version = "0.28.1", features = ["event-stream"] }
 directories = "6.0"
 fs2 = "0.4"
 futures-util = "0.3"
 libc = "0.2"
+mc-client = { path = "crates/mc-client" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+ratatui = "0.29.0"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

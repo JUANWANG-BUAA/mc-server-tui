@@ -1,0 +1,21 @@
+[package]
+name = "mc-tui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "mc-server-tui"
+path = "src/main.rs"
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+clap.workspace = true
+crossterm.workspace = true
+futures-util.workspace = true
+mc-client.workspace = true
+mc-core = { path = "../mc-core" }
+ratatui.workspace = true
+tokio.workspace = true
+uuid.workspace = true

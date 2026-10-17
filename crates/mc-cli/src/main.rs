@@ -1,12 +1,9 @@
-mod client;
 mod command;
 mod output;
 
-use std::{io, path::PathBuf};
-
 use clap::Parser;
 use command::Args;
-use directories::ProjectDirs;
+use mc_client::{default_socket_path, DaemonClient};
 use mc_core::{AppError, ErrorCode};
 
 #[tokio::main]
@@ -38,22 +35,6 @@ async fn run(args: Args) -> Result<(), AppError> {
         })?,
     };
     let (request, include_experimental) = args.command.into_request();
-    let response = client::request_daemon(&socket, request).await?;
+    let response = DaemonClient::new(socket).request(request).await?;
     output::print_response(response, include_experimental)
-}
-
-fn default_socket_path() -> Result<PathBuf, io::Error> {
-    ProjectDirs::from("org", "mc-server-tui", "mc-server-tui")
-        .map(|dirs| {
-            dirs.state_dir()
-                .unwrap_or(dirs.data_local_dir())
-                .join("run")
-                .join("daemon.sock")
-        })
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::NotFound,
-                "could not determine application data directory",
-            )
-        })
 }

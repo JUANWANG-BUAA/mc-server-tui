@@ -22,7 +22,8 @@ This contract keeps slow network, filesystem, and SQLite work from blocking the 
 - Progress counts completed phases, not bytes. Download currently reports an indeterminate phase because the downloader does not yet expose byte-level progress.
 - Clients submit long operations once, then request `GetTask` and `ListTaskEvents(after_sequence)` as needed. Event sequence numbers let a TUI reconnect without losing transitions.
 - The CLI exposes the same records through `task list`, `task show <id>`, and `task events <id>`.
-- The TUI visual feedback and test loop is specified in [`TUI_TESTING.md`](TUI_TESTING.md); its fake daemon consumes the same event cursor as production.
+- The TUI visual feedback and test loop is specified in [`TUI_TESTING.md`](TUI_TESTING.md). Its delayed fake daemon uses the shared socket protocol; event-cursor rendering will be covered with the later task-detail view.
+- The TUI reads keys through Crossterm's async event stream and selects alongside a two-second dashboard refresh. It allows one refresh in flight, coalesces a manual refresh while busy, and retains the last successful frame if a request fails.
 
 ## Requirements for later modules
 

@@ -4,11 +4,13 @@ Rust workspace for managing local Minecraft Java server instances on macOS and L
 
 ## Current implementation slice
 
-The workspace has shared API and error contracts, local `doctor` checks, a Paper Fill v3 adapter, a foreground Unix-socket daemon, a verified downloader, persistent Paper instance creation/listing, and durable background tasks. Creation now returns a task ID; metadata resolution, download, verification, and installation proceed asynchronously and can be inspected through the CLI. Startup recovery registers valid committed directories, quarantines interrupted staging data, and marks unfinished tasks interrupted.
+The workspace has shared API and error contracts, a reusable async daemon client, local `doctor` checks, a Paper Fill v3 adapter, a foreground Unix-socket daemon, a verified downloader, persistent Paper instance creation/listing, and durable background tasks. Creation returns a task ID; metadata resolution, download, verification, and installation proceed asynchronously. The first TUI slice shows instances and background tasks with nonblocking refresh and keyboard navigation. Startup recovery registers valid committed directories, quarantines interrupted staging data, and marks unfinished tasks interrupted.
 
 ```sh
 cargo run -p mc-daemon
 # In another terminal:
+cargo run -p mc-tui
+# The text CLI is also available:
 cargo run -p mc-cli -- status
 cargo run -p mc-cli -- doctor
 cargo run -p mc-cli -- paper versions
@@ -34,13 +36,16 @@ Use a real project URL or contact email; do not leave the example value in place
 ## Module boundaries
 
 - `mc-core`: domain values, stable errors, provider trait, and transport-neutral request/response types.
+- `mc-client`: bounded async Unix-socket client shared by the CLI and TUI.
 - `provider-paper`: Fill v3 HTTP access and conversion to core types.
 - `mc-download`: exact artifact fetching, redirect/DNS checks, safe range resume, SHA-256 validation, and content-addressed cache.
 - `mc-system`: local Java discovery, port check, data directory and disk checks.
 - `mc-instance`: versioned `instance.toml`/`lock.json`, atomic staging, SQLite index and startup recovery.
 - `mc-task`: durable task/event storage, phase reporting, bounded workers, per-instance operation locks, and restart interruption recovery.
 - `mc-daemon`: bounded local API transport and request dispatch; server process supervision is a later slice.
-- `mc-cli`: command parsing and presentation; instance operations, task queries, and Paper metadata go through the same local API intended for the TUI.
-- TUI, durable task progress, start/stop/logs, and backup/restore are subsequent slices.
+- `mc-cli`: command parsing and text presentation through the local API.
+- `mc-tui`: keyboard-driven instance/task dashboard; the six-view wizard, server lifecycle controls, and live console are subsequent slices.
 
-Instance storage and crash reconciliation rules are recorded in [docs/INSTANCE_SCHEMA.md](docs/INSTANCE_SCHEMA.md).
+Instance storage and crash reconciliation rules are recorded in [docs/INSTANCE_SCHEMA.md](docs/INSTANCE_SCHEMA.md). TUI layout snapshots and the PTY/fake-daemon test plan are tracked in [docs/TUI_TESTING.md](docs/TUI_TESTING.md).
+
+Run the UI renderer tests with `cargo test -p mc-tui`. To exercise keyboard responsiveness while both daemon requests are stalled, build the TUI and run `python3 scripts/tui_pty_smoke.py`.
