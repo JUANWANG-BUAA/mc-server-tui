@@ -3,6 +3,8 @@ mod runtime;
 mod source;
 mod terminal;
 mod view;
+mod wizard;
+mod wizard_view;
 
 use std::{path::PathBuf, sync::Arc};
 

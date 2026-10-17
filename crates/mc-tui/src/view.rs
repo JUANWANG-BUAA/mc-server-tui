@@ -9,6 +9,14 @@ use ratatui::{
 use crate::app::{AppState, Panel};
 
 pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState) {
+    if let Some(wizard) = &app.wizard {
+        crate::wizard_view::render(frame, wizard);
+        return;
+    }
+    render_dashboard(frame, app);
+}
+
+fn render_dashboard(frame: &mut Frame<'_>, app: &AppState) {
     let root = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -137,7 +145,7 @@ fn render_tasks(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
 fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
     let lines = vec![
         Line::from(Span::styled(app.status.clone(), status_style(&app.status))),
-        Line::from("↑/↓ 选择 · Tab 切换面板 · r 刷新 · q 退出"),
+        Line::from("↑/↓ 选择 · Tab 切换面板 · n 新建 · r 刷新 · q 退出"),
     ];
     frame.render_widget(Paragraph::new(lines), area);
 }

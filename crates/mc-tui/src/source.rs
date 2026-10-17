@@ -4,11 +4,15 @@ use async_trait::async_trait;
 use mc_client::DaemonClient;
 use mc_core::{ApiRequest, ApiResponse, AppError, ErrorCode};
 
-use crate::app::DashboardData;
+use crate::{app::DashboardData, wizard::CreateInstanceInput};
 
 #[async_trait]
-pub(crate) trait DashboardSource: Send + Sync {
+pub(crate) trait ManagementSource: Send + Sync {
     async fn load(&self) -> Result<DashboardData, AppError>;
+    async fn create_instance(
+        &self,
+        input: CreateInstanceInput,
+    ) -> Result<mc_core::TaskSnapshot, AppError>;
 }
 
 pub(crate) struct DaemonDashboardSource {
@@ -24,7 +28,7 @@ impl DaemonDashboardSource {
 }
 
 #[async_trait]
-impl DashboardSource for DaemonDashboardSource {
+impl ManagementSource for DaemonDashboardSource {
     async fn load(&self) -> Result<DashboardData, AppError> {
         let (instances, tasks) = tokio::join!(
             self.client.request(ApiRequest::ListInstances),
@@ -34,6 +38,30 @@ impl DashboardSource for DaemonDashboardSource {
             instances: expect_instances(instances?)?,
             tasks: expect_tasks(tasks?)?,
         })
+    }
+
+    async fn create_instance(
+        &self,
+        input: CreateInstanceInput,
+    ) -> Result<mc_core::TaskSnapshot, AppError> {
+        match self
+            .client
+            .request(ApiRequest::CreatePaperInstance {
+                name: input.name,
+                game_version: input.game_version,
+                build_id: None,
+                java_path: input.java_path,
+                min_memory_mb: input.min_memory_mb,
+                max_memory_mb: input.max_memory_mb,
+                port: input.port,
+                accept_eula: input.accept_eula,
+            })
+            .await?
+        {
+            ApiResponse::TaskQueued(task) => Ok(task),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("instance creation")),
+        }
     }
 }
 

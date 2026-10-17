@@ -1,5 +1,7 @@
 use mc_core::{AppError, InstanceSummary, TaskSnapshot};
 
+use crate::wizard::{CreateInstanceInput, CreateWizard, WizardAction, WizardOutcome};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Panel {
     Instances,
@@ -13,6 +15,8 @@ pub(crate) enum Action {
     Next,
     TogglePanel,
     Refresh,
+    OpenCreate,
+    Wizard(WizardAction),
     Ignore,
 }
 
@@ -30,7 +34,9 @@ pub(crate) struct AppState {
     pub selected_instance: usize,
     pub selected_task: usize,
     pub status: String,
+    pub wizard: Option<CreateWizard>,
     refresh_requested: bool,
+    create_requested: Option<CreateInstanceInput>,
     should_quit: bool,
 }
 
@@ -43,7 +49,9 @@ impl Default for AppState {
             selected_instance: 0,
             selected_task: 0,
             status: "正在连接后台服务…".to_owned(),
+            wizard: None,
             refresh_requested: false,
+            create_requested: None,
             should_quit: false,
         }
     }
@@ -65,7 +73,50 @@ impl AppState {
                 self.refresh_requested = true;
                 self.status = "正在刷新…".to_owned();
             }
+            Action::OpenCreate => {
+                self.wizard = Some(CreateWizard::default());
+            }
+            Action::Wizard(action) => {
+                let outcome = self
+                    .wizard
+                    .as_mut()
+                    .map(|wizard| wizard.handle(action))
+                    .unwrap_or(WizardOutcome::None);
+                match outcome {
+                    WizardOutcome::None => {}
+                    WizardOutcome::Cancelled => {
+                        self.wizard = None;
+                    }
+                    WizardOutcome::Submit(input) => {
+                        self.create_requested = Some(input);
+                        self.status = "正在提交创建任务…".to_owned();
+                    }
+                }
+            }
             Action::Ignore => {}
+        }
+    }
+
+    pub fn apply_create_result(&mut self, result: Result<TaskSnapshot, AppError>) {
+        let Some(wizard) = self.wizard.as_mut() else {
+            return;
+        };
+        match result {
+            Ok(task) => {
+                self.tasks.insert(0, task);
+                self.selected_task = 0;
+                self.wizard = None;
+                self.status = "创建任务已加入后台队列。".to_owned();
+                self.refresh_requested = true;
+            }
+            Err(error) => {
+                let message = match error.next_action {
+                    Some(action) => format!("{} · 下一步：{}", error.reason, action),
+                    None => error.reason.clone(),
+                };
+                wizard.set_submit_error(message);
+                self.status = format!("提交失败 [{}]：{}", error.code, error.reason);
+            }
         }
     }
 
@@ -90,6 +141,10 @@ impl AppState {
         std::mem::take(&mut self.refresh_requested)
     }
 
+    pub fn take_create_request(&mut self) -> Option<CreateInstanceInput> {
+        self.create_requested.take()
+    }
+
     pub fn should_quit(&self) -> bool {
         self.should_quit
     }
@@ -112,7 +167,7 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
-    use mc_core::{ErrorCode, InstanceSummary};
+    use mc_core::{ErrorCode, InstanceSummary, TaskKind, TaskPhase, TaskSnapshot, TaskStatus};
     use uuid::Uuid;
 
     use super::{Action, AppState, DashboardData};
@@ -146,5 +201,50 @@ mod tests {
         assert_eq!(state.instances[0].name, "生存服");
         assert_eq!(state.selected_instance, 0);
         assert!(state.status.starts_with("连接失败"));
+    }
+
+    #[test]
+    fn create_failure_keeps_wizard_for_correction_and_retry() {
+        let mut state = AppState::default();
+        state.update(Action::OpenCreate);
+        state.apply_create_result(Err(mc_core::AppError::new(
+            ErrorCode::SourceUnavailable,
+            "daemon temporarily unavailable",
+        )));
+
+        assert!(state.wizard.is_some());
+        assert_eq!(
+            state
+                .wizard
+                .as_ref()
+                .and_then(|wizard| wizard.error.as_deref()),
+            Some("daemon temporarily unavailable")
+        );
+    }
+
+    #[test]
+    fn successful_create_returns_to_dashboard_and_requests_refresh() {
+        let mut state = AppState::default();
+        state.update(Action::OpenCreate);
+        state.apply_create_result(Ok(TaskSnapshot {
+            id: Uuid::new_v4(),
+            kind: TaskKind::CreatePaperInstance,
+            instance_id: None,
+            status: TaskStatus::Queued,
+            phase: TaskPhase::Queued,
+            message: "Instance creation queued".to_owned(),
+            progress: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            finished_at: None,
+            result: None,
+            error: None,
+            last_event_sequence: 0,
+        }));
+
+        assert!(state.wizard.is_none());
+        assert_eq!(state.tasks.len(), 1);
+        assert!(state.take_refresh_request());
+        assert!(state.status.contains("后台队列"));
     }
 }
