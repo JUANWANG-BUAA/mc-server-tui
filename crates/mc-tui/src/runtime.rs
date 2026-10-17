@@ -8,6 +8,9 @@ use tokio::sync::mpsc;
 
 use crate::{
     app::{Action, AppState, DashboardData, Panel},
+    instance_detail::{
+        InstanceCommand, InstanceCommandResult, InstanceDetailQuery, InstanceDetailUpdate,
+    },
     source::ManagementSource,
     task_detail::{TaskDetailQuery, TaskDetailUpdate},
     view::render,
@@ -30,11 +33,17 @@ pub(crate) async fn run_app(
     let (refresh_tx, mut refresh_rx) = mpsc::channel::<Result<DashboardData, AppError>>(1);
     let (create_tx, mut create_rx) = mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
     let (detail_tx, mut detail_rx) = mpsc::channel::<Result<TaskDetailUpdate, AppError>>(1);
+    let (instance_detail_tx, mut instance_detail_rx) =
+        mpsc::channel::<Result<InstanceDetailUpdate, AppError>>(1);
+    let (instance_command_tx, mut instance_command_rx) = mpsc::channel::<InstanceCommandResult>(1);
     let mut refresh_in_flight = true;
     let mut create_in_flight = false;
     let mut detail_in_flight = false;
+    let mut instance_detail_in_flight = false;
+    let mut instance_command_in_flight = false;
     let mut refresh_pending = false;
     let mut detail_pending = false;
+    let mut instance_detail_pending = false;
     start_refresh(Arc::clone(&source), refresh_tx.clone());
 
     while !state.should_quit() {
@@ -46,6 +55,13 @@ pub(crate) async fn run_app(
                         UiMode::Wizard(wizard.step)
                     } else if state.task_detail_visible {
                         UiMode::TaskDetail
+                    } else if state.instance_detail_visible {
+                        UiMode::InstanceDetail {
+                            editing_console: state
+                                .instance_detail
+                                .as_ref()
+                                .is_some_and(|detail| detail.editing_console),
+                        }
                     } else {
                         UiMode::Dashboard(state.focused_panel)
                     };
@@ -61,9 +77,13 @@ pub(crate) async fn run_app(
                 None => break,
             },
             _ = refresh_timer.tick(), if (state.task_detail_visible && !detail_in_flight)
-                || (!state.task_detail_visible && !refresh_in_flight) => {
+                || (!state.task_detail_visible && state.instance_detail_visible && !instance_detail_in_flight
+                    && !state.instance_detail.as_ref().is_some_and(|detail| detail.editing_console))
+                || (!state.task_detail_visible && !state.instance_detail_visible && !refresh_in_flight) => {
                 if state.task_detail_visible {
                     state.update(Action::RefreshTaskDetail);
+                } else if state.instance_detail_visible {
+                    state.update(Action::RefreshInstanceDetail);
                 } else {
                     state.update(Action::Refresh);
                 }
@@ -86,10 +106,25 @@ pub(crate) async fn run_app(
                     state.apply_task_detail_result(result);
                 }
             }
+            result = instance_detail_rx.recv(), if instance_detail_in_flight => {
+                instance_detail_in_flight = false;
+                if let Some(result) = result {
+                    state.apply_instance_detail_result(result);
+                }
+            }
+            result = instance_command_rx.recv(), if instance_command_in_flight => {
+                instance_command_in_flight = false;
+                if let Some(result) = result {
+                    state.apply_instance_command_result(result);
+                }
+            }
         }
 
         if !state.task_detail_visible {
             detail_pending = false;
+        }
+        if !state.instance_detail_visible {
+            instance_detail_pending = false;
         }
 
         if let Some(input) = state.take_create_request() {
@@ -105,6 +140,22 @@ pub(crate) async fn run_app(
             } else {
                 detail_in_flight = true;
                 start_task_detail(Arc::clone(&source), detail_tx.clone(), query);
+            }
+        }
+
+        if let Some(query) = state.take_instance_detail_query() {
+            if instance_detail_in_flight {
+                instance_detail_pending = true;
+            } else {
+                instance_detail_in_flight = true;
+                start_instance_detail(Arc::clone(&source), instance_detail_tx.clone(), query);
+            }
+        }
+
+        if let Some(command) = state.take_instance_command() {
+            if !instance_command_in_flight {
+                instance_command_in_flight = true;
+                start_instance_command(Arc::clone(&source), instance_command_tx.clone(), command);
             }
         }
 
@@ -124,6 +175,10 @@ pub(crate) async fn run_app(
         if detail_pending && !detail_in_flight && state.task_detail_visible {
             detail_pending = false;
             state.update(Action::RefreshTaskDetail);
+        }
+        if instance_detail_pending && !instance_detail_in_flight && state.instance_detail_visible {
+            instance_detail_pending = false;
+            state.update(Action::RefreshInstanceDetail);
         }
     }
     Ok(())
@@ -164,11 +219,46 @@ fn start_task_detail(
     });
 }
 
+fn start_instance_detail(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<Result<InstanceDetailUpdate, AppError>>,
+    query: InstanceDetailQuery,
+) {
+    tokio::spawn(async move {
+        let _ = sender.send(source.load_instance_detail(query).await).await;
+    });
+}
+
+fn start_instance_command(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<InstanceCommandResult>,
+    command: InstanceCommand,
+) {
+    tokio::spawn(async move {
+        let result = match command {
+            InstanceCommand::Start(instance_id) => {
+                InstanceCommandResult::Status(source.start_server(instance_id).await)
+            }
+            InstanceCommand::Stop(instance_id) => {
+                InstanceCommandResult::Status(source.stop_server(instance_id).await)
+            }
+            InstanceCommand::Console {
+                instance_id,
+                command,
+            } => InstanceCommandResult::Console(
+                source.send_console_command(instance_id, command).await,
+            ),
+        };
+        let _ = sender.send(result).await;
+    });
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum UiMode {
     Dashboard(Panel),
     Wizard(WizardStep),
     TaskDetail,
+    InstanceDetail { editing_console: bool },
 }
 
 fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMode) -> Action {
@@ -194,9 +284,30 @@ fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMode) -> Actio
             KeyCode::Char('r') => Action::RefreshTaskDetail,
             _ => Action::Ignore,
         },
+        UiMode::InstanceDetail { editing_console } => {
+            if editing_console {
+                match code {
+                    KeyCode::Esc => Action::ConsoleCancel,
+                    KeyCode::Enter => Action::ConsoleSubmit,
+                    KeyCode::Backspace => Action::ConsoleBackspace,
+                    KeyCode::Char(character) => Action::ConsoleInsert(character),
+                    _ => Action::Ignore,
+                }
+            } else {
+                match code {
+                    KeyCode::Esc | KeyCode::Backspace => Action::BackFromInstanceDetail,
+                    KeyCode::Char('r') => Action::RefreshInstanceDetail,
+                    KeyCode::Char('s') => Action::StartServer,
+                    KeyCode::Char('x') => Action::StopServer,
+                    KeyCode::Char(':') => Action::BeginConsoleInput,
+                    _ => Action::Ignore,
+                }
+            }
+        }
         UiMode::Dashboard(panel) => match code {
             KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
             KeyCode::Enter if panel == Panel::Tasks => Action::OpenTaskDetail,
+            KeyCode::Enter if panel == Panel::Instances => Action::OpenInstanceDetail,
             KeyCode::Char('n') => Action::OpenCreate,
             KeyCode::Up | KeyCode::Char('k') => Action::Previous,
             KeyCode::Down | KeyCode::Char('j') => Action::Next,
@@ -249,6 +360,34 @@ mod tests {
                 UiMode::Dashboard(Panel::Instances),
             ),
             Action::Refresh
+        );
+        assert_eq!(
+            action_for_key(
+                KeyCode::Enter,
+                KeyModifiers::NONE,
+                UiMode::Dashboard(Panel::Instances),
+            ),
+            Action::OpenInstanceDetail
+        );
+        assert_eq!(
+            action_for_key(
+                KeyCode::Char('s'),
+                KeyModifiers::NONE,
+                UiMode::InstanceDetail {
+                    editing_console: false,
+                },
+            ),
+            Action::StartServer
+        );
+        assert_eq!(
+            action_for_key(
+                KeyCode::Enter,
+                KeyModifiers::NONE,
+                UiMode::InstanceDetail {
+                    editing_console: true,
+                },
+            ),
+            Action::ConsoleSubmit
         );
         assert_eq!(
             action_for_key(

@@ -97,6 +97,50 @@ pub struct InstanceSummary {
     pub created_at: DateTime<Utc>,
 }
 
+/// Observed lifecycle state of one installed server instance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ServerState {
+    Installed,
+    Starting,
+    Running,
+    Stopping,
+    Stopped,
+    Failed,
+    Unknown,
+}
+
+/// Instance information combined with the daemon's current process observation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstanceDetail {
+    pub instance: InstanceSummary,
+    pub server: ServerSnapshot,
+}
+
+/// Process status is an observation; an unverified process is always `unknown`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerSnapshot {
+    pub instance_id: Uuid,
+    pub state: ServerState,
+    /// Java process ID when available; absent while the resident runner starts it.
+    pub pid: Option<u32>,
+    pub port: u16,
+    pub address: String,
+    pub started_at: Option<DateTime<Utc>>,
+    pub last_exit_code: Option<i32>,
+    pub message: String,
+}
+
+/// A bounded slice of the captured server console log.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerLogChunk {
+    pub instance_id: Uuid,
+    pub start_offset: u64,
+    pub next_offset: u64,
+    pub content: String,
+    pub truncated: bool,
+}
+
 impl ArtifactPlan {
     #[allow(clippy::too_many_arguments)]
     pub fn new(

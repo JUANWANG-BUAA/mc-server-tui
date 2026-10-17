@@ -1,4 +1,6 @@
 mod app;
+mod instance_detail;
+mod instance_detail_view;
 mod runtime;
 mod source;
 mod task_detail;

@@ -14,4 +14,7 @@ pub(crate) struct Args {
     /// Download cache base directory. Defaults to the platform cache directory.
     #[arg(long, env = "MC_SERVER_TUI_CACHE_DIR")]
     pub cache_dir: Option<PathBuf>,
+    /// Internal resident runner mode. Managed by the daemon, not a user command.
+    #[arg(long, hide = true)]
+    pub internal_runner: Option<uuid::Uuid>,
 }

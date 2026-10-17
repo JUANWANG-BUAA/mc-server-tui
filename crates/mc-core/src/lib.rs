@@ -12,8 +12,8 @@ pub use api::{
 };
 pub use doctor::{DoctorCheck, DoctorCheckStatus, DoctorReport, JavaRuntime};
 pub use domain::{
-    ArtifactPlan, BuildInfo, Checksum, ChecksumAlgorithm, InstanceSummary, ReleaseChannel,
-    ServerVersion,
+    ArtifactPlan, BuildInfo, Checksum, ChecksumAlgorithm, InstanceDetail, InstanceSummary,
+    ReleaseChannel, ServerLogChunk, ServerSnapshot, ServerState, ServerVersion,
 };
 pub use error::{AppError, ErrorCode};
 pub use provider::ServerProvider;

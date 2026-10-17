@@ -20,6 +20,14 @@ pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState) {
             return;
         }
     }
+    if app.instance_detail_visible {
+        if let Some(detail) = &app.instance_detail {
+            crate::instance_detail_view::render(frame, detail);
+        } else if let Some(instance_id) = app.instance_detail_id {
+            crate::instance_detail_view::render_loading(frame, instance_id);
+        }
+        return;
+    }
     render_dashboard(frame, app);
 }
 
@@ -152,7 +160,7 @@ fn render_tasks(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
 fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
     let lines = vec![
         Line::from(Span::styled(app.status.clone(), status_style(&app.status))),
-        Line::from("↑/↓ 选择 · Tab 切换 · Enter 任务详情 · n 新建 · r 刷新 · q 退出"),
+        Line::from("↑/↓ 选择 · Tab 切换 · Enter 打开 · n 新建 · r 刷新 · q 退出"),
     ];
     frame.render_widget(Paragraph::new(lines), area);
 }

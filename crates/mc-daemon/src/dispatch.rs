@@ -50,6 +50,12 @@ pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiRes
             .await
             .map(ApiResponse::Instances)
             .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::GetInstanceDetail { instance_id } => state
+            .supervisor
+            .detail(instance_id)
+            .await
+            .map(ApiResponse::InstanceDetail)
+            .unwrap_or_else(ApiResponse::Error),
         ApiRequest::CreatePaperInstance {
             name,
             game_version,
@@ -77,6 +83,44 @@ pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiRes
             Ok(task) => ApiResponse::TaskQueued(task),
             Err(error) => ApiResponse::Error(error),
         },
+        ApiRequest::StartServer { instance_id } => state
+            .supervisor
+            .start(instance_id)
+            .await
+            .map(ApiResponse::ServerStatus)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::StopServer {
+            instance_id,
+            timeout_seconds,
+        } => state
+            .supervisor
+            .stop(
+                instance_id,
+                (timeout_seconds != 0)
+                    .then(|| std::time::Duration::from_secs(u64::from(timeout_seconds.min(60)))),
+            )
+            .await
+            .map(ApiResponse::ServerStatus)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::SendConsoleCommand {
+            instance_id,
+            command,
+        } => state
+            .supervisor
+            .send_console_command(instance_id, &command)
+            .await
+            .map(|()| ApiResponse::ConsoleCommandAccepted)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::ReadServerLogs {
+            instance_id,
+            after_offset,
+            max_bytes,
+        } => state
+            .supervisor
+            .read_logs(instance_id, after_offset, max_bytes)
+            .await
+            .map(ApiResponse::ServerLogs)
+            .unwrap_or_else(ApiResponse::Error),
         ApiRequest::ListTasks { limit } => state
             .tasks
             .list(limit)

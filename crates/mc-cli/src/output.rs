@@ -96,6 +96,24 @@ pub(crate) fn print_response(
                 }
             }
         }
+        ApiResponse::InstanceDetail(detail) => {
+            print_instance(&detail.instance);
+            print_server(&detail.server);
+            println!("Java: {}", detail.instance.java_path.display());
+            println!(
+                "Memory: {}–{} MiB",
+                detail.instance.min_memory_mb, detail.instance.max_memory_mb
+            );
+        }
+        ApiResponse::ServerStatus(server) => print_server(&server),
+        ApiResponse::ServerLogs(logs) => {
+            print!("{}", logs.content);
+            if logs.truncated {
+                eprintln!("[earlier server log output was rotated]");
+            }
+            eprintln!("[log byte cursor: {}]", logs.next_offset);
+        }
+        ApiResponse::ConsoleCommandAccepted => println!("Console command accepted."),
         ApiResponse::TaskQueued(task) => {
             println!("Task queued: {}", task.id);
             print_task(&task);
@@ -181,6 +199,34 @@ fn print_instance(instance: &InstanceSummary) {
         instance.port,
         instance.directory.display()
     );
+}
+
+fn print_server(server: &mc_core::ServerSnapshot) {
+    println!(
+        "Server: {} · {} · pid {}",
+        server_state_label(server.state),
+        server.address,
+        server
+            .pid
+            .map(|pid| pid.to_string())
+            .unwrap_or_else(|| "—".to_owned())
+    );
+    println!("{}", server.message);
+    if let Some(code) = server.last_exit_code {
+        println!("Last exit code: {code}");
+    }
+}
+
+fn server_state_label(state: mc_core::ServerState) -> &'static str {
+    match state {
+        mc_core::ServerState::Installed => "installed",
+        mc_core::ServerState::Starting => "starting",
+        mc_core::ServerState::Running => "running",
+        mc_core::ServerState::Stopping => "stopping",
+        mc_core::ServerState::Stopped => "stopped",
+        mc_core::ServerState::Failed => "failed",
+        mc_core::ServerState::Unknown => "unknown",
+    }
 }
 
 fn format_bytes(bytes: u64) -> String {

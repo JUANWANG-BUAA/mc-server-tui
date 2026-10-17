@@ -11,6 +11,7 @@ use directories::ProjectDirs;
 use mc_core::{AppError, ErrorCode, ServerProvider};
 use mc_download::{DownloadConfig, DownloadManager};
 use mc_instance::InstanceService;
+use mc_supervisor::ProcessSupervisor;
 use mc_task::TaskManager;
 use provider_paper::PaperProvider;
 use state::DaemonState;
@@ -27,13 +28,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let args = Args::parse();
-    let user_agent = std::env::var("MC_SERVER_TUI_USER_AGENT").map_err(|_| {
-        AppError::new(
-            ErrorCode::UserAgentRequired,
-            "Paper User-Agent is required.",
-        )
-    })?;
-    let provider: Arc<dyn ServerProvider> = Arc::new(PaperProvider::new(Some(user_agent.clone()))?);
     let project_dirs = ProjectDirs::from("org", "mc-server-tui", "mc-server-tui")
         .ok_or("could not determine application directories")?;
     let state_dir = args.state_dir.unwrap_or_else(|| {
@@ -42,6 +36,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or(project_dirs.data_local_dir())
             .to_path_buf()
     });
+    if let Some(instance_id) = args.internal_runner {
+        let instances = InstanceService::open(&state_dir).await?;
+        mc_supervisor::run_instance_runner(instances, instance_id).await?;
+        return Ok(());
+    }
+
+    let user_agent = std::env::var("MC_SERVER_TUI_USER_AGENT").map_err(|_| {
+        AppError::new(
+            ErrorCode::UserAgentRequired,
+            "Paper User-Agent is required.",
+        )
+    })?;
+    let provider: Arc<dyn ServerProvider> = Arc::new(PaperProvider::new(Some(user_agent.clone()))?);
     let cache_dir = args
         .cache_dir
         .unwrap_or_else(|| project_dirs.cache_dir().to_path_buf());
@@ -51,11 +58,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|| state_dir.join("run").join("daemon.sock"));
     let downloader = DownloadManager::new(DownloadConfig::paper(cache_dir, user_agent))?;
     let instances = InstanceService::open(&state_dir).await?;
+    let supervisor = ProcessSupervisor::new(instances.clone());
     let tasks = TaskManager::open(state_dir.join("index.sqlite3")).await?;
     let state = Arc::new(DaemonState {
         provider,
         downloader,
         instances,
+        supervisor,
         tasks,
     });
 

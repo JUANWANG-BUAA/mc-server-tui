@@ -1034,6 +1034,7 @@ dependencies = [
  "mc-core",
  "mc-download",
  "mc-instance",
+ "mc-supervisor",
  "mc-system",
  "mc-task",
  "provider-paper",
@@ -1041,6 +1042,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -1076,6 +1078,24 @@ dependencies = [
  "tokio",
  "toml",
  "url",
+ "uuid",
+]
+
+[[package]]
+name = "mc-supervisor"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fs2",
+ "libc",
+ "mc-core",
+ "mc-instance",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "toml",
+ "tracing",
  "uuid",
 ]
 

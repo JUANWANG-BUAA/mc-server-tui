@@ -75,6 +75,18 @@ impl InstanceService {
             })?
     }
 
+    /// Resolve one committed instance from the rebuildable catalog.
+    pub async fn get_async(&self, id: Uuid) -> Result<InstanceSummary, AppError> {
+        self.list_async()
+            .await?
+            .into_iter()
+            .find(|instance| instance.id == id)
+            .ok_or_else(|| {
+                AppError::new(ErrorCode::InstanceNotFound, "The instance does not exist.")
+                    .with_evidence(format!("instance_id={id}"))
+            })
+    }
+
     pub async fn create(
         &self,
         plan: &ArtifactPlan,

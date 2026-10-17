@@ -1,6 +1,6 @@
 # Instance and task data contract
 
-> Version 0.2 · 2026-10-17 · implementation contract and current storage status
+> Version 0.3 · 2026-10-17 · implementation contract and current storage status
 
 This contract records the storage boundary from `BASE_IMPLEMENTATION_PLAN.md` and `BASE_READINESS_REVIEW.md`.
 
@@ -12,6 +12,9 @@ This contract records the storage boundary from `BASE_IMPLEMENTATION_PLAN.md` an
 - Exact installed artifact: `lock.json`.
 - Server working directory: `server/`.
 - Logs, backups, and recognized temporary work: `logs/`, `backups/`, and `tmp/`.
+- Captured Java console output: `logs/console.log` (incremental byte offsets; the runner rotates at 32 MiB and keeps one previous segment as `console.log.1`).
+- Per-instance runner identity, Java PID, and requested-stop flag: `server/supervisor.json`; lifecycle exclusion lock: `server/.lifecycle.lock`.
+- Runner control socket: `<system-temp>/mcst-<uid>/<instance-uuid>.sock`, in a user-owned mode-0700 directory; the socket is mode 0600 and is removed when the runner exits.
 - Global instance index, task records, and task events: `<state>/index.sqlite3`.
 - Shared verified artifact cache: `<cache>/mc-server-tui-artifacts/sha256/<first-two-hex>/<sha256>`.
 
@@ -36,4 +39,4 @@ The persistence module must add migration tests and crash-recovery tests before 
 
 ## Implementation status
 
-The `mc-instance` module implements schema version 1 for `instance.toml`, `lock.json`, and the rebuildable SQLite `instances` index. The `mc-task` module stores durable task snapshots and ordered events in the same database, with its own transactional `mc_task_schema` version 1 migration. Index snapshots are rebuilt from committed instance directories at daemon startup; interrupted `.staging-*` directories are moved to `instances/quarantine/`. Queued/running tasks become `interrupted` on daemon startup and are not replayed automatically. Task progress currently tracks phases, not transferred bytes. In-place config migration, cancellation, and safe task resume remain unimplemented.
+The `mc-instance` module implements schema version 1 for `instance.toml`, `lock.json`, and the rebuildable SQLite `instances` index. The `mc-task` module stores durable task snapshots and ordered events in the same database, with its own transactional `mc_task_schema` version 1 migration. `mc-supervisor` stores runtime process identity separately from user config and artifact lock data. Index snapshots are rebuilt from committed instance directories at daemon startup; interrupted `.staging-*` directories are moved to `instances/quarantine/`. Queued/running tasks become `interrupted` on daemon startup and are not replayed automatically. Task progress currently tracks phases, not transferred bytes. In-place config migration, cancellation, and safe task resume remain unimplemented.

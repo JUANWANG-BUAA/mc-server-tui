@@ -2,9 +2,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use mc_client::DaemonClient;
-use mc_core::{ApiRequest, ApiResponse, AppError, ErrorCode};
+use mc_core::{ApiRequest, ApiResponse, AppError, ErrorCode, ServerSnapshot};
 
-use crate::{app::DashboardData, task_detail::TaskDetailUpdate, wizard::CreateInstanceInput};
+use crate::{
+    app::DashboardData,
+    instance_detail::{InstanceDetailQuery, InstanceDetailUpdate},
+    task_detail::TaskDetailUpdate,
+    wizard::CreateInstanceInput,
+};
 
 #[async_trait]
 pub(crate) trait ManagementSource: Send + Sync {
@@ -18,6 +23,17 @@ pub(crate) trait ManagementSource: Send + Sync {
         task_id: uuid::Uuid,
         after_sequence: i64,
     ) -> Result<TaskDetailUpdate, AppError>;
+    async fn load_instance_detail(
+        &self,
+        query: InstanceDetailQuery,
+    ) -> Result<InstanceDetailUpdate, AppError>;
+    async fn start_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
+    async fn stop_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
+    async fn send_console_command(
+        &self,
+        instance_id: uuid::Uuid,
+        command: String,
+    ) -> Result<(), AppError>;
 }
 
 pub(crate) struct DaemonDashboardSource {
@@ -88,6 +104,71 @@ impl ManagementSource for DaemonDashboardSource {
         }
         Ok(TaskDetailUpdate { task, events })
     }
+
+    async fn load_instance_detail(
+        &self,
+        query: InstanceDetailQuery,
+    ) -> Result<InstanceDetailUpdate, AppError> {
+        let (detail, logs) = tokio::join!(
+            self.client.request(ApiRequest::GetInstanceDetail {
+                instance_id: query.instance_id,
+            }),
+            self.client.request(ApiRequest::ReadServerLogs {
+                instance_id: query.instance_id,
+                after_offset: query.after_offset,
+                max_bytes: 16 * 1024,
+            }),
+        );
+        let detail = expect_instance_detail(detail?)?;
+        let logs = expect_server_logs(logs?)?;
+        if detail.instance.id != query.instance_id
+            || detail.server.instance_id != query.instance_id
+            || logs.instance_id != query.instance_id
+        {
+            return Err(unexpected_response("instance detail"));
+        }
+        Ok(InstanceDetailUpdate { detail, logs })
+    }
+
+    async fn start_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError> {
+        expect_server_status(
+            self.client
+                .request(ApiRequest::StartServer { instance_id })
+                .await?,
+            "start server",
+        )
+    }
+
+    async fn stop_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError> {
+        expect_server_status(
+            self.client
+                .request(ApiRequest::StopServer {
+                    instance_id,
+                    timeout_seconds: 20,
+                })
+                .await?,
+            "stop server",
+        )
+    }
+
+    async fn send_console_command(
+        &self,
+        instance_id: uuid::Uuid,
+        command: String,
+    ) -> Result<(), AppError> {
+        match self
+            .client
+            .request(ApiRequest::SendConsoleCommand {
+                instance_id,
+                command,
+            })
+            .await?
+        {
+            ApiResponse::ConsoleCommandAccepted => Ok(()),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("server console")),
+        }
+    }
 }
 
 fn expect_instances(response: ApiResponse) -> Result<Vec<mc_core::InstanceSummary>, AppError> {
@@ -119,6 +200,30 @@ fn expect_task_events(response: ApiResponse) -> Result<Vec<mc_core::TaskEvent>, 
         ApiResponse::TaskEvents(events) => Ok(events),
         ApiResponse::Error(error) => Err(error),
         _ => Err(unexpected_response("task event list")),
+    }
+}
+
+fn expect_instance_detail(response: ApiResponse) -> Result<mc_core::InstanceDetail, AppError> {
+    match response {
+        ApiResponse::InstanceDetail(detail) => Ok(detail),
+        ApiResponse::Error(error) => Err(error),
+        _ => Err(unexpected_response("instance detail")),
+    }
+}
+
+fn expect_server_status(response: ApiResponse, action: &str) -> Result<ServerSnapshot, AppError> {
+    match response {
+        ApiResponse::ServerStatus(status) => Ok(status),
+        ApiResponse::Error(error) => Err(error),
+        _ => Err(unexpected_response(action)),
+    }
+}
+
+fn expect_server_logs(response: ApiResponse) -> Result<mc_core::ServerLogChunk, AppError> {
+    match response {
+        ApiResponse::ServerLogs(logs) => Ok(logs),
+        ApiResponse::Error(error) => Err(error),
+        _ => Err(unexpected_response("server logs")),
     }
 }
 

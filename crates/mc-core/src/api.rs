@@ -5,7 +5,7 @@ use crate::{
     TaskSnapshot,
 };
 
-pub const API_PROTOCOL_VERSION: u16 = 3;
+pub const API_PROTOCOL_VERSION: u16 = 4;
 
 /// Versioned request envelope shared by CLI, TUI, and the local daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +53,9 @@ pub enum ApiRequest {
         build_id: Option<u64>,
     },
     ListInstances,
+    GetInstanceDetail {
+        instance_id: uuid::Uuid,
+    },
     CreatePaperInstance {
         name: String,
         game_version: String,
@@ -62,6 +65,22 @@ pub enum ApiRequest {
         max_memory_mb: u32,
         port: u16,
         accept_eula: bool,
+    },
+    StartServer {
+        instance_id: uuid::Uuid,
+    },
+    StopServer {
+        instance_id: uuid::Uuid,
+        timeout_seconds: u16,
+    },
+    SendConsoleCommand {
+        instance_id: uuid::Uuid,
+        command: String,
+    },
+    ReadServerLogs {
+        instance_id: uuid::Uuid,
+        after_offset: u64,
+        max_bytes: u32,
     },
     ListTasks {
         limit: u16,
@@ -84,6 +103,10 @@ pub enum ApiResponse {
     PaperBuilds(Vec<BuildInfo>),
     ArtifactPlan(Box<ArtifactPlan>),
     Instances(Vec<InstanceSummary>),
+    InstanceDetail(crate::InstanceDetail),
+    ServerStatus(crate::ServerSnapshot),
+    ServerLogs(crate::ServerLogChunk),
+    ConsoleCommandAccepted,
     TaskQueued(TaskSnapshot),
     Tasks(Vec<TaskSnapshot>),
     Task(TaskSnapshot),

@@ -16,22 +16,19 @@
 | 上游来源 | Paper 与 Vanilla 官方元数据链、服务端专用产物和校验字段已定义 | Paper 先做；每次解析锁定精确构建；维护真实 User-Agent |
 | 镜像加速 | 信任边界正确，阶段划分合理 | 首条闭环只需官方 CDN + 本机缓存 + 失败重试；代理/自定义镜像后接，不拖慢建服 |
 | Java | “已安装 Java 优先”合理 | 首条闭环必须有扫描、版本/架构识别、逐实例绑定和启动前预检；托管 JDK 后接 |
-| 进程监督 | **高风险，尚未定型** | 在实现持久运行前完成 macOS/Linux 原型与生命周期协议；见下文 |
+| 进程监督 | **生命周期原型已完成，平台服务仍未完成** | macOS 已验证常驻 runner、私有 Unix 控制 socket 和 daemon 退出后重连；Linux `/proc` 待验证；launchd/systemd 用户级 daemon 服务仍待实现 |
 | 备份恢复 | 方向正确，在线一致性细节未定 | 在开始备份模块前定义命令应答、超时、失败清理、恢复步骤；先支持停服备份也可完成早期内测 |
 | 数据模型 | 身份和存储分层清楚，字段与事务边界未定 | 在写持久化代码前补实例、任务、锁文件 schema 及迁移规则 |
 | TUI | 导航与视觉目标足够启动原型 | 先画空状态、新建、运行、失败四屏；完整焦点/返回规则随 TUI 模块落地 |
 | 发布支持 | 目标平台清楚，最小系统/终端版本未定 | 在公开 Alpha 前确定；不阻塞本机开发 |
 
-### 最大风险：后台进程与控制台所有权
+### 后台进程与控制台所有权：验证跟进
 
-当前“全局 daemon 直接启动 Java”不足以自动保证 daemon 重启后仍能向原 Java 进程发送控制台命令。管道、进程组与服务管理器的重启行为需要实际验证；仅重新找到 PID 不能恢复已经失去的 stdin 句柄。Linux 的 [systemd 进程/控制组模型](https://github.com/systemd/systemd/blob/main/man/systemd.kill.xml)与 macOS 的 [launchd 作业管理](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html)也不能未经验证就视为行为一致。
+已实现的方案由常驻 runner 独占 Java stdin/stdout/stderr，通过用户私有 Unix socket 收发控制台命令，并用进程命令行中的 UUID 标记核验 runner 身份。macOS 子进程测试已验证管理 daemon 进程退出后，新 supervisor 可重新连接、读取日志并优雅停止；仅凭 PID 不会发送控制操作。Linux 使用 `/proc/<pid>/cmdline`，尚待实际运行验证。系统重启后自动恢复不在当前实现范围内，launchd/systemd daemon 安装仍是未完成工作。
 
-在第二阶段实施前，对两种方案做小实验：
+当前已选定每实例常驻 runner：它持有 Java 的 stdin/stdout/stderr 与本机控制端点，全局 daemon 负责索引与任务，并在重启后重新连接 runner。后续重点是验证 Linux `/proc` 路径，以及由 OS 服务管理器托管 daemon 的安装、卸载和登录启动行为。
 
-1. 每实例独立 runner 持有 Java 的 stdin/stdout、身份和本机控制端点；全局 daemon 负责索引与任务，重启后重新连接 runner。
-2. 由 OS 服务管理器按实例托管运行进程；核实跨平台控制台输入、退出状态和日志追踪能力。
-
-至少验证：关闭 TUI、断开 SSH、故意杀死全局 daemon、重启 daemon、重启机器、实例进程异常退出，以及连续两次启动。通过条件是**不误杀、不重复启动、状态可判定、控制台与日志能继续使用**。若某平台暂时做不到，产品状态必须真实显示“运行但控制通道不可用”，不能宣称完全接管。选定方案后写生命周期协议，再实现持久监督。
+至少验证 Linux 上关闭 TUI、断开 SSH、故意杀死并重启 daemon、实例进程异常退出和连续两次启动；补充 launchd/systemd 用户级服务安装与卸载、登录启动行为。重启机器后的服务自启须等 OS 服务实现后验收。通过条件仍是**不误杀、不重复启动、状态可判定、控制台与日志能继续使用**。
 
 ### 数据与操作的最小不变量
 

@@ -24,6 +24,13 @@ pub enum ErrorCode {
     TaskQueueFull,
     TaskNotFound,
     TaskInterrupted,
+    InstanceBusy,
+    InstanceNotFound,
+    ServerStartFailed,
+    ServerStopTimeout,
+    ServerStatusUnknown,
+    ServerNotRunning,
+    InvalidConsoleCommand,
     Internal,
 }
 
@@ -48,6 +55,13 @@ impl fmt::Display for ErrorCode {
             Self::TaskQueueFull => "TASK_QUEUE_FULL",
             Self::TaskNotFound => "TASK_NOT_FOUND",
             Self::TaskInterrupted => "TASK_INTERRUPTED",
+            Self::InstanceBusy => "INSTANCE_BUSY",
+            Self::InstanceNotFound => "INSTANCE_NOT_FOUND",
+            Self::ServerStartFailed => "SERVER_START_FAILED",
+            Self::ServerStopTimeout => "SERVER_STOP_TIMEOUT",
+            Self::ServerStatusUnknown => "SERVER_STATUS_UNKNOWN",
+            Self::ServerNotRunning => "SERVER_NOT_RUNNING",
+            Self::InvalidConsoleCommand => "INVALID_CONSOLE_COMMAND",
             Self::Internal => "INTERNAL",
         };
         formatter.write_str(code)

@@ -6,6 +6,7 @@ members = [
     "crates/mc-download",
     "crates/mc-instance",
     "crates/mc-task",
+    "crates/mc-supervisor",
     "crates/provider-paper",
     "crates/mc-system",
     "crates/mc-daemon",

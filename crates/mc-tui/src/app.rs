@@ -1,6 +1,9 @@
+mod instance;
+
 use mc_core::{AppError, InstanceSummary, TaskSnapshot};
 
 use crate::{
+    instance_detail::{InstanceCommand, InstanceDetailState},
     task_detail::{TaskDetailQuery, TaskDetailState, TaskDetailUpdate},
     wizard::{CreateInstanceInput, CreateWizard, WizardAction, WizardOutcome},
 };
@@ -21,6 +24,16 @@ pub(crate) enum Action {
     OpenTaskDetail,
     BackFromTaskDetail,
     RefreshTaskDetail,
+    OpenInstanceDetail,
+    BackFromInstanceDetail,
+    RefreshInstanceDetail,
+    StartServer,
+    StopServer,
+    BeginConsoleInput,
+    ConsoleInsert(char),
+    ConsoleBackspace,
+    ConsoleSubmit,
+    ConsoleCancel,
     OpenCreate,
     Wizard(WizardAction),
     Ignore,
@@ -43,9 +56,15 @@ pub(crate) struct AppState {
     pub wizard: Option<CreateWizard>,
     pub task_detail: Option<TaskDetailState>,
     pub task_detail_visible: bool,
+    pub instance_detail: Option<InstanceDetailState>,
+    pub instance_detail_id: Option<uuid::Uuid>,
+    pub instance_detail_visible: bool,
     refresh_requested: bool,
     create_requested: Option<CreateInstanceInput>,
     task_detail_refresh_requested: bool,
+    instance_detail_refresh_requested: bool,
+    instance_command_requested: Option<InstanceCommand>,
+    instance_operation_pending: bool,
     should_quit: bool,
 }
 
@@ -61,9 +80,15 @@ impl Default for AppState {
             wizard: None,
             task_detail: None,
             task_detail_visible: false,
+            instance_detail: None,
+            instance_detail_id: None,
+            instance_detail_visible: false,
             refresh_requested: false,
             create_requested: None,
             task_detail_refresh_requested: false,
+            instance_detail_refresh_requested: false,
+            instance_command_requested: None,
+            instance_operation_pending: false,
             should_quit: false,
         }
     }
@@ -78,7 +103,7 @@ impl AppState {
                     if let Some(detail) = self.task_detail.as_mut() {
                         detail.scroll_older();
                     }
-                } else {
+                } else if !self.instance_detail_visible {
                     self.move_selection(false);
                 }
             }
@@ -87,7 +112,7 @@ impl AppState {
                     if let Some(detail) = self.task_detail.as_mut() {
                         detail.scroll_newer();
                     }
-                } else {
+                } else if !self.instance_detail_visible {
                     self.move_selection(true);
                 }
             }
@@ -111,6 +136,16 @@ impl AppState {
                     self.task_detail_refresh_requested = true;
                 }
             }
+            Action::OpenInstanceDetail => self.open_selected_instance_detail(),
+            Action::BackFromInstanceDetail => self.close_instance_detail(),
+            Action::RefreshInstanceDetail => self.request_instance_detail_refresh(),
+            Action::StartServer => self.queue_server_command(false),
+            Action::StopServer => self.queue_server_command(true),
+            Action::BeginConsoleInput => self.begin_console_input(),
+            Action::ConsoleInsert(character) => self.insert_console_character(character),
+            Action::ConsoleBackspace => self.backspace_console(),
+            Action::ConsoleCancel => self.cancel_console_input(),
+            Action::ConsoleSubmit => self.submit_console_command(),
             Action::OpenCreate => {
                 self.wizard = Some(CreateWizard::default());
             }
@@ -360,6 +395,33 @@ mod tests {
         state.update(Action::OpenTaskDetail);
 
         assert_eq!(state.take_task_detail_query().unwrap().after_sequence, 1);
+    }
+
+    #[test]
+    fn opening_instance_detail_starts_with_an_incremental_status_query() {
+        let instance_id = Uuid::new_v4();
+        let mut state = AppState {
+            instances: vec![InstanceSummary {
+                id: instance_id,
+                name: "生存服".to_owned(),
+                provider: "Paper".to_owned(),
+                game_version: "1.21.11".to_owned(),
+                build_id: 17,
+                java_path: "/opt/java/bin/java".into(),
+                min_memory_mb: 1024,
+                max_memory_mb: 4096,
+                port: 25565,
+                directory: "/tmp/server".into(),
+                created_at: Utc::now(),
+            }],
+            ..AppState::default()
+        };
+        state.update(Action::OpenInstanceDetail);
+        let query = state.take_instance_detail_query().unwrap();
+
+        assert!(state.instance_detail_visible);
+        assert_eq!(query.instance_id, instance_id);
+        assert_eq!(query.after_offset, 0);
     }
 
     fn task_snapshot() -> TaskSnapshot {
