@@ -15,7 +15,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use chrono::Utc;
 use mc_core::{
     AppError, ErrorCode, InstanceDetail, InstanceSummary, ServerLogChunk, ServerSnapshot,
-    ServerState,
+    ServerState, StoppedInstanceLease,
 };
 use mc_instance::InstanceService;
 use tokio::sync::{Mutex, OwnedMutexGuard};
@@ -39,6 +39,30 @@ pub struct ProcessSupervisor {
     instance_locks: Arc<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>>,
 }
 
+/// Holds the per-instance lifecycle locks while a stopped-world operation runs.
+///
+/// Keep this guard alive for the entire filesystem operation. It prevents a
+/// concurrent start/stop request from changing server state while the caller
+/// reads or replaces world files.
+#[must_use = "dropping this guard releases the stopped-instance reservation"]
+pub struct StoppedInstanceGuard {
+    instance: InstanceSummary,
+    _operation_guard: OwnedMutexGuard<()>,
+    _lifecycle_lock: std::fs::File,
+}
+
+impl StoppedInstanceGuard {
+    pub fn instance(&self) -> &InstanceSummary {
+        &self.instance
+    }
+}
+
+impl StoppedInstanceLease for StoppedInstanceGuard {
+    fn instance(&self) -> &InstanceSummary {
+        &self.instance
+    }
+}
+
 impl ProcessSupervisor {
     pub fn new(instances: InstanceService) -> Self {
         Self {
@@ -51,6 +75,45 @@ impl ProcessSupervisor {
         let (instance, _guard, _file_lock) = self.lock_instance(instance_id).await?;
         let server = self.snapshot_locked(&instance).await?;
         Ok(InstanceDetail { instance, server })
+    }
+
+    /// Reserve an instance for an offline world operation.
+    ///
+    /// The returned guard keeps both in-process and cross-process lifecycle
+    /// locks held until it is dropped. Callers should move blocking filesystem
+    /// work to `spawn_blocking` while retaining the guard.
+    pub async fn lock_stopped_instance(
+        &self,
+        instance_id: Uuid,
+    ) -> Result<StoppedInstanceGuard, AppError> {
+        let (instance, operation_guard, lifecycle_lock) = self.lock_instance(instance_id).await?;
+        if let Some(record) = storage::read_record(&instance).await? {
+            match process::inspect(&record).await? {
+                ProcessIdentity::Matches => {
+                    return Err(AppError::new(
+                        ErrorCode::InstanceBusy,
+                        "Stop the server before changing world files.",
+                    )
+                    .with_action("Request a graceful stop, wait until it exits, then retry.")
+                    .retryable());
+                }
+                ProcessIdentity::Unverified => return Err(unknown_process_error(record.pid)),
+                ProcessIdentity::NotRunning => {}
+            }
+        }
+        if !port_available(instance.port).await {
+            return Err(AppError::new(
+                ErrorCode::ServerStatusUnknown,
+                "The configured server port is occupied by an unverified process.",
+            )
+            .with_action("Inspect the process using the port before changing world files.")
+            .retryable());
+        }
+        Ok(StoppedInstanceGuard {
+            instance,
+            _operation_guard: operation_guard,
+            _lifecycle_lock: lifecycle_lock,
+        })
     }
 
     /// Start is idempotent. A live PID is reused only when its unique instance

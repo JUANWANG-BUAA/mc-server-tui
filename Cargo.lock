@@ -991,6 +991,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mc-backup"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "fs2",
+ "mc-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "mc-cli"
 version = "0.1.0"
 dependencies = [
@@ -1088,6 +1104,7 @@ dependencies = [
  "chrono",
  "fs2",
  "libc",
+ "mc-backup",
  "mc-core",
  "mc-instance",
  "serde",

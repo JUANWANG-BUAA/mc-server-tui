@@ -4,6 +4,7 @@ mod api;
 mod doctor;
 mod domain;
 mod error;
+mod lifecycle;
 mod provider;
 mod task;
 
@@ -16,6 +17,7 @@ pub use domain::{
     ReleaseChannel, ServerLogChunk, ServerSnapshot, ServerState, ServerVersion,
 };
 pub use error::{AppError, ErrorCode};
+pub use lifecycle::StoppedInstanceLease;
 pub use provider::ServerProvider;
 pub use task::{
     TaskEvent, TaskKind, TaskPhase, TaskProgress, TaskResult, TaskSnapshot, TaskStatus,

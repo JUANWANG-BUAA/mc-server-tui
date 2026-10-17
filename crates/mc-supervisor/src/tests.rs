@@ -1,12 +1,96 @@
 use std::{path::PathBuf, time::Duration};
 
 use chrono::Utc;
+use mc_backup::{BackupConsistency, BackupService};
 use mc_core::{InstanceSummary, ServerState};
 use mc_instance::{InstanceConfig, InstanceLock, InstanceService};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{storage, ProcessSupervisor};
+
+#[tokio::test]
+async fn stopped_instance_guard_excludes_lifecycle_changes_and_running_worlds() {
+    let mut fixture = Fixture::create().await;
+    fixture.release_port();
+    let supervisor = ProcessSupervisor::new(fixture.instances.clone());
+    let guard = supervisor
+        .lock_stopped_instance(fixture.instance.id)
+        .await
+        .expect("reserve a stopped instance");
+    assert_eq!(guard.instance().id, fixture.instance.id);
+
+    let start_supervisor = supervisor.clone();
+    let instance_id = fixture.instance.id;
+    let mut start = tokio::spawn(async move { start_supervisor.start(instance_id).await });
+    assert!(tokio::time::timeout(Duration::from_millis(100), &mut start)
+        .await
+        .is_err());
+    drop(guard);
+
+    let started = tokio::time::timeout(Duration::from_secs(4), start)
+        .await
+        .expect("start continues after releasing the guard")
+        .expect("start task joins")
+        .expect("server starts");
+    assert!(matches!(
+        started.state,
+        ServerState::Starting | ServerState::Running
+    ));
+
+    let denied = match supervisor.lock_stopped_instance(fixture.instance.id).await {
+        Ok(_guard) => panic!("running server was reserved for world changes"),
+        Err(error) => error,
+    };
+    assert_eq!(denied.code, mc_core::ErrorCode::InstanceBusy);
+
+    let stopped = supervisor
+        .stop(fixture.instance.id, Some(Duration::from_secs(2)))
+        .await
+        .expect("stop fake server");
+    assert_eq!(stopped.state, ServerState::Stopped);
+    fixture.remove().await;
+}
+
+#[tokio::test]
+async fn backup_service_uses_the_supervisor_lease_and_releases_it_after_copy() {
+    let mut fixture = Fixture::create().await;
+    fixture.release_port();
+    let server_dir = fixture.instance.directory.join("server");
+    tokio::fs::write(server_dir.join("server.properties"), "level-name=world\n")
+        .await
+        .expect("write world configuration");
+    tokio::fs::create_dir_all(server_dir.join("world/region"))
+        .await
+        .expect("create world region");
+    tokio::fs::write(server_dir.join("world/region/r.0.0.mca"), b"world data")
+        .await
+        .expect("write world data");
+
+    let supervisor = ProcessSupervisor::new(fixture.instances.clone());
+    let guard = supervisor
+        .lock_stopped_instance(fixture.instance.id)
+        .await
+        .expect("reserve stopped instance");
+    let backup_id = Uuid::new_v4();
+    let manifest = BackupService
+        .create(guard, backup_id)
+        .await
+        .expect("create backup through the async API");
+    assert_eq!(manifest.instance_id, fixture.instance.id);
+    assert_eq!(manifest.consistency, BackupConsistency::ServerStopped);
+    assert!(manifest
+        .entries
+        .iter()
+        .any(|entry| entry.path == "world/region/r.0.0.mca"));
+
+    let listed = BackupService
+        .list(&fixture.instance)
+        .await
+        .expect("list backup through async API");
+    assert_eq!(listed, [manifest]);
+    fixture.remove().await;
+}
 
 #[tokio::test]
 async fn starts_idempotently_accepts_console_input_and_stops_gracefully() {
@@ -40,6 +124,12 @@ async fn unknown_pid_is_never_signalled_or_replaced() {
         .await
         .expect("write unverified PID fixture");
 
+    let reservation = match supervisor.lock_stopped_instance(fixture.instance.id).await {
+        Ok(_guard) => panic!("unverified process was reserved for world changes"),
+        Err(error) => error,
+    };
+    assert_eq!(reservation.code, mc_core::ErrorCode::ServerStatusUnknown);
+
     let result = supervisor
         .start(fixture.instance.id)
         .await
@@ -68,6 +158,11 @@ async fn occupied_port_without_verified_process_is_unknown_and_not_started() {
     assert_eq!(detail.server.state, ServerState::Unknown);
     assert_eq!(start.state, ServerState::Unknown);
     assert!(start.pid.is_none());
+    let reservation = match supervisor.lock_stopped_instance(fixture.instance.id).await {
+        Ok(_guard) => panic!("occupied port was reserved for world changes"),
+        Err(error) => error,
+    };
+    assert_eq!(reservation.code, mc_core::ErrorCode::ServerStatusUnknown);
     fixture.remove().await;
 }
 
