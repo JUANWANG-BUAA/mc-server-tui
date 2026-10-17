@@ -1,6 +1,6 @@
 # World backup and restore contract
 
-> Version 0.1 · 2026-10-17 · first implementation supports stopped-server backups
+> Version 0.2 · 2026-10-17 · stopped-server backup plus restore transaction core
 
 This contract narrows the backup and recovery work in [the Base implementation plan](../BASE_IMPLEMENTATION_PLAN.md). It defines the first safe milestone and records the restore behavior that must be implemented before the feature is presented as a complete recovery flow.
 
@@ -45,23 +45,24 @@ Schema version 1 stores the backup UUID, instance UUID, UTC creation time, stopp
 
 The API exposes bounded `ListWorldBackups { instance_id, limit, cursor }` and `VerifyWorldBackup { instance_id, backup_id }` requests as durable tasks. `limit` must be 1–50. The paged listing reads and validates candidate manifests to establish a deterministic newest-first order (`created_at`, then UUID), caps the catalog at 1,000 entries, and fully rehashes only the returned page. The cursor contains the last row's timestamp and UUID, so equal timestamps do not cause duplicates or omissions. Returned task results contain only small summaries: ID, timestamp, consistency, file count, total bytes, and an optional next cursor. Full tree hashing and directory scans run on Tokio's blocking pool under the task manager's per-instance lock and global worker/outstanding limits. `backup verify` fully hashes the selected backup and returns the same bounded summary shape.
 
-The CLI provides `backup list <instance-id> [--limit N] [--cursor <RFC3339>~<UUID>]` and `backup verify <instance-id> <backup-id>`. In instance detail, `l` queues a three-item first page so the complete page fits in task detail. The TUI does not yet offer cursor navigation or a backup selection control for verification; those remain follow-up UI work.
+The CLI provides `backup list <instance-id> [--limit N] [--cursor <RFC3339>~<UUID>]`, `backup verify <instance-id> <backup-id>`, `backup plan-restore <instance-id> <backup-id>`, and `backup restore <instance-id> <backup-id> --confirm-token <token>`. The plan task displays the full replacement impact and exact token; restore rejects malformed or stale tokens. In instance detail, `l` queues a three-item first page so the complete page fits in task detail. The TUI does not yet offer cursor navigation, verification selection, or direct restore selection/confirmation.
 
 Create, list, and verify expose async methods. They run blocking filesystem and hash work on `tokio::task::spawn_blocking`; a worker join failure is returned as a typed `BackupError`.
 
-## Restore transaction: required before claiming recovery support
+## Restore transaction core
 
-Restore is not implemented in version 1. Its implementation must satisfy these steps before it is exposed in CLI/TUI:
+The mc-backup library now provides plan_restore, restore, has_pending_restore, and recover_pending. Restore methods consume the same StoppedInstanceLease used by backup creation and move it into spawn_blocking; cancellation of the async caller cannot release the lifecycle reservation while hashing or filesystem work continues.
 
-1. Obtain `StoppedInstanceGuard` and retain it until success or rollback completes.
-2. Verify the selected backup completely before changing live files; show the instance, backup time, world roots, and replacement impact to the user.
-3. Copy verified roots into a private restore staging directory on the same filesystem as `server/`.
-4. Rename current world roots into a uniquely named rollback area, then rename staged roots into place. Keep a durable operation journal so startup recovery can distinguish prepared, swapped, committed, and rolling-back states.
-5. If any replacement step fails, restore every prior root from the rollback area. Keep the rollback data until the new tree has passed a second integrity scan and the transaction is committed.
-6. Flush affected directories and preserve recovery evidence when rollback itself fails; never report success while the active world set is partial or uncertain.
+plan_restore fully verifies the selected backup, hashes the currently recognized world roots, and returns a BackupRestorePlan containing the backup timestamp, current and target roots, replaced/added/removed roots, estimated staging space, available space, and a confirmation token. A backup whose primary root differs from the configured level-name is rejected so restore cannot silently leave server.properties pointing at a different world. A missing primary root can be recreated. The token binds the instance, verified manifest, current root names, and current tree hashes; restore recomputes the plan under the stopped lease and rejects stale confirmation.
 
-Online backups, save-command acknowledgements, timeouts, and automatic retention are deferred. They require a separate consistency protocol and must not be inferred from the stopped-only marker.
+After confirmation, restore checks free space, copies the verified roots into a private staging directory under server/ (same filesystem), scans the staged copy against the manifest, and rechecks the live tree and manifest before the first live rename. It then moves the current recognized roots to a per-operation rollback directory and installs the staged roots. The operation directory contains a private marker and monotonically numbered, fsynced journal records for prepared, swapping, swapped, rolling_back, and committed states. Each root rename flushes both affected parent directories.
+
+Before commit, any returned error triggers an idempotent rollback. A rollback failure keeps the journal and available rollback data and returns a distinct error; it never reports success while the active root set is partial or uncertain. The new tree is scanned against the verified manifest before a durable committed journal is written. Committed rollback data is removed only after that point.
+
+The daemon checks for a marked restore operation before starting an instance. An interrupted non-committed operation is rolled back while holding the stopped-instance lease; a committed operation is cleaned up. An invalid journal or unconfirmed rollback blocks the start and preserves evidence for inspection. Unmarked directories with restore-like names are ignored.
+
+The versioned daemon protocol and CLI now expose durable plan and restore tasks. The plan result includes the affected roots, staging capacity, and exact confirmation token; restore requires that token and revalidates it under the stopped lease. The TUI can inspect and render plan results in task detail, but it does not yet provide direct backup selection and confirmation controls.
 
 ## Verification status
 
-The first implementation covers stopped-world discovery, space preflight, staged copy, SHA-256 manifest, paged listing, and verify. Create is exposed as a durable daemon task through the versioned API, the CLI, and the instance-detail TUI; duplicate create requests reuse the active backup task for that instance. Listing and verification run as bounded daemon tasks and are available through CLI commands; the TUI can queue and inspect a first-page listing. Tests exercise the lifecycle reservation, primary and dimension roots, safe-name and symlink rejection, duplicate IDs, active-task reuse, cursor ordering, page integrity, content tampering, bounded task results, and TUI queue feedback. Restore, recovery journaling, cursor navigation and verification selection in the TUI, and a real server backup/restore drill remain follow-up work; this is not yet a complete recovery flow.
+The implementation covers stopped-world discovery, space preflight, staged copy, SHA-256 manifest, paged listing, verification, and the local restore transaction core. Create is exposed as a durable daemon task through the versioned API, CLI, and instance-detail TUI; listing and verification are bounded daemon tasks available through CLI, with a first-page TUI action. Restore transaction tests cover impact planning, a missing primary root, extra dimension removal, backup tampering, stale confirmation, primary-world mismatch, injected replacement failure, and recovery after a simulated process interruption. Supervisor tests exercise the async lease-bearing restore methods. Restore planning and execution are exposed through protocol v7 durable tasks and CLI commands; the TUI still lacks direct restore selection and confirmation controls. A real Minecraft server backup/restore drill remains follow-up work.

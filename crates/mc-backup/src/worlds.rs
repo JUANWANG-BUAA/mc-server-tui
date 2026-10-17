@@ -13,7 +13,7 @@ const DEFAULT_LEVEL_NAME: &str = "world";
 /// complete backup or restore operation so the server cannot mutate the tree.
 pub fn discover_worlds(server_dir: &Path) -> Result<Vec<String>, BackupError> {
     ensure_real_directory(server_dir)?;
-    let level_name = read_level_name(server_dir)?;
+    let level_name = configured_level_name(server_dir)?;
     if !is_safe_world_name(&level_name) {
         return Err(BackupError::InvalidWorldName(level_name));
     }
@@ -47,6 +47,45 @@ pub fn discover_worlds(server_dir: &Path) -> Result<Vec<String>, BackupError> {
     }
     worlds.sort();
     Ok(worlds)
+}
+
+/// Returns recognized world roots that currently exist. Unlike
+/// discover_worlds, this permits a missing primary root so a verified backup
+/// can repair it.
+pub(crate) fn inspect_existing_worlds(server_dir: &Path) -> Result<Vec<String>, BackupError> {
+    ensure_real_directory(server_dir)?;
+    let level_name = configured_level_name(server_dir)?;
+    if !is_safe_world_name(&level_name) {
+        return Err(BackupError::InvalidWorldName(level_name));
+    }
+
+    let mut worlds = Vec::new();
+    for candidate in world_candidates(&level_name) {
+        let path = server_dir.join(&candidate);
+        match fs::symlink_metadata(&path) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(BackupError::UnsafeFilesystemEntry(path));
+            }
+            Ok(metadata) if metadata.is_dir() => worlds.push(candidate),
+            Ok(_) => return Err(BackupError::UnsafeFilesystemEntry(path)),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(io_error("Could not inspect a world directory", path, error)),
+        }
+    }
+    worlds.sort();
+    Ok(worlds)
+}
+
+pub(crate) fn configured_level_name(server_dir: &Path) -> Result<String, BackupError> {
+    read_level_name(server_dir)
+}
+
+pub(crate) fn world_candidates(level_name: &str) -> [String; 3] {
+    [
+        level_name.to_owned(),
+        format!("{level_name}_nether"),
+        format!("{level_name}_the_end"),
+    ]
 }
 
 pub(crate) fn ensure_real_directory(path: &Path) -> Result<(), BackupError> {

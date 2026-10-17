@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AppError, BackupPage, BackupSummary, InstanceSummary};
+use crate::{AppError, BackupPage, BackupRestorePlan, BackupSummary, InstanceSummary};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -11,6 +11,8 @@ pub enum TaskKind {
     CreateWorldBackup,
     ListWorldBackups,
     VerifyWorldBackup,
+    PlanWorldBackupRestore,
+    RestoreWorldBackup,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -34,6 +36,8 @@ pub enum TaskPhase {
     BackingUpWorld,
     ListingBackups,
     VerifyingBackup,
+    PlanningBackupRestore,
+    RestoringWorldBackup,
     Completed,
     Failed,
     Interrupted,
@@ -61,6 +65,14 @@ pub enum TaskResult {
         instance_id: Uuid,
         backup: BackupSummary,
     },
+    WorldBackupRestorePlanned {
+        instance_id: Uuid,
+        plan: BackupRestorePlan,
+    },
+    WorldBackupRestored {
+        instance_id: Uuid,
+        backup_id: Uuid,
+    },
 }
 
 impl TaskResult {
@@ -69,7 +81,9 @@ impl TaskResult {
             Self::InstanceCreated(instance) => instance.id,
             Self::WorldBackupCreated { instance_id, .. } => *instance_id,
             Self::WorldBackupsListed { instance_id, .. }
-            | Self::WorldBackupVerified { instance_id, .. } => *instance_id,
+            | Self::WorldBackupVerified { instance_id, .. }
+            | Self::WorldBackupRestorePlanned { instance_id, .. }
+            | Self::WorldBackupRestored { instance_id, .. } => *instance_id,
         }
     }
 }

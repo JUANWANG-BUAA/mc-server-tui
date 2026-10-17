@@ -7,6 +7,7 @@ use mc_instance::InstanceSpec;
 use mc_task::TaskReporter;
 
 use crate::backup::{create_world_backup_task, list_world_backups_task, verify_world_backup_task};
+use crate::backup_restore::{plan_world_backup_restore_task, restore_world_backup_task};
 use crate::state::DaemonState;
 
 struct PaperCreateCommand {
@@ -129,12 +130,42 @@ pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiRes
             Ok(task) => ApiResponse::TaskQueued(task),
             Err(error) => ApiResponse::Error(error),
         },
-        ApiRequest::StartServer { instance_id } => state
-            .supervisor
-            .start(instance_id)
-            .await
-            .map(ApiResponse::ServerStatus)
-            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::PlanWorldBackupRestore {
+            instance_id,
+            backup_id,
+        } => match plan_world_backup_restore_task(
+            &state.tasks,
+            &state.supervisor,
+            state.backups,
+            instance_id,
+            backup_id,
+        )
+        .await
+        {
+            Ok(task) => ApiResponse::TaskQueued(task),
+            Err(error) => ApiResponse::Error(error),
+        },
+        ApiRequest::RestoreWorldBackup {
+            instance_id,
+            backup_id,
+            confirmation_token,
+        } => match restore_world_backup_task(
+            &state.tasks,
+            &state.supervisor,
+            state.backups,
+            instance_id,
+            backup_id,
+            confirmation_token,
+        )
+        .await
+        {
+            Ok(task) => ApiResponse::TaskQueued(task),
+            Err(error) => ApiResponse::Error(error),
+        },
+        ApiRequest::StartServer { instance_id } => match start_server(state, instance_id).await {
+            Ok(snapshot) => ApiResponse::ServerStatus(snapshot),
+            Err(error) => ApiResponse::Error(error),
+        },
         ApiRequest::StopServer {
             instance_id,
             timeout_seconds,
@@ -189,6 +220,27 @@ pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiRes
             .map(ApiResponse::TaskEvents)
             .unwrap_or_else(ApiResponse::Error),
     }
+}
+
+async fn start_server(
+    state: &DaemonState,
+    instance_id: uuid::Uuid,
+) -> Result<mc_core::ServerSnapshot, AppError> {
+    let instance = state.instances.get_async(instance_id).await?;
+    if state
+        .backups
+        .has_pending_restore(&instance)
+        .await
+        .map_err(AppError::from)?
+    {
+        let guard = state.supervisor.lock_stopped_instance(instance_id).await?;
+        state
+            .backups
+            .recover_pending(guard)
+            .await
+            .map_err(AppError::from)?;
+    }
+    state.supervisor.start(instance_id).await
 }
 
 async fn create_paper_task(

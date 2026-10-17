@@ -87,7 +87,7 @@ def response_for(request):
                 "retryable": False,
             },
         }
-    return {"protocol_version": 6, "payload": response}
+    return {"protocol_version": 7, "payload": response}
 
 
 def main():
@@ -155,8 +155,30 @@ def main():
                             return False
                 return marker in re.sub(rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured))
 
+            def wait_for_animation_frames(timeout=3):
+                frames = ("◐".encode(), "◓".encode(), "◑".encode(), "◒".encode())
+                observed = set()
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    clean = ANSI_SEQUENCE.sub(b"", captured)
+                    observed.update(frame for frame in frames if frame in clean)
+                    if len(observed) >= 2:
+                        return observed
+                    ready, _, _ = select.select([master], [], [], 0.1)
+                    if ready:
+                        try:
+                            captured.extend(os.read(master, 65536))
+                        except OSError:
+                            break
+                return observed
+
             if not wait_for_output("q退出".encode()):
                 raise AssertionError("dashboard did not render with the fake daemon")
+            if not wait_for_output("下载校验".encode()):
+                raise AssertionError("dashboard did not load the running task")
+            animation_frames = wait_for_animation_frames()
+            if len(animation_frames) < 2:
+                raise AssertionError("running-task spinner did not advance between frames")
 
             os.write(master, b"\t")
             time.sleep(0.1)
@@ -219,6 +241,7 @@ def main():
                 raise AssertionError("TUI did not restore the alternate screen")
 
             print("Task detail render at 80×24: passed")
+            print("Running-task animation advanced between frames: passed")
             print(f"Event cursor refresh (0 → 2 → 3): {cursors} → passed")
             print("Reopen resumes from the last event sequence: passed")
             print("Task detail exit and alternate-screen cleanup: passed")

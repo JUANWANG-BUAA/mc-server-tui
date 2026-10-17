@@ -13,6 +13,27 @@ The TUI uses the daemon API and durable task event cursor; rendering and input h
 
 For a release candidate, run the TUI in a real terminal at the reference sizes, drive the fake daemon through each task state, and capture terminal screenshots. Review hierarchy, truncation, contrast, progress indication, and resize behavior against the same fixtures used by the renderer tests. A screenshot is a review artifact; the deterministic cell snapshot remains the CI regression check.
 
+The optional browser projection uses `ttyd` on localhost and a normal browser, so it can be used when host-window screenshots are unavailable. Start the protocol-v7 fake daemon and TUI from the repository root:
+
+```sh
+python3 -u scripts/tui_visual_fake_daemon.py --socket /tmp/mc-tui-visual.sock
+```
+
+In another terminal, build and project the TUI. The test command clears `NO_COLOR` only for this color review; the TUI itself continues to honor a user's `NO_COLOR` preference.
+
+```sh
+cargo build -p mc-tui
+env -u NO_COLOR ttyd --interface 127.0.0.1 --port 7681 --writable --max-clients 1 --client-option fontSize=17 ./target/debug/mc-server-tui --socket /tmp/mc-tui-visual.sock
+```
+
+Open `http://127.0.0.1:7681`. At a browser viewport of `820×520`, the terminal uses the 80×24 reference layout. Capture the dashboard first:
+
+```sh
+npx playwright screenshot --channel chrome --wait-for-timeout 1800 --viewport-size 820,520 http://127.0.0.1:7681 output/playwright/theme-dashboard-80x24.png
+```
+
+Then press `Enter` to open instance detail and `s` to exercise the running-state feedback. Capture the detail page with the same command, changing the output path to `output/playwright/theme-instance-detail-80x24.png`. The PTY test also verifies that a running-task spinner emits at least two distinct frames; no screenshot can establish motion from a single frame.
+
 The screen sequence is tested independently:
 
 | Screen | In-memory renderer/state | PTY interaction |
@@ -26,7 +47,7 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 ## 历史真实终端验收记录（2026-10-17）
 
-历史真实终端记录使用协议 v5 假 daemon，在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件。当前接口扩展后，`scripts/tui_visual_fake_daemon.py` 和 PTY 假 daemon 已升级到协议 v6，并提供分页列表结果；本轮通过实际 TUI 进程的 PTY 测试验证 `l` 请求及任务详情结果。此轮没有重新采集可用于像素检查的宿主终端截图。
+这条历史记录最初使用协议 v5 假 daemon，在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件；之后曾升级至协议 v6 并加入分页列表。当前假 daemon 和 PTY 回归已升级到协议 v7，包含恢复计划及恢复任务接口。
 
 复跑时先执行 `cargo build -p mc-tui`，然后在一个终端启动 `python3 -u scripts/tui_visual_fake_daemon.py --socket /tmp/mc-tui-visual.sock`，再在另一个终端运行 `./target/debug/mc-server-tui --socket /tmp/mc-tui-visual.sock`。结束 TUI 后用 Ctrl-C 停止假 daemon。
 
@@ -48,8 +69,16 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 ## 本轮自动化回归
 
-- `cargo test --workspace --all-features --no-fail-fast`：通过，85 项单元测试全部通过。
+- `cargo test --workspace --all-features --no-fail-fast`：通过，100 项单元测试全部通过。
 - `cargo clippy --workspace --all-targets --all-features -- -D warnings`：通过。
 - `cargo fmt --all --check`：通过。
 - `python3 -m py_compile scripts/tui_visual_fake_daemon.py scripts/tui_pty_smoke.py scripts/tui_task_detail_pty.py scripts/tui_instance_detail_pty.py`：通过。
-- 三个 PTY 脚本全部通过：仪表盘及向导在 daemon 请求挂起时保持响应，Ctrl-C 在 0.00 秒内退出并恢复 alternate screen；任务事件游标 `0 → 2 → 3` 且重开从最后游标继续；实例页 `b`/`l` 分别提交目标实例备份和有界列表任务，任务详情显示文件数与总字节数，之后启动、日志增量、控制台命令、优雅停止和终端恢复均通过。
+- 三个 PTY 脚本全部通过：仪表盘及向导在 daemon 请求挂起时保持响应，Ctrl-C 在 0.00 秒内退出并恢复 alternate screen；任务事件游标 `0 → 2 → 3` 且重开从最后游标继续，运行任务 spinner 输出至少两种帧；实例页 `b`/`l` 分别提交目标实例备份和有界列表任务，任务详情显示文件数与总字节数，之后启动、日志增量、控制台命令、优雅停止和终端恢复均通过。实例 PTY 另外确认 TUI 发出了配置的 24 位 ANSI 品牌色。
+
+### 浏览器投射视觉闭环（2026-10-17）
+
+使用 `ttyd 1.7.7` 将真实 `mc-server-tui` 进程投射到仅监听 `127.0.0.1:7681` 的浏览器终端，并连接协议 v7 假 daemon。Playwright 截取 820×520 浏览器视口，视觉检查 80×24 仪表盘和实例详情：仪表盘使用堆叠面板，实例详情显示状态色、强调字段、日志区和分色快捷键。图像保存在 `output/playwright/theme-dashboard-80x24.png` 与 `output/playwright/theme-instance-detail-80x24.png`。浏览器截图中的任务状态处于活动态；动画帧变化通过 PTY 字节流回归验证。
+
+![80×24 彩色仪表盘](../output/playwright/theme-dashboard-80x24.png)
+
+![80×24 彩色实例详情](../output/playwright/theme-instance-detail-80x24.png)

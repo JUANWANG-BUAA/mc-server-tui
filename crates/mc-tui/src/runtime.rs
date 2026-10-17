@@ -1,23 +1,26 @@
 use std::{io, sync::Arc, time::Duration};
 
-use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind, KeyModifiers};
+use crossterm::event::{Event, EventStream, KeyEventKind};
 use futures_util::StreamExt;
 use mc_core::AppError;
 use ratatui::{backend::CrosstermBackend, Terminal};
 use tokio::sync::mpsc;
 
+mod input;
+
 use crate::{
-    app::{Action, AppState, DashboardData, Panel},
+    app::{Action, AppState, DashboardData},
     instance_detail::{
         InstanceCommand, InstanceCommandResult, InstanceDetailQuery, InstanceDetailUpdate,
     },
     source::ManagementSource,
     task_detail::{TaskDetailQuery, TaskDetailUpdate},
     view::render,
-    wizard::{CreateInstanceInput, WizardAction, WizardStep},
+    wizard::CreateInstanceInput,
 };
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(2);
+const ANIMATION_INTERVAL: Duration = Duration::from_millis(160);
 
 pub(crate) async fn run_app(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
@@ -30,6 +33,12 @@ pub(crate) async fn run_app(
         REFRESH_INTERVAL,
     );
     refresh_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut animation_timer = tokio::time::interval_at(
+        tokio::time::Instant::now() + ANIMATION_INTERVAL,
+        ANIMATION_INTERVAL,
+    );
+    animation_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut animation_frame = 0u8;
     let (refresh_tx, mut refresh_rx) = mpsc::channel::<Result<DashboardData, AppError>>(1);
     let (create_tx, mut create_rx) = mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
     let (detail_tx, mut detail_rx) = mpsc::channel::<Result<TaskDetailUpdate, AppError>>(1);
@@ -47,25 +56,15 @@ pub(crate) async fn run_app(
     start_refresh(Arc::clone(&source), refresh_tx.clone());
 
     while !state.should_quit() {
-        terminal.draw(|frame| render(frame, &state))?;
+        terminal.draw(|frame| render(frame, &state, animation_frame))?;
         tokio::select! {
             event = events.next() => match event {
                 Some(Ok(Event::Key(key))) if key.kind != KeyEventKind::Release => {
-                    let mode = if let Some(wizard) = &state.wizard {
-                        UiMode::Wizard(wizard.step)
-                    } else if state.task_detail_visible {
-                        UiMode::TaskDetail
-                    } else if state.instance_detail_visible {
-                        UiMode::InstanceDetail {
-                            editing_console: state
-                                .instance_detail
-                                .as_ref()
-                                .is_some_and(|detail| detail.editing_console),
-                        }
-                    } else {
-                        UiMode::Dashboard(state.focused_panel)
-                    };
-                    let action = action_for_key(key.code, key.modifiers, mode);
+                    let action = input::action_for_key(
+                        key.code,
+                        key.modifiers,
+                        input::mode_for_state(&state),
+                    );
                     state.update(action);
                 }
                 Some(Ok(Event::Resize(_, _))) => {}
@@ -87,6 +86,9 @@ pub(crate) async fn run_app(
                 } else {
                     state.update(Action::Refresh);
                 }
+            }
+            _ = animation_timer.tick(), if state.has_animated_work() => {
+                animation_frame = animation_frame.wrapping_add(1);
             }
             result = refresh_rx.recv(), if refresh_in_flight => {
                 refresh_in_flight = false;
@@ -257,229 +259,4 @@ fn start_instance_command(
         };
         let _ = sender.send(result).await;
     });
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum UiMode {
-    Dashboard(Panel),
-    Wizard(WizardStep),
-    TaskDetail,
-    InstanceDetail { editing_console: bool },
-}
-
-fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMode) -> Action {
-    if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
-        return Action::Quit;
-    }
-    match mode {
-        UiMode::Wizard(step) => Action::Wizard(match code {
-            KeyCode::Esc => WizardAction::Back,
-            KeyCode::Enter => WizardAction::Advance,
-            KeyCode::Tab | KeyCode::Down => WizardAction::FocusNext,
-            KeyCode::BackTab | KeyCode::Up => WizardAction::FocusPrevious,
-            KeyCode::Backspace => WizardAction::Backspace,
-            KeyCode::Char(' ') if step == WizardStep::Review => WizardAction::ToggleAcceptance,
-            KeyCode::Char(character) => WizardAction::Insert(character),
-            _ => return Action::Ignore,
-        }),
-        UiMode::TaskDetail => match code {
-            KeyCode::Char('q') => Action::Quit,
-            KeyCode::Esc | KeyCode::Backspace => Action::BackFromTaskDetail,
-            KeyCode::Up | KeyCode::Char('k') => Action::Previous,
-            KeyCode::Down | KeyCode::Char('j') => Action::Next,
-            KeyCode::Char('r') => Action::RefreshTaskDetail,
-            _ => Action::Ignore,
-        },
-        UiMode::InstanceDetail { editing_console } => {
-            if editing_console {
-                match code {
-                    KeyCode::Esc => Action::ConsoleCancel,
-                    KeyCode::Enter => Action::ConsoleSubmit,
-                    KeyCode::Backspace => Action::ConsoleBackspace,
-                    KeyCode::Char(character) => Action::ConsoleInsert(character),
-                    _ => Action::Ignore,
-                }
-            } else {
-                match code {
-                    KeyCode::Esc | KeyCode::Backspace => Action::BackFromInstanceDetail,
-                    KeyCode::Char('r') => Action::RefreshInstanceDetail,
-                    KeyCode::Char('s') => Action::StartServer,
-                    KeyCode::Char('x') => Action::StopServer,
-                    KeyCode::Char('b') => Action::CreateBackup,
-                    KeyCode::Char('l') => Action::ListBackups,
-                    KeyCode::Char(':') => Action::BeginConsoleInput,
-                    _ => Action::Ignore,
-                }
-            }
-        }
-        UiMode::Dashboard(panel) => match code {
-            KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
-            KeyCode::Enter if panel == Panel::Tasks => Action::OpenTaskDetail,
-            KeyCode::Enter if panel == Panel::Instances => Action::OpenInstanceDetail,
-            KeyCode::Char('n') => Action::OpenCreate,
-            KeyCode::Up | KeyCode::Char('k') => Action::Previous,
-            KeyCode::Down | KeyCode::Char('j') => Action::Next,
-            KeyCode::Tab => Action::TogglePanel,
-            KeyCode::Char('r') => Action::Refresh,
-            _ => Action::Ignore,
-        },
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crossterm::event::{KeyCode, KeyModifiers};
-
-    use crate::app::{Action, Panel};
-    use crate::wizard::WizardStep;
-
-    use super::{action_for_key, UiMode};
-
-    #[test]
-    fn maps_common_keyboard_actions_without_terminal_io() {
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char('q'),
-                KeyModifiers::NONE,
-                UiMode::Dashboard(Panel::Instances),
-            ),
-            Action::Quit
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Down,
-                KeyModifiers::NONE,
-                UiMode::Dashboard(Panel::Instances),
-            ),
-            Action::Next
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Tab,
-                KeyModifiers::NONE,
-                UiMode::Dashboard(Panel::Instances),
-            ),
-            Action::TogglePanel
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char('r'),
-                KeyModifiers::NONE,
-                UiMode::Dashboard(Panel::Instances),
-            ),
-            Action::Refresh
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Enter,
-                KeyModifiers::NONE,
-                UiMode::Dashboard(Panel::Instances),
-            ),
-            Action::OpenInstanceDetail
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char('s'),
-                KeyModifiers::NONE,
-                UiMode::InstanceDetail {
-                    editing_console: false,
-                },
-            ),
-            Action::StartServer
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char('b'),
-                KeyModifiers::NONE,
-                UiMode::InstanceDetail {
-                    editing_console: false,
-                },
-            ),
-            Action::CreateBackup
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char('l'),
-                KeyModifiers::NONE,
-                UiMode::InstanceDetail {
-                    editing_console: false,
-                },
-            ),
-            Action::ListBackups
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Enter,
-                KeyModifiers::NONE,
-                UiMode::InstanceDetail {
-                    editing_console: true,
-                },
-            ),
-            Action::ConsoleSubmit
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char('c'),
-                KeyModifiers::CONTROL,
-                UiMode::Dashboard(Panel::Instances),
-            ),
-            Action::Quit
-        );
-    }
-
-    #[test]
-    fn wizard_keeps_text_keys_and_uses_escape_to_go_back() {
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char('q'),
-                KeyModifiers::NONE,
-                UiMode::Wizard(WizardStep::Server)
-            ),
-            Action::Wizard(crate::wizard::WizardAction::Insert('q'))
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Esc,
-                KeyModifiers::NONE,
-                UiMode::Wizard(WizardStep::Server)
-            ),
-            Action::Wizard(crate::wizard::WizardAction::Back)
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char('n'),
-                KeyModifiers::NONE,
-                UiMode::Dashboard(Panel::Instances),
-            ),
-            Action::OpenCreate
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char(' '),
-                KeyModifiers::NONE,
-                UiMode::Wizard(WizardStep::Server)
-            ),
-            Action::Wizard(crate::wizard::WizardAction::Insert(' '))
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Char(' '),
-                KeyModifiers::NONE,
-                UiMode::Wizard(WizardStep::Review)
-            ),
-            Action::Wizard(crate::wizard::WizardAction::ToggleAcceptance)
-        );
-        assert_eq!(
-            action_for_key(
-                KeyCode::Enter,
-                KeyModifiers::NONE,
-                UiMode::Dashboard(Panel::Tasks),
-            ),
-            Action::OpenTaskDetail
-        );
-        assert_eq!(
-            action_for_key(KeyCode::Esc, KeyModifiers::NONE, UiMode::TaskDetail),
-            Action::BackFromTaskDetail
-        );
-    }
 }

@@ -1,4 +1,5 @@
 mod backup;
+mod backup_restore;
 mod config;
 mod dispatch;
 mod state;

@@ -1,6 +1,6 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
     Frame,
@@ -8,10 +8,11 @@ use ratatui::{
 
 use crate::{
     task_detail::TaskDetailState,
-    task_presentation::{kind_label, phase_label, status_label, status_style},
+    task_presentation::{activity_symbol, kind_label, phase_label, status_label, status_style},
+    theme,
 };
 
-pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState) {
+pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_frame: u8) {
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -22,8 +23,15 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState) {
         .split(frame.area());
     let compact = frame.area().width < 80 || frame.area().height < 18;
     frame.render_widget(
-        Paragraph::new(format!(" MC SERVER TUI   {}", kind_label(detail.task.kind)))
-            .block(Block::default().borders(Borders::BOTTOM)),
+        Paragraph::new(Line::from(vec![
+            Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
+            Span::styled(kind_label(detail.task.kind), theme::accent()),
+        ]))
+        .block(
+            Block::default()
+                .borders(Borders::BOTTOM)
+                .border_style(theme::border(false)),
+        ),
         areas[0],
     );
 
@@ -42,32 +50,37 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState) {
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(summary_height), Constraint::Min(1)])
         .split(areas[1]);
-    render_summary(frame, body[0], detail, compact);
+    render_summary(frame, body[0], detail, compact, animation_frame);
     render_events(frame, body[1], detail);
 
     let status = detail
         .error
         .as_deref()
-        .map(|error| {
-            (
-                format!("刷新失败，保留现有事件：{error}"),
-                Style::default().fg(Color::Red),
-            )
-        })
+        .map(|error| (format!("刷新失败，保留现有事件：{error}"), theme::danger()))
+        .map(|(message, style)| Line::from(Span::styled(message, style)))
         .unwrap_or_else(|| {
-            (
-                "↑/↓ 翻阅事件 · r 立即刷新 · Esc 返回".to_owned(),
-                Style::default().fg(Color::DarkGray),
-            )
+            Line::from(vec![
+                Span::styled("↑/↓", theme::key_hint()),
+                Span::raw(" 翻阅事件 · "),
+                Span::styled("r", theme::key_hint()),
+                Span::raw(" 立即刷新 · "),
+                Span::styled("Esc", theme::key_hint()),
+                Span::raw(" 返回"),
+            ])
         });
     frame.render_widget(
         Paragraph::new(vec![
-            Line::from(Span::styled(status.0, status.1)),
-            Line::from(format!(
-                "当前游标 #{} · {} 条事件",
-                detail.last_event_sequence,
-                detail.events.len()
-            )),
+            status,
+            Line::from(vec![
+                Span::styled(
+                    format!("{} ", activity_symbol(detail.task.status, animation_frame)),
+                    status_style(detail.task.status),
+                ),
+                Span::styled("当前游标 ", theme::muted()),
+                Span::styled(format!("#{}", detail.last_event_sequence), theme::accent()),
+                Span::raw(" · "),
+                Span::styled(format!("{} 条事件", detail.events.len()), theme::muted()),
+            ]),
         ]),
         areas[2],
     );
@@ -78,6 +91,7 @@ fn render_summary(
     area: ratatui::layout::Rect,
     detail: &TaskDetailState,
     compact: bool,
+    animation_frame: u8,
 ) {
     let task = &detail.task;
     let progress = task
@@ -86,6 +100,10 @@ fn render_summary(
         .unwrap_or_default();
     let mut lines = vec![Line::from(vec![
         Span::styled(
+            format!("{} ", activity_symbol(task.status, animation_frame)),
+            status_style(task.status),
+        ),
+        Span::styled(
             status_label(task.status),
             status_style(task.status).add_modifier(Modifier::BOLD),
         ),
@@ -93,7 +111,14 @@ fn render_summary(
     ])];
     if compact {
         return frame.render_widget(
-            Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("任务状态")),
+            Paragraph::new(lines).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(theme::border(false))
+                    .title("任务状态")
+                    .title_style(theme::title(false))
+                    .style(theme::surface()),
+            ),
             area,
         );
     } else {
@@ -107,7 +132,7 @@ fn render_summary(
                 .unwrap_or_default();
             lines.push(Line::from(Span::styled(
                 format!("错误：{}{next_action}", error.reason),
-                Style::default().fg(Color::Red),
+                theme::danger(),
             )));
         } else if let Some(mc_core::TaskResult::WorldBackupsListed { instance_id, page }) =
             &task.result
@@ -157,6 +182,39 @@ fn render_summary(
                         format_bytes(backup.total_bytes)
                     )));
                 }
+                mc_core::TaskResult::WorldBackupRestorePlanned { instance_id, plan } => {
+                    lines.push(Line::from(format!("实例：{instance_id}")));
+                    lines.push(Line::from(format!("备份：{}", plan.backup_id)));
+                    lines.push(Line::from(format!(
+                        "备份时间：{} UTC",
+                        plan.created_at.format("%Y-%m-%d %H:%M")
+                    )));
+                    lines.push(Line::from(format!(
+                        "将替换：{}",
+                        format_worlds(&plan.replaced_worlds)
+                    )));
+                    lines.push(Line::from(format!(
+                        "将新增：{}",
+                        format_worlds(&plan.added_worlds)
+                    )));
+                    lines.push(Line::from(format!(
+                        "将移除：{}",
+                        format_worlds(&plan.removed_worlds)
+                    )));
+                    lines.push(Line::from(format!(
+                        "暂存空间：{} / 可用 {}",
+                        format_bytes(plan.required_space_bytes),
+                        format_bytes(plan.available_space_bytes)
+                    )));
+                    lines.push(Line::from(format!("确认令牌：{}", plan.confirmation_token)));
+                }
+                mc_core::TaskResult::WorldBackupRestored {
+                    instance_id,
+                    backup_id,
+                } => {
+                    lines.push(Line::from(format!("实例：{instance_id}")));
+                    lines.push(Line::from(format!("已恢复备份：{backup_id}")));
+                }
             }
         } else {
             lines.push(Line::from(task.message.clone()));
@@ -171,7 +229,14 @@ fn render_summary(
         )));
     }
     frame.render_widget(
-        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("任务状态")),
+        Paragraph::new(lines).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(theme::border(false))
+                .title("任务状态")
+                .title_style(theme::title(false))
+                .style(theme::surface()),
+        ),
         area,
     );
 }
@@ -182,6 +247,14 @@ fn format_bytes(bytes: u64) -> String {
         format!("{:.1} MiB", bytes as f64 / MIB as f64)
     } else {
         format!("{bytes} bytes")
+    }
+}
+
+fn format_worlds(worlds: &[String]) -> String {
+    if worlds.is_empty() {
+        "无".to_owned()
+    } else {
+        worlds.join("、")
     }
 }
 
@@ -202,10 +275,7 @@ fn render_events(frame: &mut Frame<'_>, area: ratatui::layout::Rect, detail: &Ta
                     .map(|error| format!("{} · {}", event.message, error.reason))
                     .unwrap_or_else(|| event.message.clone());
                 Line::from(vec![
-                    Span::styled(
-                        format!("#{:<3} {time} ", event.sequence),
-                        Style::default().fg(Color::Cyan),
-                    ),
+                    Span::styled(format!("#{:<3} {time} ", event.sequence), theme::accent()),
                     Span::styled(
                         format!(
                             "{} · {} · ",
@@ -223,111 +293,14 @@ fn render_events(frame: &mut Frame<'_>, area: ratatui::layout::Rect, detail: &Ta
         Paragraph::new(lines).block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(format!("事件 · 游标 #{}", detail.last_event_sequence)),
+                .border_style(theme::border(false))
+                .title(format!("事件 · 游标 #{}", detail.last_event_sequence))
+                .title_style(theme::title(false))
+                .style(theme::surface()),
         ),
         area,
     );
 }
 
 #[cfg(test)]
-mod tests {
-    use chrono::Utc;
-    use mc_core::{TaskEvent, TaskKind, TaskPhase, TaskProgress, TaskSnapshot, TaskStatus};
-    use ratatui::{backend::TestBackend, Terminal};
-    use uuid::Uuid;
-
-    use crate::task_detail::TaskDetailState;
-
-    use super::render;
-
-    #[test]
-    fn renders_task_progress_and_event_cursor_at_reference_and_compact_sizes() {
-        let mut detail = TaskDetailState::new(task_snapshot());
-        detail.events.push(TaskEvent {
-            sequence: 1,
-            task_id: detail.task.id,
-            occurred_at: Utc::now(),
-            status: TaskStatus::Running,
-            phase: TaskPhase::DownloadingArtifact,
-            message: "Paper artifact verified".to_owned(),
-            progress: Some(TaskProgress {
-                completed_steps: 1,
-                total_steps: 3,
-            }),
-            error: None,
-        });
-        detail.last_event_sequence = 1;
-
-        for (width, height) in [(80, 24), (40, 12)] {
-            let text = render_to_text(&detail, width, height);
-            assert!(text.contains("进行中"));
-            assert!(text.contains("事件"));
-        }
-        assert!(render_to_text(&detail, 80, 24).contains("Paperartifactverified"));
-    }
-
-    #[test]
-    fn renders_backup_page_summaries_in_task_detail() {
-        let instance_id = Uuid::new_v4();
-        let backup_id = Uuid::new_v4();
-        let mut task = task_snapshot();
-        task.kind = TaskKind::ListWorldBackups;
-        task.status = TaskStatus::Succeeded;
-        task.phase = TaskPhase::Completed;
-        task.result = Some(mc_core::TaskResult::WorldBackupsListed {
-            instance_id,
-            page: mc_core::BackupPage {
-                backups: vec![mc_core::BackupSummary {
-                    id: backup_id,
-                    created_at: Utc::now(),
-                    consistency: mc_core::BackupConsistency::ServerStopped,
-                    file_count: 12,
-                    total_bytes: 2 * 1024 * 1024,
-                }],
-                next_cursor: None,
-            },
-        });
-        let detail = TaskDetailState::new(task);
-        let text = render_to_text(&detail, 100, 30);
-        assert!(text.contains("本页1个备份"));
-        assert!(text.contains("12个文件"));
-        assert!(text.contains("2.0MiB"));
-    }
-
-    fn task_snapshot() -> TaskSnapshot {
-        TaskSnapshot {
-            id: Uuid::new_v4(),
-            kind: TaskKind::CreatePaperInstance,
-            instance_id: None,
-            status: TaskStatus::Running,
-            phase: TaskPhase::DownloadingArtifact,
-            message: "Downloading and verifying Paper".to_owned(),
-            progress: Some(TaskProgress {
-                completed_steps: 1,
-                total_steps: 3,
-            }),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            finished_at: None,
-            result: None,
-            error: None,
-            last_event_sequence: 1,
-        }
-    }
-
-    fn render_to_text(detail: &TaskDetailState, width: u16, height: u16) -> String {
-        let backend = TestBackend::new(width, height);
-        let mut terminal = Terminal::new(backend).expect("test terminal");
-        terminal
-            .draw(|frame| render(frame, detail))
-            .expect("render");
-        terminal
-            .backend()
-            .buffer()
-            .content()
-            .iter()
-            .map(|cell| cell.symbol())
-            .filter(|symbol| !symbol.chars().all(char::is_whitespace))
-            .collect()
-    }
-}
+mod tests;

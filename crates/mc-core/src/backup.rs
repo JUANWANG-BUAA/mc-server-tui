@@ -58,3 +58,22 @@ pub struct BackupPage {
     pub backups: Vec<BackupSummary>,
     pub next_cursor: Option<BackupCursor>,
 }
+
+/// Preview of a stopped-world restore, including every recognized root it
+/// would replace, add, or remove. The confirmation token binds this preview to
+/// the verified backup and the current world contents.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupRestorePlan {
+    pub instance_id: Uuid,
+    pub backup_id: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub current_worlds: Vec<String>,
+    pub target_worlds: Vec<String>,
+    pub replaced_worlds: Vec<String>,
+    pub added_worlds: Vec<String>,
+    pub removed_worlds: Vec<String>,
+    pub required_space_bytes: u64,
+    pub available_space_bytes: u64,
+    pub confirmation_token: String,
+}

@@ -1,37 +1,41 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame,
 };
 
 use crate::app::{AppState, Panel};
-use crate::task_presentation::{phase_label, status_label, status_style as task_style};
+use crate::{
+    task_presentation::{activity_symbol, phase_label, status_label, status_style as task_style},
+    theme,
+};
 
-pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState) {
+pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8) {
+    frame.render_widget(Block::default().style(theme::page()), frame.area());
     if let Some(wizard) = &app.wizard {
         crate::wizard_view::render(frame, wizard);
         return;
     }
     if app.task_detail_visible {
         if let Some(detail) = &app.task_detail {
-            crate::task_detail_view::render(frame, detail);
+            crate::task_detail_view::render(frame, detail, animation_frame);
             return;
         }
     }
     if app.instance_detail_visible {
         if let Some(detail) = &app.instance_detail {
-            crate::instance_detail_view::render(frame, detail);
+            crate::instance_detail_view::render(frame, detail, animation_frame);
         } else if let Some(instance_id) = app.instance_detail_id {
             crate::instance_detail_view::render_loading(frame, instance_id);
         }
         return;
     }
-    render_dashboard(frame, app);
+    render_dashboard(frame, app, animation_frame);
 }
 
-fn render_dashboard(frame: &mut Frame<'_>, app: &AppState) {
+fn render_dashboard(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8) {
     let root = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -48,26 +52,31 @@ fn render_dashboard(frame: &mut Frame<'_>, app: &AppState) {
             .constraints([Constraint::Percentage(58), Constraint::Percentage(42)])
             .split(root[1]);
         render_instances(frame, columns[0], app);
-        render_tasks(frame, columns[1], app);
+        render_tasks(frame, columns[1], app, animation_frame);
     } else {
         let rows = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
             .split(root[1]);
         render_instances(frame, rows[0], app);
-        render_tasks(frame, rows[1], app);
+        render_tasks(frame, rows[1], app, animation_frame);
     }
     render_footer(frame, root[2], app);
 }
 
 fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
-    let text = format!(
-        " MC SERVER TUI   实例 {} · 任务 {}",
-        app.instances.len(),
-        app.tasks.len()
-    );
+    let line = Line::from(vec![
+        Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
+        Span::styled(format!("实例 {}", app.instances.len()), theme::accent()),
+        Span::raw("  ·  "),
+        Span::styled(format!("后台任务 {}", app.tasks.len()), theme::muted()),
+    ]);
     frame.render_widget(
-        Paragraph::new(text).block(Block::default().borders(Borders::BOTTOM)),
+        Paragraph::new(line).block(
+            Block::default()
+                .borders(Borders::BOTTOM)
+                .border_style(theme::border(false)),
+        ),
         area,
     );
 }
@@ -79,47 +88,53 @@ fn render_instances(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         "实例"
     };
     let items = if app.instances.is_empty() {
-        vec![ListItem::new("暂无实例 · 按 r 刷新")]
+        vec![ListItem::new(Span::styled(
+            "暂无实例 · 按 r 刷新",
+            theme::muted(),
+        ))]
     } else {
         app.instances
             .iter()
             .map(|instance| {
                 ListItem::new(Line::from(vec![
+                    Span::styled(instance.name.clone(), theme::brand()),
                     Span::styled(
-                        instance.name.clone(),
-                        Style::default().add_modifier(Modifier::BOLD),
+                        format!(
+                            "   {} {} · :{}",
+                            instance.provider, instance.game_version, instance.port
+                        ),
+                        theme::muted(),
                     ),
-                    Span::raw(format!(
-                        "   {} {} · :{}",
-                        instance.provider, instance.game_version, instance.port
-                    )),
                 ]))
             })
             .collect()
     };
     let mut state = ListState::default();
-    if !app.instances.is_empty() {
+    if !app.instances.is_empty() && app.focused_panel == Panel::Instances {
         state.select(Some(app.selected_instance));
     }
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title))
-        .highlight_symbol("› ")
-        .highlight_style(
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        );
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(theme::border(app.focused_panel == Panel::Instances))
+                .title(title)
+                .title_style(theme::title(app.focused_panel == Panel::Instances))
+                .style(theme::surface()),
+        )
+        .highlight_symbol("▸ ")
+        .highlight_style(theme::selected_row());
     frame.render_stateful_widget(list, area, &mut state);
 }
 
-fn render_tasks(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
+fn render_tasks(frame: &mut Frame<'_>, area: Rect, app: &AppState, animation_frame: u8) {
     let title = if app.focused_panel == Panel::Tasks {
         "后台任务 · 当前面板"
     } else {
         "后台任务"
     };
     let items = if app.tasks.is_empty() {
-        vec![ListItem::new("暂无后台任务")]
+        vec![ListItem::new(Span::styled("暂无后台任务", theme::muted()))]
     } else {
         app.tasks
             .iter()
@@ -130,6 +145,10 @@ fn render_tasks(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
                     .unwrap_or_default();
                 ListItem::new(Line::from(vec![
                     Span::styled(
+                        format!("{} ", activity_symbol(task.status, animation_frame)),
+                        task_style(task.status),
+                    ),
+                    Span::styled(
                         format!(
                             "{} · {}",
                             status_label(task.status),
@@ -137,127 +156,59 @@ fn render_tasks(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
                         ),
                         task_style(task.status),
                     ),
-                    Span::raw(format!("{progress} · {}", task.message)),
+                    Span::styled(format!("{progress} · {}", task.message), theme::muted()),
                 ]))
             })
             .collect()
     };
     let mut state = ListState::default();
-    if !app.tasks.is_empty() {
+    if !app.tasks.is_empty() && app.focused_panel == Panel::Tasks {
         state.select(Some(app.selected_task));
     }
     let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title))
-        .highlight_symbol("› ")
-        .highlight_style(
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        );
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(theme::border(app.focused_panel == Panel::Tasks))
+                .title(title)
+                .title_style(theme::title(app.focused_panel == Panel::Tasks))
+                .style(theme::surface()),
+        )
+        .highlight_symbol("▸ ")
+        .highlight_style(theme::selected_row());
     frame.render_stateful_widget(list, area, &mut state);
 }
 
 fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
     let lines = vec![
         Line::from(Span::styled(app.status.clone(), status_style(&app.status))),
-        Line::from("↑/↓ 选择 · Tab 切换 · Enter 打开 · n 新建 · r 刷新 · q 退出"),
+        Line::from(vec![
+            Span::styled("↑/↓", theme::key_hint()),
+            Span::raw(" 选择 · "),
+            Span::styled("Tab", theme::key_hint()),
+            Span::raw(" 切换 · "),
+            Span::styled("Enter", theme::key_hint()),
+            Span::raw(" 打开 · "),
+            Span::styled("n", theme::key_hint()),
+            Span::raw(" 新建 · "),
+            Span::styled("r", theme::key_hint()),
+            Span::raw(" 刷新 · "),
+            Span::styled("q", theme::key_hint()),
+            Span::raw(" 退出"),
+        ]),
     ];
     frame.render_widget(Paragraph::new(lines), area);
 }
 
 fn status_style(status: &str) -> Style {
-    if status.starts_with("连接失败") {
-        Style::default().fg(Color::Red)
+    if status.contains("失败") {
+        theme::danger()
+    } else if status.contains("正在") || status.contains("刷新") || status.contains("提交") {
+        theme::warning()
     } else {
-        Style::default().fg(Color::DarkGray)
+        theme::success()
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use chrono::Utc;
-    use mc_core::{InstanceSummary, TaskKind, TaskPhase, TaskProgress, TaskSnapshot, TaskStatus};
-    use ratatui::{backend::TestBackend, Terminal};
-    use uuid::Uuid;
-
-    use crate::app::{AppState, DashboardData};
-
-    use super::render;
-
-    #[test]
-    fn renders_empty_dashboard_at_reference_width() {
-        let state = AppState::default();
-        let text = render_to_text(80, 24, &state);
-
-        assert!(text.contains("MCSERVERTUI"));
-        assert!(text.contains("暂无实例"));
-        assert!(text.contains("后台任务"));
-        assert!(text.contains("q退出"));
-    }
-
-    #[test]
-    fn renders_instance_and_task_state() {
-        let mut state = AppState::default();
-        state.apply_refresh(Ok(DashboardData {
-            instances: vec![InstanceSummary {
-                id: Uuid::new_v4(),
-                name: "生存服".to_owned(),
-                provider: "Paper".to_owned(),
-                game_version: "1.21.11".to_owned(),
-                build_id: 17,
-                java_path: "/opt/java/bin/java".into(),
-                min_memory_mb: 1024,
-                max_memory_mb: 4096,
-                port: 25565,
-                directory: "/tmp/server".into(),
-                created_at: Utc::now(),
-            }],
-            tasks: vec![TaskSnapshot {
-                id: Uuid::new_v4(),
-                kind: TaskKind::CreatePaperInstance,
-                instance_id: None,
-                status: TaskStatus::Running,
-                phase: TaskPhase::DownloadingArtifact,
-                message: "正在下载并校验 Paper".to_owned(),
-                progress: Some(TaskProgress {
-                    completed_steps: 1,
-                    total_steps: 3,
-                }),
-                created_at: Utc::now(),
-                updated_at: Utc::now(),
-                finished_at: None,
-                result: None,
-                error: None,
-                last_event_sequence: 2,
-            }],
-        }));
-        let text = render_to_text(100, 30, &state);
-
-        assert!(text.contains("生存服"));
-        assert!(text.contains("Paper1.21.11"));
-        assert!(text.contains("下载校验"));
-        assert!(text.contains("1/3"));
-    }
-
-    #[test]
-    fn compact_terminal_render_does_not_panic() {
-        let text = render_to_text(40, 12, &AppState::default());
-        assert!(text.contains("MCSERVERTUI"));
-    }
-
-    fn render_to_text(width: u16, height: u16, state: &AppState) -> String {
-        let backend = TestBackend::new(width, height);
-        let mut terminal = Terminal::new(backend).expect("test terminal");
-        terminal
-            .draw(|frame| render(frame, state))
-            .expect("render dashboard");
-        terminal
-            .backend()
-            .buffer()
-            .content()
-            .iter()
-            .map(|cell| cell.symbol())
-            .filter(|symbol| !symbol.chars().all(char::is_whitespace))
-            .collect()
-    }
-}
+mod tests;

@@ -27,6 +27,8 @@ pub enum BackupError {
     SourceChanged(PathBuf),
     #[error("Not enough free space for a world backup (need {needed} bytes, have {available})")]
     InsufficientSpace { needed: u64, available: u64 },
+    #[error("Not enough free space for a world restore (need {needed} bytes, have {available})")]
+    RestoreInsufficientSpace { needed: u64, available: u64 },
     #[error("Backup {0} already exists")]
     AlreadyExists(Uuid),
     #[error("Backup {0} does not exist")]
@@ -47,6 +49,20 @@ pub enum BackupError {
     InvalidManifest(String),
     #[error("Backup content failed integrity verification: {0}")]
     IntegrityMismatch(PathBuf),
+    #[error("The restore preview is stale; live worlds or backup metadata changed")]
+    RestorePlanChanged,
+    #[error("Backup primary world does not match the configured server world {configured}: {backup_worlds:?}")]
+    RestorePrimaryWorldMismatch {
+        configured: String,
+        backup_worlds: Vec<String>,
+    },
+    #[error("A restore transaction needs recovery before this operation: {0}")]
+    RestoreRecoveryRequired(PathBuf),
+    #[error("Restore rollback could not be confirmed at {operation_dir}: {detail}")]
+    RestoreRollbackFailed {
+        operation_dir: PathBuf,
+        detail: String,
+    },
     #[error("Could not encode or decode backup metadata: {0}")]
     Serialization(#[from] serde_json::Error),
     #[error("Backup worker could not complete: {0}")]
@@ -61,6 +77,13 @@ impl From<BackupError> for AppError {
             BackupError::InsufficientSpace { .. } => AppError::new(ErrorCode::DiskSpaceLow, reason)
                 .with_action("Free space on the instance volume, then retry the backup.")
                 .retryable(),
+            BackupError::RestoreInsufficientSpace { .. } => {
+                AppError::new(ErrorCode::DiskSpaceLow, reason)
+                    .with_action(
+                        "Free space on the instance volume, generate a new restore plan, then retry.",
+                    )
+                    .retryable()
+            }
             BackupError::IntegrityMismatch(_) | BackupError::InvalidManifest(_) => {
                 AppError::new(ErrorCode::BackupIntegrityFailed, reason).with_action(
                     "Do not restore this backup; inspect the backup directory and its manifest.",
@@ -72,6 +95,34 @@ impl From<BackupError> for AppError {
             BackupError::CommitRolledBack { .. } => AppError::new(ErrorCode::BackupFailed, reason)
                 .with_action("Inspect the filesystem error and retry when the volume is healthy.")
                 .retryable(),
+            BackupError::RestorePlanChanged => AppError::new(
+                ErrorCode::BackupRestorePlanChanged,
+                reason,
+            )
+            .with_action("Generate a new restore plan and review its replacement impact."),
+            BackupError::RestorePrimaryWorldMismatch { .. } => AppError::new(
+                ErrorCode::BackupRestorePrimaryMismatch,
+                reason,
+            )
+            .with_action(
+                "Use a backup created for this configured primary world, or change the world configuration separately.",
+            ),
+            BackupError::RestoreRecoveryRequired(_) => AppError::new(
+                ErrorCode::BackupRestoreRecoveryRequired,
+                reason,
+            )
+            .with_action(
+                "Keep the server stopped and inspect the preserved restore journal and rollback data.",
+            )
+            .with_evidence(evidence),
+            BackupError::RestoreRollbackFailed { .. } => AppError::new(
+                ErrorCode::BackupRestoreRollbackFailed,
+                reason,
+            )
+            .with_action(
+                "Keep the server stopped. Preserve the restore operation directory and inspect its journal before retrying.",
+            )
+            .with_evidence(evidence),
             BackupError::InvalidServerDirectory(_)
             | BackupError::WorldNotFound(_)
             | BackupError::InvalidWorldName(_)

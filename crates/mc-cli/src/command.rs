@@ -94,6 +94,15 @@ pub(crate) enum BackupCommand {
     },
     /// Queue an integrity verification for one backup ID.
     Verify { instance_id: Uuid, backup_id: Uuid },
+    /// Verify a backup and list every world root affected by a restore.
+    PlanRestore { instance_id: Uuid, backup_id: Uuid },
+    /// Queue a restore after copying the token from a successful plan task.
+    Restore {
+        instance_id: Uuid,
+        backup_id: Uuid,
+        #[arg(long)]
+        confirm_token: String,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -188,6 +197,28 @@ impl Command {
                     },
                     false,
                 ),
+                BackupCommand::PlanRestore {
+                    instance_id,
+                    backup_id,
+                } => (
+                    ApiRequest::PlanWorldBackupRestore {
+                        instance_id,
+                        backup_id,
+                    },
+                    false,
+                ),
+                BackupCommand::Restore {
+                    instance_id,
+                    backup_id,
+                    confirm_token,
+                } => (
+                    ApiRequest::RestoreWorldBackup {
+                        instance_id,
+                        backup_id,
+                        confirmation_token: confirm_token,
+                    },
+                    false,
+                ),
             },
             Self::Task { command } => match command {
                 TaskCommand::List { limit } => (ApiRequest::ListTasks { limit }, false),
@@ -277,6 +308,51 @@ mod tests {
                 instance_id: parsed_instance_id,
                 backup_id: parsed_backup_id,
             } if parsed_instance_id == instance_id && parsed_backup_id == backup_id
+        ));
+    }
+
+    #[test]
+    fn restore_plan_and_confirm_cli_commands_map_to_the_shared_api() {
+        let instance_id = Uuid::new_v4();
+        let backup_id = Uuid::new_v4();
+        let token = format!("v1:{}", "a".repeat(64));
+        let args = Args::try_parse_from([
+            "mc-server-tui",
+            "backup",
+            "plan-restore",
+            &instance_id.to_string(),
+            &backup_id.to_string(),
+        ])
+        .expect("parse restore plan command");
+        let (request, _) = args.command.into_request();
+        assert!(matches!(
+            request,
+            ApiRequest::PlanWorldBackupRestore {
+                instance_id: parsed_instance_id,
+                backup_id: parsed_backup_id,
+            } if parsed_instance_id == instance_id && parsed_backup_id == backup_id
+        ));
+
+        let args = Args::try_parse_from([
+            "mc-server-tui",
+            "backup",
+            "restore",
+            &instance_id.to_string(),
+            &backup_id.to_string(),
+            "--confirm-token",
+            &token,
+        ])
+        .expect("parse confirmed restore command");
+        let (request, _) = args.command.into_request();
+        assert!(matches!(
+            request,
+            ApiRequest::RestoreWorldBackup {
+                instance_id: parsed_instance_id,
+                backup_id: parsed_backup_id,
+                confirmation_token,
+            } if parsed_instance_id == instance_id
+                && parsed_backup_id == backup_id
+                && confirmation_token == token
         ));
     }
 }

@@ -5,7 +5,7 @@ use crate::{
     TaskEvent, TaskSnapshot,
 };
 
-pub const API_PROTOCOL_VERSION: u16 = 6;
+pub const API_PROTOCOL_VERSION: u16 = 7;
 
 /// Versioned request envelope shared by CLI, TUI, and the local daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,6 +77,15 @@ pub enum ApiRequest {
     VerifyWorldBackup {
         instance_id: uuid::Uuid,
         backup_id: uuid::Uuid,
+    },
+    PlanWorldBackupRestore {
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
+    },
+    RestoreWorldBackup {
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
+        confirmation_token: String,
     },
     StartServer {
         instance_id: uuid::Uuid,
@@ -199,6 +208,49 @@ mod tests {
                     assert_eq!(decoded_backup_id, backup_id);
                 }
                 _ => panic!("decoded a different backup request"),
+            }
+        }
+    }
+
+    #[test]
+    fn restore_plan_and_confirm_requests_round_trip() {
+        let instance_id = uuid::Uuid::new_v4();
+        let backup_id = uuid::Uuid::new_v4();
+        let token = format!("v1:{}", "b".repeat(64));
+        for request in [
+            ApiRequest::PlanWorldBackupRestore {
+                instance_id,
+                backup_id,
+            },
+            ApiRequest::RestoreWorldBackup {
+                instance_id,
+                backup_id,
+                confirmation_token: token.clone(),
+            },
+        ] {
+            let envelope = ApiRequestEnvelope::current(request);
+            let encoded = serde_json::to_string(&envelope).expect("serialize request");
+            let decoded: ApiRequestEnvelope =
+                serde_json::from_str(&encoded).expect("deserialize request");
+            assert_eq!(decoded.protocol_version, API_PROTOCOL_VERSION);
+            match decoded.payload {
+                ApiRequest::PlanWorldBackupRestore {
+                    instance_id: decoded_instance,
+                    backup_id: decoded_backup,
+                } => {
+                    assert_eq!(decoded_instance, instance_id);
+                    assert_eq!(decoded_backup, backup_id);
+                }
+                ApiRequest::RestoreWorldBackup {
+                    instance_id: decoded_instance,
+                    backup_id: decoded_backup,
+                    confirmation_token: decoded_token,
+                } => {
+                    assert_eq!(decoded_instance, instance_id);
+                    assert_eq!(decoded_backup, backup_id);
+                    assert_eq!(decoded_token, token);
+                }
+                _ => panic!("decoded a different restore request"),
             }
         }
     }

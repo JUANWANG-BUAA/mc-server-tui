@@ -1,6 +1,8 @@
-use ratatui::style::{Color, Style};
+use ratatui::style::Style;
 
 use mc_core::{TaskKind, TaskPhase, TaskStatus};
+
+use crate::theme;
 
 pub(crate) fn kind_label(kind: TaskKind) -> &'static str {
     match kind {
@@ -8,6 +10,8 @@ pub(crate) fn kind_label(kind: TaskKind) -> &'static str {
         TaskKind::CreateWorldBackup => "备份世界",
         TaskKind::ListWorldBackups => "列出世界备份",
         TaskKind::VerifyWorldBackup => "校验世界备份",
+        TaskKind::PlanWorldBackupRestore => "预览备份恢复",
+        TaskKind::RestoreWorldBackup => "恢复世界备份",
     }
 }
 
@@ -31,6 +35,8 @@ pub(crate) fn phase_label(phase: TaskPhase) -> &'static str {
         TaskPhase::BackingUpWorld => "备份世界",
         TaskPhase::ListingBackups => "读取备份列表",
         TaskPhase::VerifyingBackup => "校验备份",
+        TaskPhase::PlanningBackupRestore => "生成恢复计划",
+        TaskPhase::RestoringWorldBackup => "恢复世界数据",
         TaskPhase::Completed => "完成",
         TaskPhase::Failed => "失败",
         TaskPhase::Interrupted => "中断",
@@ -39,8 +45,19 @@ pub(crate) fn phase_label(phase: TaskPhase) -> &'static str {
 
 pub(crate) fn status_style(status: TaskStatus) -> Style {
     match status {
-        TaskStatus::Queued | TaskStatus::Running => Style::default().fg(Color::Yellow),
-        TaskStatus::Succeeded => Style::default().fg(Color::Green),
-        TaskStatus::Failed | TaskStatus::Interrupted => Style::default().fg(Color::Red),
+        TaskStatus::Queued => theme::warning(),
+        TaskStatus::Running => theme::accent(),
+        TaskStatus::Succeeded => theme::success(),
+        TaskStatus::Failed | TaskStatus::Interrupted => theme::danger(),
+    }
+}
+
+pub(crate) fn activity_symbol(status: TaskStatus, frame: u8) -> &'static str {
+    match status {
+        TaskStatus::Queued => "◌",
+        TaskStatus::Running => theme::spinner(frame),
+        TaskStatus::Succeeded => "✓",
+        TaskStatus::Failed => "×",
+        TaskStatus::Interrupted => "!",
     }
 }

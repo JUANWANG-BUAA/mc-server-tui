@@ -7,12 +7,14 @@
 mod error;
 mod listing;
 mod manifest;
+mod restore;
 mod store;
 mod tree;
 pub mod worlds;
 
 pub use error::BackupError;
 pub use manifest::{BackupEntry, BackupEntryKind, BackupManifest};
+pub use mc_core::BackupRestorePlan;
 pub use mc_core::{BackupConsistency, BackupCursor, BackupPage, BackupSummary};
 pub use store::BackupService;
 

@@ -202,7 +202,7 @@ def response_for(request, state):
                 "retryable": False,
             },
         }
-    return {"protocol_version": 6, "payload": response}
+    return {"protocol_version": 7, "payload": response}
 
 
 def main():
@@ -272,6 +272,9 @@ def main():
                 environment = os.environ.copy()
                 environment["TERM"] = "xterm-256color"
                 environment["LANG"] = "C.UTF-8"
+                # Color is part of this visual regression; do not inherit a
+                # host-level NO_COLOR preference into the dedicated test TTY.
+                environment.pop("NO_COLOR", None)
                 os.execve(str(tui), [str(tui), "--socket", socket_path], environment)
 
             fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
@@ -299,6 +302,8 @@ def main():
                 raise AssertionError("dashboard did not render")
             if b"\x1b[?1049h" not in captured:
                 raise AssertionError("TUI did not enter the alternate screen")
+            if not re.search(rb"\x1b\[[0-9;]*38;2;45;212;191[0-9;]*m", captured):
+                raise AssertionError("TUI did not emit the configured brand color")
 
             os.write(master, b"\r")
             if not wait_for("127.0.0.1:25565".encode()):
@@ -335,7 +340,10 @@ def main():
                 if state["start_requests"] != 1:
                     raise AssertionError("TUI did not submit exactly one start request")
 
-            os.write(master, b":say hi\r")
+            os.write(master, b":")
+            if not wait_for("命令>".encode()):
+                raise AssertionError("console input did not open after ':'")
+            os.write(master, b"say hi\r")
             deadline = time.monotonic() + 4
             while time.monotonic() < deadline:
                 with lock:
@@ -344,7 +352,13 @@ def main():
                 time.sleep(0.02)
             with lock:
                 if state["console_commands"] != ["say hi"]:
-                    raise AssertionError("TUI did not submit the console command")
+                    recent = re.sub(
+                        rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured[-4000:])
+                    )
+                    raise AssertionError(
+                        "TUI submitted an unexpected console command: "
+                        f"{state['console_commands']!r}; recent output={recent!r}"
+                    )
             if not wait_for("COMMAND:sayhi".encode()):
                 raise AssertionError("TUI did not refresh the console output after command submission")
 
@@ -391,6 +405,7 @@ def main():
             if b"\x1b[?1049l" not in captured:
                 raise AssertionError("TUI did not restore the terminal screen")
             print("Instance detail at 80×24: passed")
+            print("ANSI truecolor theme output: passed")
             print("Stopped-world backup queue feedback: passed")
             print("Bounded backup-list task feedback: passed")
             print("Backup page result in task detail: passed")

@@ -13,7 +13,8 @@ pub use api::{
     ApiRequest, ApiRequestEnvelope, ApiResponse, ApiResponseEnvelope, API_PROTOCOL_VERSION,
 };
 pub use backup::{
-    BackupConsistency, BackupCursor, BackupPage, BackupSummary, MAX_BACKUP_PAGE_LIMIT,
+    BackupConsistency, BackupCursor, BackupPage, BackupRestorePlan, BackupSummary,
+    MAX_BACKUP_PAGE_LIMIT,
 };
 pub use doctor::{DoctorCheck, DoctorCheckStatus, DoctorReport, JavaRuntime};
 pub use domain::{

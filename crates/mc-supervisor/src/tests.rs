@@ -89,6 +89,38 @@ async fn backup_service_uses_the_supervisor_lease_and_releases_it_after_copy() {
         .await
         .expect("list backup through async API");
     assert_eq!(listed, [manifest]);
+
+    tokio::fs::write(
+        server_dir.join("world/region/r.0.0.mca"),
+        b"changed live world",
+    )
+    .await
+    .expect("modify the live world after backup");
+    let guard = supervisor
+        .lock_stopped_instance(fixture.instance.id)
+        .await
+        .expect("reserve stopped instance for restore planning");
+    let plan = BackupService
+        .plan_restore(guard, backup_id)
+        .await
+        .expect("build restore preview through the async API");
+    assert_eq!(plan.replaced_worlds, ["world"]);
+    assert!(plan.required_space_bytes <= plan.available_space_bytes);
+
+    let guard = supervisor
+        .lock_stopped_instance(fixture.instance.id)
+        .await
+        .expect("reserve stopped instance for restore");
+    BackupService
+        .restore(guard, backup_id, plan.confirmation_token)
+        .await
+        .expect("restore through the async API");
+    assert_eq!(
+        tokio::fs::read(server_dir.join("world/region/r.0.0.mca"))
+            .await
+            .expect("read restored world"),
+        b"world data"
+    );
     fixture.remove().await;
 }
 

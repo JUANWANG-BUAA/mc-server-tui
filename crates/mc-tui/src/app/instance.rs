@@ -215,6 +215,8 @@ impl AppState {
                         mc_core::TaskKind::CreateWorldBackup => "世界备份任务已加入后台队列。",
                         mc_core::TaskKind::ListWorldBackups => "备份列表任务已加入后台队列。",
                         mc_core::TaskKind::VerifyWorldBackup => "备份校验任务已加入后台队列。",
+                        mc_core::TaskKind::PlanWorldBackupRestore => "恢复预览任务已加入后台队列。",
+                        mc_core::TaskKind::RestoreWorldBackup => "世界恢复任务已加入后台队列。",
                         mc_core::TaskKind::CreatePaperInstance => "后台任务已加入队列。",
                     };
                     self.tasks.insert(0, *task);

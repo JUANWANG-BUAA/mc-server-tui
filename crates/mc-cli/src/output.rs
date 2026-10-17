@@ -199,6 +199,34 @@ fn print_task(task: &TaskSnapshot) {
                     format_bytes(backup.total_bytes)
                 );
             }
+            mc_core::TaskResult::WorldBackupRestorePlanned { instance_id, plan } => {
+                println!("  Instance: {instance_id}");
+                println!("  Backup: {}", plan.backup_id);
+                println!("  Created: {}", plan.created_at.to_rfc3339());
+                println!("  Current worlds: {}", format_worlds(&plan.current_worlds));
+                println!("  Target worlds: {}", format_worlds(&plan.target_worlds));
+                println!("  Replaced: {}", format_worlds(&plan.replaced_worlds));
+                println!("  Added: {}", format_worlds(&plan.added_worlds));
+                println!("  Removed: {}", format_worlds(&plan.removed_worlds));
+                println!(
+                    "  Staging space: {} required, {} available",
+                    format_bytes(plan.required_space_bytes),
+                    format_bytes(plan.available_space_bytes)
+                );
+                println!("  Confirmation token: {}", plan.confirmation_token);
+                println!(
+                    "  Confirm with: backup restore {instance_id} {} --confirm-token {}",
+                    plan.backup_id, plan.confirmation_token
+                );
+            }
+            mc_core::TaskResult::WorldBackupRestored {
+                instance_id,
+                backup_id,
+            } => {
+                println!("  Instance: {instance_id}");
+                println!("  Restored backup: {backup_id}");
+                println!("  Start the server only after reviewing the restored world.");
+            }
         }
     }
     if let Some(error) = &task.error {
@@ -272,5 +300,13 @@ fn format_bytes(bytes: u64) -> String {
         format!("{:.1} MiB", bytes as f64 / MIB as f64)
     } else {
         format!("{bytes} bytes")
+    }
+}
+
+fn format_worlds(worlds: &[String]) -> String {
+    if worlds.is_empty() {
+        "none".to_owned()
+    } else {
+        worlds.join(", ")
     }
 }

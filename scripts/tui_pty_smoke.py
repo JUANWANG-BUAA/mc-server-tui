@@ -86,7 +86,8 @@ def main():
             captured = bytearray()
             deadline = time.monotonic() + 4
             while time.monotonic() < deadline:
-                if FOOTER in ANSI_SEQUENCE.sub(b"", captured):
+                compact_output = re.sub(rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured))
+                if FOOTER in compact_output:
                     break
                 ready, _, _ = select.select([master], [], [], 0.1)
                 if ready:
@@ -96,8 +97,12 @@ def main():
                         break
 
             clean_output = ANSI_SEQUENCE.sub(b"", captured)
-            if FOOTER not in clean_output:
-                raise AssertionError("TUI did not draw while daemon replies were pending")
+            compact_output = re.sub(rb"\s+", b"", clean_output)
+            if FOOTER not in compact_output:
+                raise AssertionError(
+                    "TUI did not draw while daemon replies were pending; "
+                    f"terminal output={clean_output[-1200:]!r}"
+                )
             if b"\x1b[?1049h" not in captured:
                 raise AssertionError("TUI did not enter the alternate screen")
 

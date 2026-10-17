@@ -7,6 +7,7 @@ mod task_detail;
 mod task_detail_view;
 mod task_presentation;
 mod terminal;
+mod theme;
 mod view;
 mod wizard;
 mod wizard_view;

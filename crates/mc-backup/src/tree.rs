@@ -57,6 +57,18 @@ pub(crate) fn scan_backup_tree(backup_dir: &Path) -> Result<Vec<BackupEntry>, Ba
     Ok(entries)
 }
 
+pub(crate) fn scan_worlds(
+    server_dir: &Path,
+    worlds: &[String],
+) -> Result<Vec<BackupEntry>, BackupError> {
+    let mut entries = Vec::new();
+    for world in worlds {
+        scan_node(&server_dir.join(world), Path::new(world), &mut entries)?;
+    }
+    entries.sort_by(|left, right| left.path.cmp(&right.path));
+    Ok(entries)
+}
+
 fn measure_node(path: &Path) -> Result<u64, BackupError> {
     let metadata = fs::symlink_metadata(path)
         .map_err(|error| io_error("Could not inspect a world entry", path, error))?;

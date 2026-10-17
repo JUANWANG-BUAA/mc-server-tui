@@ -1,11 +1,12 @@
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
     Frame,
 };
 
+use crate::theme;
 use crate::wizard::{CreateWizard, WizardStep};
 
 pub(crate) fn render(frame: &mut Frame<'_>, wizard: &CreateWizard) {
@@ -25,14 +26,15 @@ pub(crate) fn render(frame: &mut Frame<'_>, wizard: &CreateWizard) {
     };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(
-                " MC SERVER TUI   ",
-                Style::default().add_modifier(Modifier::BOLD),
-            ),
+            Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
             Span::raw("新建 Paper 实例 · "),
-            Span::styled(step, Style::default().fg(Color::Cyan)),
+            Span::styled(step, theme::accent()),
         ]))
-        .block(Block::default().borders(Borders::BOTTOM)),
+        .block(
+            Block::default()
+                .borders(Borders::BOTTOM)
+                .border_style(theme::border(false)),
+        ),
         areas[0],
     );
 
@@ -109,29 +111,47 @@ pub(crate) fn render(frame: &mut Frame<'_>, wizard: &CreateWizard) {
         }
     };
     frame.render_widget(
-        Paragraph::new(content).block(Block::default().borders(Borders::ALL).title("创建向导")),
+        Paragraph::new(content).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(theme::border(true))
+                .title("创建向导")
+                .title_style(theme::title(true))
+                .style(theme::surface()),
+        ),
         areas[1],
     );
 
     let message = wizard
         .error
         .as_deref()
-        .map(|error| (error, Style::default().fg(Color::Red)))
+        .map(|error| (error, theme::danger()))
         .unwrap_or_else(|| {
             if wizard.submitting {
-                ("正在提交…", Style::default().fg(Color::Yellow))
+                ("◐ 正在提交…", theme::warning())
             } else {
-                (
-                    "Tab 编辑 · Enter 下一步/提交 · Esc 返回",
-                    Style::default().fg(Color::DarkGray),
-                )
+                ("Tab 编辑 · Enter 下一步/提交 · Esc 返回", theme::muted())
             }
         });
+    let hint = if wizard.submitting {
+        Line::from(vec![
+            Span::styled("Ctrl-C", theme::key_hint()),
+            Span::raw(" 退出"),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled("Tab", theme::key_hint()),
+            Span::raw(" 编辑 · "),
+            Span::styled("Enter", theme::key_hint()),
+            Span::raw(" 下一步/提交 · "),
+            Span::styled("Esc", theme::key_hint()),
+            Span::raw(" 返回 · "),
+            Span::styled("Ctrl-C", theme::key_hint()),
+            Span::raw(" 退出"),
+        ])
+    };
     frame.render_widget(
-        Paragraph::new(vec![
-            Line::from(Span::styled(message.0, message.1)),
-            Line::from("Ctrl-C 退出"),
-        ]),
+        Paragraph::new(vec![Line::from(Span::styled(message.0, message.1)), hint]),
         areas[2],
     );
 }
@@ -146,7 +166,7 @@ fn field<'a>(label: &'a str, value: &'a str, focused: bool) -> Line<'a> {
         Span::styled(if focused { "› " } else { "  " }, focus_style(focused)),
         Span::styled(
             format!("{label}："),
-            Style::default().add_modifier(Modifier::BOLD),
+            theme::muted().add_modifier(Modifier::BOLD),
         ),
         Span::raw(shown),
     ])
@@ -186,7 +206,7 @@ fn eula_line(wizard: &CreateWizard, compact: bool) -> Line<'static> {
         Span::styled(
             label,
             if wizard.accept_eula {
-                Style::default().fg(Color::Green)
+                theme::success()
             } else {
                 Style::default()
             },
@@ -196,68 +216,11 @@ fn eula_line(wizard: &CreateWizard, compact: bool) -> Line<'static> {
 
 fn focus_style(focused: bool) -> Style {
     if focused {
-        Style::default()
-            .fg(Color::Cyan)
-            .add_modifier(Modifier::BOLD)
+        theme::key_hint()
     } else {
-        Style::default()
+        theme::muted()
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use ratatui::{backend::TestBackend, Terminal};
-
-    use crate::wizard::{CreateWizard, WizardAction, WizardStep};
-
-    use super::render;
-
-    #[test]
-    fn renders_all_steps_and_explicit_eula_control_at_reference_width() {
-        let mut wizard = CreateWizard {
-            name: "Survival".to_owned(),
-            game_version: "1.21.11".to_owned(),
-            java_path: "/usr/bin/java".to_owned(),
-            ..CreateWizard::default()
-        };
-        let server = render_to_text(&wizard, 80, 24);
-        assert!(server.contains("服务信息"));
-        assert!(server.contains("Survival"));
-        assert!(render_to_text(&wizard, 40, 12).contains("Survival"));
-
-        wizard.handle(WizardAction::Advance);
-        let runtime = render_to_text(&wizard, 80, 24);
-        assert!(runtime.contains("Java与资源"));
-        assert!(runtime.contains("/usr/bin/java"));
-        assert!(render_to_text(&wizard, 40, 12).contains("/usr/bin/java"));
-
-        wizard.handle(WizardAction::Advance);
-        assert_eq!(wizard.step, WizardStep::Review);
-        let review = render_to_text(&wizard, 80, 24);
-        assert!(review.contains("预览与确认"));
-        assert!(review.contains("我已阅读并接受MinecraftEULA"));
-        assert!(render_to_text(&wizard, 40, 12).contains("已阅读并接受EULA"));
-    }
-
-    #[test]
-    fn compact_wizard_render_does_not_panic() {
-        let text = render_to_text(&CreateWizard::default(), 40, 12);
-        assert!(text.contains("新建Paper实例"));
-    }
-
-    fn render_to_text(wizard: &CreateWizard, width: u16, height: u16) -> String {
-        let backend = TestBackend::new(width, height);
-        let mut terminal = Terminal::new(backend).expect("test terminal");
-        terminal
-            .draw(|frame| render(frame, wizard))
-            .expect("render");
-        terminal
-            .backend()
-            .buffer()
-            .content()
-            .iter()
-            .map(|cell| cell.symbol())
-            .filter(|symbol| !symbol.chars().all(char::is_whitespace))
-            .collect()
-    }
-}
+mod tests;
