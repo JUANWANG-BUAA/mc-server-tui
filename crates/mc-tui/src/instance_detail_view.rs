@@ -228,7 +228,9 @@ fn action_help_line(compact: bool, editing_console: bool) -> Line<'static> {
             Span::styled("b", theme::key_hint()),
             Span::raw(" 备份 · "),
             Span::styled("l", theme::key_hint()),
-            Span::raw(" 列表"),
+            Span::raw(" 备份 · "),
+            Span::styled("/", theme::key_hint()),
+            Span::raw(" 命令"),
         ])
     } else {
         Line::from(vec![
@@ -239,11 +241,13 @@ fn action_help_line(compact: bool, editing_console: bool) -> Line<'static> {
             Span::styled("b", theme::key_hint()),
             Span::raw(" 备份 · "),
             Span::styled("l", theme::key_hint()),
-            Span::raw(" 备份列表 · "),
+            Span::raw(" 世界与备份 · "),
             Span::styled(":", theme::key_hint()),
             Span::raw(" 控制台 · "),
             Span::styled("r", theme::key_hint()),
-            Span::raw(" 刷新"),
+            Span::raw(" 刷新 · "),
+            Span::styled("/", theme::key_hint()),
+            Span::raw(" 命令"),
         ])
     }
 }

@@ -23,6 +23,7 @@ pub enum TaskStatus {
     Succeeded,
     Failed,
     Interrupted,
+    Cancelled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -41,12 +42,25 @@ pub enum TaskPhase {
     Completed,
     Failed,
     Interrupted,
+    Cancelled,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// Byte-level transfer progress for long downloads. Older persisted tasks
+/// deserialize with `None`, so the field is optional and backward-compatible.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TransferProgress {
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub bytes_per_second: Option<u64>,
+    pub source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskProgress {
     pub completed_steps: u16,
     pub total_steps: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transfer: Option<TransferProgress>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

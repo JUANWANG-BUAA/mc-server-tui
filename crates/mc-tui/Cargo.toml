@@ -19,3 +19,6 @@ mc-core = { path = "../mc-core" }
 ratatui.workspace = true
 tokio.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

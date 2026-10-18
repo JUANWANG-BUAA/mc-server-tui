@@ -20,6 +20,7 @@ fn renders_task_progress_and_event_cursor_at_reference_and_compact_sizes() {
         progress: Some(TaskProgress {
             completed_steps: 1,
             total_steps: 3,
+            transfer: None,
         }),
         error: None,
     });
@@ -61,6 +62,43 @@ fn renders_backup_page_summaries_in_task_detail() {
     assert!(text.contains("2.0MiB"));
 }
 
+#[test]
+fn renders_byte_progress_speed_and_real_source() {
+    let mut task = task_snapshot();
+    task.progress = Some(TaskProgress {
+        completed_steps: 1,
+        total_steps: 3,
+        transfer: Some(mc_core::TransferProgress {
+            downloaded_bytes: 27 * 1024 * 1024,
+            total_bytes: 54 * 1024 * 1024,
+            bytes_per_second: Some(3 * 1024 * 1024),
+            source: "Paper 官方 CDN · fill-data.papermc.io".to_owned(),
+        }),
+    });
+    let detail = TaskDetailState::new(task);
+    let wide = render_to_text(&detail, 80, 24);
+    assert!(wide.contains("下载"));
+    assert!(wide.contains("50%"));
+    assert!(wide.contains("fill-data.papermc.io"));
+    assert!(wide.contains("3.0MiB/s"));
+    let compact = render_to_text(&detail, 40, 12);
+    assert!(compact.contains("50%"));
+}
+
+#[test]
+fn cancellation_requires_two_presses_and_only_applies_to_downloads() {
+    let mut detail = TaskDetailState::new(task_snapshot());
+    assert!(detail.can_cancel());
+    assert_eq!(detail.request_cancel(), None);
+    assert!(detail.cancel_armed);
+    assert_eq!(detail.request_cancel(), Some(detail.task.id));
+    assert!(detail.cancel_requested);
+
+    detail.task.status = TaskStatus::Succeeded;
+    assert!(!detail.can_cancel());
+    assert_eq!(detail.request_cancel(), None);
+}
+
 fn task_snapshot() -> TaskSnapshot {
     TaskSnapshot {
         id: Uuid::new_v4(),
@@ -72,6 +110,7 @@ fn task_snapshot() -> TaskSnapshot {
         progress: Some(TaskProgress {
             completed_steps: 1,
             total_steps: 3,
+            transfer: None,
         }),
         created_at: Utc::now(),
         updated_at: Utc::now(),

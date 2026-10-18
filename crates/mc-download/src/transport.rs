@@ -6,7 +6,7 @@ use crate::resume::{
     write_resume_metadata, ResumeMetadata, ResumeState,
 };
 use crate::security::{resolve_public_address, validate_url};
-use crate::DownloadManager;
+use crate::{cancelled_error, DownloadControl, DownloadManager};
 use mc_core::{AppError, ArtifactPlan, ErrorCode};
 use reqwest::header::{CONTENT_LENGTH, ETAG, IF_RANGE, LOCATION, RANGE};
 use reqwest::{Client, StatusCode};
@@ -26,12 +26,19 @@ impl DownloadManager {
         plan: &ArtifactPlan,
         part_path: &Path,
         metadata_path: &Path,
+        control: &DownloadControl,
     ) -> Result<(), AppError> {
         let plan_fingerprint = url_fingerprint(&plan.download_url);
         let mut resume = read_resume_state(part_path, metadata_path, plan).await?;
+        if let Some(state) = &resume {
+            control.set_downloaded_bytes(state.offset);
+        }
         let mut restarted_after_range_rejection = false;
 
         loop {
+            if control.is_cancelled() {
+                return Err(cancelled_error());
+            }
             let response = self
                 .send_with_redirects(&plan.download_url, resume.as_ref())
                 .await?;
@@ -144,6 +151,7 @@ impl DownloadManager {
                     hash_existing_file(part_path, &mut hasher).await?;
                 }
                 let mut written = offset;
+                control.set_downloaded_bytes(written);
                 let mut response = response;
                 while let Some(chunk) = response.chunk().await.map_err(|_| {
                     AppError::new(
@@ -170,6 +178,10 @@ impl DownloadManager {
                     file.write_all(&chunk).await.map_err(|error| {
                         io_error("Could not write the temporary download file.", error)
                     })?;
+                    control.set_downloaded_bytes(written);
+                    if control.is_cancelled() {
+                        return Err(cancelled_error());
+                    }
                 }
                 if written != plan.expected_size {
                     return Err(AppError::new(
@@ -201,7 +213,9 @@ impl DownloadManager {
                     return Ok(());
                 }
                 Ok(Err(error)) => {
-                    let preserve = error.code == ErrorCode::DownloadInterrupted && etag.is_some();
+                    let preserve = (error.code == ErrorCode::DownloadInterrupted
+                        || error.code == ErrorCode::TaskCancelled)
+                        && etag.is_some();
                     if !preserve {
                         discard_partial(part_path, metadata_path).await?;
                     }

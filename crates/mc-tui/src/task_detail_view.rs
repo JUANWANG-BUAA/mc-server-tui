@@ -18,7 +18,7 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_
         .constraints([
             Constraint::Length(3),
             Constraint::Min(1),
-            Constraint::Length(2),
+            Constraint::Length(3),
         ])
         .split(frame.area());
     let compact = frame.area().width < 80 || frame.area().height < 18;
@@ -39,8 +39,19 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_
         &detail.task.result,
         Some(mc_core::TaskResult::WorldBackupsListed { .. })
     );
+    let has_transfer = detail
+        .task
+        .progress
+        .as_ref()
+        .is_some_and(|progress| progress.transfer.is_some());
     let summary_height = if compact {
-        3
+        if has_transfer {
+            4
+        } else {
+            3
+        }
+    } else if has_transfer {
+        10
     } else if has_backup_page {
         8
     } else {
@@ -68,6 +79,30 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_
                 Span::raw(" 返回"),
             ])
         });
+    let task_hint = if let Some(notice) = &detail.notice {
+        Line::from(Span::styled(notice.clone(), theme::warning()))
+    } else if detail.can_cancel() {
+        if detail.cancel_armed {
+            Line::from(vec![
+                Span::styled("再按 x", theme::danger().add_modifier(Modifier::BOLD)),
+                Span::raw(" 确认取消下载 · "),
+                Span::styled("Esc", theme::key_hint()),
+                Span::raw(" 返回"),
+            ])
+        } else {
+            Line::from(vec![
+                Span::styled("x", theme::key_hint()),
+                Span::raw(" 取消下载并保留可续传临时文件 · "),
+                Span::styled("Esc", theme::key_hint()),
+                Span::raw(" 返回"),
+            ])
+        }
+    } else {
+        Line::from(Span::styled(
+            "/ 命令 · Esc 返回任务列表 · q 退出 TUI",
+            theme::muted(),
+        ))
+    };
     frame.render_widget(
         Paragraph::new(vec![
             status,
@@ -81,6 +116,7 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_
                 Span::raw(" · "),
                 Span::styled(format!("{} 条事件", detail.events.len()), theme::muted()),
             ]),
+            task_hint,
         ]),
         areas[2],
     );
@@ -96,6 +132,7 @@ fn render_summary(
     let task = &detail.task;
     let progress = task
         .progress
+        .clone()
         .map(|value| format!(" · {}/{}", value.completed_steps, value.total_steps))
         .unwrap_or_default();
     let mut lines = vec![Line::from(vec![
@@ -109,6 +146,19 @@ fn render_summary(
         ),
         Span::raw(format!(" · {}{progress}", phase_label(task.phase))),
     ])];
+    let transfer = task
+        .progress
+        .as_ref()
+        .and_then(|progress| progress.transfer.as_ref());
+    if let Some(transfer) = transfer {
+        lines.push(transfer_progress_line(transfer, compact));
+        if !compact {
+            lines.push(Line::from(vec![
+                Span::styled("来源  ", theme::muted()),
+                Span::styled(transfer.source.clone(), theme::accent()),
+            ]));
+        }
+    }
     if compact {
         return frame.render_widget(
             Paragraph::new(lines).block(
@@ -304,3 +354,44 @@ fn render_events(frame: &mut Frame<'_>, area: ratatui::layout::Rect, detail: &Ta
 
 #[cfg(test)]
 mod tests;
+
+fn transfer_progress_line(progress: &mc_core::TransferProgress, compact: bool) -> Line<'static> {
+    let ratio = if progress.total_bytes == 0 {
+        0.0
+    } else {
+        (progress.downloaded_bytes as f64 / progress.total_bytes as f64).clamp(0.0, 1.0)
+    };
+    let width = if compact { 12 } else { 24 };
+    let filled = ((ratio * width as f64).round() as usize).min(width);
+    let bar = format!("{}{}", "█".repeat(filled), "░".repeat(width - filled),);
+    let percent = (ratio * 100.0).round() as u8;
+    if compact {
+        Line::from(vec![
+            Span::styled("下载 ", theme::muted()),
+            Span::styled(bar, theme::success()),
+            Span::styled(format!(" {percent}%"), theme::accent()),
+        ])
+    } else {
+        let speed = progress
+            .bytes_per_second
+            .map(format_transfer_rate)
+            .unwrap_or_else(|| "速度计算中".to_owned());
+        Line::from(vec![
+            Span::styled("下载  ", theme::muted()),
+            Span::styled(bar, theme::success()),
+            Span::styled(format!(" {percent}%"), theme::accent()),
+            Span::styled(
+                format!(
+                    " · {} / {} · {speed}",
+                    format_bytes(progress.downloaded_bytes),
+                    format_bytes(progress.total_bytes)
+                ),
+                theme::muted(),
+            ),
+        ])
+    }
+}
+
+fn format_transfer_rate(bytes: u64) -> String {
+    format!("{}/s", format_bytes(bytes))
+}

@@ -103,7 +103,7 @@ pub(super) fn persist_snapshot(
         status: snapshot.status,
         phase: snapshot.phase,
         message: snapshot.message.clone(),
-        progress: snapshot.progress,
+        progress: snapshot.progress.clone(),
         error: snapshot.error.clone(),
     };
     let encoded_snapshot = serde_json::to_string(&snapshot).map_err(encoding_error)?;
@@ -186,6 +186,7 @@ fn status_name(status: TaskStatus) -> &'static str {
         TaskStatus::Succeeded => "succeeded",
         TaskStatus::Failed => "failed",
         TaskStatus::Interrupted => "interrupted",
+        TaskStatus::Cancelled => "cancelled",
     }
 }
 

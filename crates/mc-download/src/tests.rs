@@ -7,6 +7,7 @@ use crate::security::{is_public_ip, validate_url};
 use chrono::Utc;
 use mc_core::{Checksum, ReleaseChannel};
 use sha2::{Digest, Sha256};
+use std::sync::{atomic::AtomicBool, Arc};
 use url::Url;
 
 fn plan(url: Url, bytes: &[u8]) -> ArtifactPlan {
@@ -202,4 +203,26 @@ async fn cache_setup_does_not_change_caller_owned_parent_permissions() {
             & 0o777,
         0o700
     );
+}
+
+#[tokio::test]
+async fn cancelled_download_fails_before_network_transfer() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let body = b"cancelled fixture";
+    let plan = plan(
+        Url::parse("https://fill-data.papermc.io/paper.jar").unwrap(),
+        body,
+    );
+    let manager = DownloadManager::new(DownloadConfig::paper(
+        temp.path(),
+        "mc-server-tui/0.1 contact: https://example.invalid",
+    ))
+    .expect("manager");
+    let control = DownloadControl::new(Arc::new(AtomicBool::new(true)));
+    let error = manager
+        .fetch_with_control(&plan, &control)
+        .await
+        .expect_err("cancelled download is rejected");
+    assert_eq!(error.code, mc_core::ErrorCode::TaskCancelled);
+    assert!(!error.retryable);
 }

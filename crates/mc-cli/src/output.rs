@@ -137,6 +137,7 @@ pub(crate) fn print_response(
                 }
             }
         }
+        ApiResponse::ModpackAnalysis(report) => print_modpack(&report),
         ApiResponse::Error(error) => return Err(error),
     }
     Ok(())
@@ -145,6 +146,7 @@ pub(crate) fn print_response(
 fn print_task(task: &TaskSnapshot) {
     let progress = task
         .progress
+        .clone()
         .map(|progress| {
             format!(
                 "{}/{} steps",
@@ -241,6 +243,7 @@ fn print_task(task: &TaskSnapshot) {
 fn print_task_event(event: &TaskEvent) {
     let progress = event
         .progress
+        .clone()
         .map(|progress| format!("{}/{}", progress.completed_steps, progress.total_steps))
         .unwrap_or_else(|| "indeterminate".to_owned());
     println!(
@@ -308,5 +311,32 @@ fn format_worlds(worlds: &[String]) -> String {
         "none".to_owned()
     } else {
         worlds.join(", ")
+    }
+}
+
+fn print_modpack(report: &mc_core::ModpackAnalysisReport) {
+    println!("Pack: {} · {}", report.name, report.version_id);
+    println!(
+        "Minecraft: {} · Loader: {}",
+        report.minecraft_version.as_deref().unwrap_or("unknown"),
+        report
+            .loader
+            .as_ref()
+            .map(|loader| loader.dependency.clone() + " " + &loader.version)
+            .unwrap_or_else(|| "unknown".to_owned())
+    );
+    println!(
+        "Files: install={} review={} exclude={} mods={} overrides={}",
+        report.install_files,
+        report.review_files,
+        report.excluded_files,
+        report.mod_files,
+        report.server_override_files
+    );
+    for issue in &report.issues {
+        println!("[{:?}] {}: {}", issue.severity, issue.title, issue.detail);
+        if let Some(action) = &issue.action {
+            println!("  Next: {action}");
+        }
     }
 }

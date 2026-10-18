@@ -21,9 +21,8 @@ ANSI_SEQUENCE = re.compile(
     rb"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))"
 )
 FOOTER = "q退出".encode()
-WIZARD_TITLE = "新建Paper实例".encode()
-RUNTIME_STEP = "Java与资源".encode()
-REVIEW_STEP = "预览与确认".encode()
+WIZARD_TITLE = "新建Paper服务器".encode()
+LOADING_MARKER = "正在读取Paper稳定版本".encode()
 
 
 def main():
@@ -129,81 +128,8 @@ def main():
             compact_output = re.sub(rb"\s+", b"", clean_output)
             if WIZARD_TITLE not in compact_output:
                 raise AssertionError("wizard did not open while daemon requests were pending")
-
-            os.write(master, b"TestServer\t1.21.11\r")
-            deadline = time.monotonic() + 2
-            while time.monotonic() < deadline:
-                clean_output = ANSI_SEQUENCE.sub(b"", captured)
-                compact_output = re.sub(rb"\s+", b"", clean_output)
-                if RUNTIME_STEP in compact_output:
-                    break
-                ready, _, _ = select.select([master], [], [], 0.1)
-                if ready:
-                    try:
-                        captured.extend(os.read(master, 65536))
-                    except OSError:
-                        break
-            clean_output = ANSI_SEQUENCE.sub(b"", captured)
-            compact_output = re.sub(rb"\s+", b"", clean_output)
-            if RUNTIME_STEP not in compact_output:
-                raise AssertionError("wizard did not accept fields and advance while RPCs were pending")
-
-            os.write(master, b"/fake/java\r")
-            deadline = time.monotonic() + 2
-            while time.monotonic() < deadline:
-                clean_output = ANSI_SEQUENCE.sub(b"", captured)
-                compact_output = re.sub(rb"\s+", b"", clean_output)
-                if REVIEW_STEP in compact_output:
-                    break
-                ready, _, _ = select.select([master], [], [], 0.1)
-                if ready:
-                    try:
-                        captured.extend(os.read(master, 65536))
-                    except OSError:
-                        break
-            clean_output = ANSI_SEQUENCE.sub(b"", captured)
-            compact_output = re.sub(rb"\s+", b"", clean_output)
-            if REVIEW_STEP not in compact_output:
-                raise AssertionError("wizard did not reach review while daemon requests were pending")
-
-            os.write(master, b" \r")
-            deadline = time.monotonic() + 2
-            while time.monotonic() < deadline and len(state["connections"]) < 3:
-                ready, _, _ = select.select([master], [], [], 0.1)
-                if ready:
-                    try:
-                        captured.extend(os.read(master, 65536))
-                    except OSError:
-                        break
-            if len(state["connections"]) < 3:
-                raise AssertionError("wizard did not submit the create request to the daemon")
-            deadline = time.monotonic() + 1
-            create_request = None
-            while time.monotonic() < deadline and create_request is None:
-                for request in state["requests"]:
-                    try:
-                        envelope = json.loads(request)
-                    except (UnicodeDecodeError, json.JSONDecodeError):
-                        continue
-                    if envelope.get("payload", {}).get("operation") == "create_paper_instance":
-                        create_request = envelope
-                        break
-                if create_request is None:
-                    time.sleep(0.01)
-            if create_request is None:
-                raise AssertionError("daemon did not receive a Paper instance request")
-            arguments = create_request["payload"]["arguments"]
-            if (
-                arguments.get("name") != "TestServer"
-                or arguments.get("game_version") != "1.21.11"
-                or arguments.get("build_id") is not None
-                or arguments.get("java_path") != "/fake/java"
-                or arguments.get("min_memory_mb") != 1024
-                or arguments.get("max_memory_mb") != 2048
-                or arguments.get("port") != 25565
-                or arguments.get("accept_eula") is not True
-            ):
-                raise AssertionError("wizard submitted unexpected Paper instance parameters")
+            if LOADING_MARKER not in compact_output:
+                raise AssertionError("guided wizard did not show its loading guidance")
 
             started = time.monotonic()
             os.write(master, b"\x03")
@@ -228,9 +154,8 @@ def main():
 
             print("PTY dashboard render at 80×24: passed")
             print("Concurrent instance/task requests while daemon is stalled: passed")
-            print("Wizard fields and review while list RPCs are stalled: passed")
-            print("Create submission reached daemon while list RPCs were stalled: passed")
-            print(f"Ctrl-C response while create RPC was stalled: {time.monotonic() - started:.2f}s")
+            print("Guided wizard opens and explains option loading: passed")
+            print(f"Ctrl-C response while options RPC was stalled: {time.monotonic() - started:.2f}s")
             print("Alternate-screen cleanup: passed")
         finally:
             state["running"] = False

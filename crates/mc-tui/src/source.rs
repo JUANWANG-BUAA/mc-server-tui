@@ -2,13 +2,13 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use mc_client::DaemonClient;
-use mc_core::{ApiRequest, ApiResponse, AppError, ErrorCode, ServerSnapshot};
+use mc_core::{ApiRequest, ApiResponse, AppError, BackupCursor, ErrorCode, ServerSnapshot};
 
 use crate::{
     app::DashboardData,
     instance_detail::{InstanceDetailQuery, InstanceDetailUpdate},
     task_detail::TaskDetailUpdate,
-    wizard::CreateInstanceInput,
+    wizard::{CreateInstanceInput, CreateOptions},
 };
 
 const BACKUP_PREVIEW_PAGE_LIMIT: u16 = 3;
@@ -16,6 +16,7 @@ const BACKUP_PREVIEW_PAGE_LIMIT: u16 = 3;
 #[async_trait]
 pub(crate) trait ManagementSource: Send + Sync {
     async fn load(&self) -> Result<DashboardData, AppError>;
+    async fn load_create_options(&self) -> Result<CreateOptions, AppError>;
     async fn create_instance(
         &self,
         input: CreateInstanceInput,
@@ -38,7 +39,30 @@ pub(crate) trait ManagementSource: Send + Sync {
     async fn list_backups(
         &self,
         instance_id: uuid::Uuid,
+        cursor: Option<BackupCursor>,
     ) -> Result<mc_core::TaskSnapshot, AppError>;
+    async fn verify_backup(
+        &self,
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
+    ) -> Result<mc_core::TaskSnapshot, AppError>;
+    async fn plan_restore(
+        &self,
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
+    ) -> Result<mc_core::TaskSnapshot, AppError>;
+    async fn restore_backup(
+        &self,
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
+        confirmation_token: String,
+    ) -> Result<mc_core::TaskSnapshot, AppError>;
+    async fn load_task(&self, task_id: uuid::Uuid) -> Result<mc_core::TaskSnapshot, AppError>;
+    async fn cancel_task(&self, task_id: uuid::Uuid) -> Result<mc_core::TaskSnapshot, AppError>;
+    async fn analyze_modpack(
+        &self,
+        path: std::path::PathBuf,
+    ) -> Result<mc_core::ModpackAnalysisReport, AppError>;
     async fn send_console_command(
         &self,
         instance_id: uuid::Uuid,
@@ -68,6 +92,25 @@ impl ManagementSource for DaemonDashboardSource {
         Ok(DashboardData {
             instances: expect_instances(instances?)?,
             tasks: expect_tasks(tasks?)?,
+        })
+    }
+
+    async fn load_create_options(&self) -> Result<CreateOptions, AppError> {
+        let doctor = expect_doctor(self.client.request(ApiRequest::Doctor).await?)?;
+        let versions = expect_versions(self.client.request(ApiRequest::PaperVersions).await?)?;
+        let suggested_port = tokio::task::spawn_blocking(find_available_port)
+            .await
+            .map_err(|error| {
+                AppError::new(
+                    ErrorCode::Internal,
+                    "Could not inspect local port availability.",
+                )
+                .with_evidence(error.to_string())
+            })?;
+        Ok(CreateOptions {
+            versions,
+            java_runtimes: doctor.java_runtimes,
+            suggested_port,
         })
     }
 
@@ -179,19 +222,106 @@ impl ManagementSource for DaemonDashboardSource {
     async fn list_backups(
         &self,
         instance_id: uuid::Uuid,
+        cursor: Option<BackupCursor>,
     ) -> Result<mc_core::TaskSnapshot, AppError> {
         match self
             .client
             .request(ApiRequest::ListWorldBackups {
                 instance_id,
                 limit: BACKUP_PREVIEW_PAGE_LIMIT,
-                cursor: None,
+                cursor,
             })
             .await?
         {
             ApiResponse::TaskQueued(task) => Ok(task),
             ApiResponse::Error(error) => Err(error),
             _ => Err(unexpected_response("world backup list")),
+        }
+    }
+
+    async fn verify_backup(
+        &self,
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
+    ) -> Result<mc_core::TaskSnapshot, AppError> {
+        match self
+            .client
+            .request(ApiRequest::VerifyWorldBackup {
+                instance_id,
+                backup_id,
+            })
+            .await?
+        {
+            ApiResponse::TaskQueued(task) => Ok(task),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("world backup verification")),
+        }
+    }
+
+    async fn plan_restore(
+        &self,
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
+    ) -> Result<mc_core::TaskSnapshot, AppError> {
+        match self
+            .client
+            .request(ApiRequest::PlanWorldBackupRestore {
+                instance_id,
+                backup_id,
+            })
+            .await?
+        {
+            ApiResponse::TaskQueued(task) => Ok(task),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("world backup restore plan")),
+        }
+    }
+
+    async fn restore_backup(
+        &self,
+        instance_id: uuid::Uuid,
+        backup_id: uuid::Uuid,
+        confirmation_token: String,
+    ) -> Result<mc_core::TaskSnapshot, AppError> {
+        match self
+            .client
+            .request(ApiRequest::RestoreWorldBackup {
+                instance_id,
+                backup_id,
+                confirmation_token,
+            })
+            .await?
+        {
+            ApiResponse::TaskQueued(task) => Ok(task),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("world backup restore")),
+        }
+    }
+
+    async fn load_task(&self, task_id: uuid::Uuid) -> Result<mc_core::TaskSnapshot, AppError> {
+        expect_task(self.client.request(ApiRequest::GetTask { task_id }).await?)
+    }
+
+    async fn cancel_task(&self, task_id: uuid::Uuid) -> Result<mc_core::TaskSnapshot, AppError> {
+        expect_task(
+            self.client
+                .request(ApiRequest::CancelTask { task_id })
+                .await?,
+        )
+    }
+
+    async fn analyze_modpack(
+        &self,
+        path: std::path::PathBuf,
+    ) -> Result<mc_core::ModpackAnalysisReport, AppError> {
+        match self
+            .client
+            .request(ApiRequest::AnalyzeModpack { path })
+            .await?
+        {
+            ApiResponse::ModpackAnalysis(report) => Ok(report),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("modpack analysis")),
         }
     }
 
@@ -212,6 +342,22 @@ impl ManagementSource for DaemonDashboardSource {
             ApiResponse::Error(error) => Err(error),
             _ => Err(unexpected_response("server console")),
         }
+    }
+}
+
+fn expect_doctor(response: ApiResponse) -> Result<mc_core::DoctorReport, AppError> {
+    match response {
+        ApiResponse::Doctor(report) => Ok(report),
+        ApiResponse::Error(error) => Err(error),
+        _ => Err(unexpected_response("doctor report")),
+    }
+}
+
+fn expect_versions(response: ApiResponse) -> Result<Vec<mc_core::ServerVersion>, AppError> {
+    match response {
+        ApiResponse::PaperVersions(versions) => Ok(versions),
+        ApiResponse::Error(error) => Err(error),
+        _ => Err(unexpected_response("Paper version list")),
     }
 }
 
@@ -276,4 +422,10 @@ fn unexpected_response(request: &str) -> AppError {
         ErrorCode::ProtocolInvalid,
         format!("The daemon returned an unexpected response for the {request}."),
     )
+}
+
+fn find_available_port() -> u16 {
+    (25565..=25585)
+        .find(|port| std::net::TcpListener::bind(("127.0.0.1", *port)).is_ok())
+        .unwrap_or(25565)
 }

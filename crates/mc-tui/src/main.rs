@@ -1,6 +1,12 @@
 mod app;
+mod backup_manager;
+mod backup_manager_view;
+mod command_palette;
+mod command_palette_view;
 mod instance_detail;
 mod instance_detail_view;
+mod modpack_import;
+mod modpack_import_view;
 mod runtime;
 mod source;
 mod task_detail;

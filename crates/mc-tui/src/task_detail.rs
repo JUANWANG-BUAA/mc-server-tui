@@ -23,6 +23,9 @@ pub(crate) struct TaskDetailState {
     pub last_event_sequence: i64,
     pub scroll_offset: usize,
     pub error: Option<String>,
+    pub notice: Option<String>,
+    pub cancel_armed: bool,
+    pub cancel_requested: bool,
 }
 
 impl TaskDetailState {
@@ -33,6 +36,53 @@ impl TaskDetailState {
             last_event_sequence: 0,
             scroll_offset: 0,
             error: None,
+            notice: None,
+            cancel_armed: false,
+            cancel_requested: false,
+        }
+    }
+
+    pub fn can_cancel(&self) -> bool {
+        self.task.kind == mc_core::TaskKind::CreatePaperInstance
+            && matches!(
+                self.task.status,
+                mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running
+            )
+    }
+
+    pub fn request_cancel(&mut self) -> Option<Uuid> {
+        if !self.can_cancel() || self.cancel_requested {
+            return None;
+        }
+        if !self.cancel_armed {
+            self.cancel_armed = true;
+            self.notice = Some("再次按 x 确认取消；下载已完成的部分会保留用于续传。".to_owned());
+            return None;
+        }
+        self.cancel_armed = false;
+        self.cancel_requested = true;
+        self.notice = Some("正在向后端发送取消请求…".to_owned());
+        Some(self.task.id)
+    }
+
+    pub fn apply_cancel_result(&mut self, result: Result<mc_core::TaskSnapshot, AppError>) {
+        match result {
+            Ok(task) if task.id == self.task.id => {
+                self.task = task;
+                self.notice = Some("取消请求已发送；正在等待任务安全结束。".to_owned());
+                self.error = None;
+            }
+            Ok(_) => {
+                self.cancel_requested = false;
+                self.error = Some("后台返回了其他任务的取消结果。".to_owned());
+            }
+            Err(error) => {
+                self.cancel_requested = false;
+                self.error = Some(match error.next_action {
+                    Some(action) => format!("{} · 下一步：{}", error.reason, action),
+                    None => error.reason,
+                });
+            }
         }
     }
 
@@ -60,6 +110,10 @@ impl TaskDetailState {
         }
 
         self.task = update.task;
+        if !self.can_cancel() {
+            self.cancel_armed = false;
+            self.cancel_requested = false;
+        }
         let mut incoming = update.events;
         incoming.sort_by_key(|event| event.sequence);
         for event in incoming {

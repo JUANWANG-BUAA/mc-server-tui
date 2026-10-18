@@ -3,6 +3,7 @@
 //! Provider-specific HTTP and cache policies are isolated behind `DownloadManager`.
 
 mod cache;
+mod control;
 mod digest;
 mod errors;
 mod resume;
@@ -14,6 +15,7 @@ use crate::cache::{
     verify_cached_blob,
 };
 use crate::security::validate_url;
+pub use control::DownloadControl;
 use mc_core::{AppError, ArtifactPlan, ErrorCode};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -109,7 +111,21 @@ impl DownloadManager {
     }
 
     pub async fn fetch(&self, plan: &ArtifactPlan) -> Result<VerifiedBlob, AppError> {
+        self.fetch_with_control(plan, &DownloadControl::default())
+            .await
+    }
+
+    /// Downloads and verifies an artifact while publishing byte progress and
+    /// observing a cooperative cancellation signal.
+    pub async fn fetch_with_control(
+        &self,
+        plan: &ArtifactPlan,
+        control: &DownloadControl,
+    ) -> Result<VerifiedBlob, AppError> {
         self.validate_plan(plan)?;
+        if control.is_cancelled() {
+            return Err(cancelled_error());
+        }
         let cache_root = prepare_cache_root(&self.config.cache_root).await?;
         let key = plan.checksum.value.to_ascii_lowercase();
         let sha_root = cache_root.join("sha256");
@@ -124,6 +140,7 @@ impl DownloadManager {
         let _lock = acquire_lock(lock_path).await?;
 
         if let Some(blob) = verify_cached_blob(&blob_path, plan).await? {
+            control.set_downloaded_bytes(blob.size());
             return Ok(blob);
         }
         check_available_space(&cache_root, plan.expected_size).await?;
@@ -131,6 +148,7 @@ impl DownloadManager {
             plan,
             &bucket.join(format!("{key}.part")),
             &bucket.join(format!("{key}.part.json")),
+            control,
         )
         .await?;
 
@@ -141,9 +159,11 @@ impl DownloadManager {
             })?;
         cache::remove_if_regular_file(&bucket.join(format!("{key}.part.json"))).await?;
         sync_directory(bucket).await?;
-        verify_cached_blob(&blob_path, plan)
+        let blob = verify_cached_blob(&blob_path, plan)
             .await?
-            .ok_or_else(|| AppError::new(ErrorCode::Internal, "Committed artifact is missing."))
+            .ok_or_else(|| AppError::new(ErrorCode::Internal, "Committed artifact is missing."))?;
+        control.set_downloaded_bytes(blob.size());
+        Ok(blob)
     }
 
     fn validate_plan(&self, plan: &ArtifactPlan) -> Result<(), AppError> {
@@ -172,3 +192,11 @@ impl DownloadManager {
 
 #[cfg(test)]
 mod tests;
+
+fn cancelled_error() -> AppError {
+    AppError::new(
+        ErrorCode::TaskCancelled,
+        "The artifact transfer was cancelled.",
+    )
+    .with_action("Retry the same artifact to continue from its verified partial file.")
+}

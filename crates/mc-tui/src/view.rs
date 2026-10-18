@@ -14,8 +14,21 @@ use crate::{
 
 pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8) {
     frame.render_widget(Block::default().style(theme::page()), frame.area());
+    render_primary(frame, app, animation_frame);
+    if let Some(palette) = &app.command_palette {
+        crate::command_palette_view::render(frame, palette);
+    }
+}
+
+fn render_primary(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8) {
+    if app.modpack_import_visible {
+        if let Some(import) = &app.modpack_import {
+            crate::modpack_import_view::render(frame, import, animation_frame);
+        }
+        return;
+    }
     if let Some(wizard) = &app.wizard {
-        crate::wizard_view::render(frame, wizard);
+        crate::wizard_view::render(frame, wizard, animation_frame);
         return;
     }
     if app.task_detail_visible {
@@ -23,6 +36,12 @@ pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8)
             crate::task_detail_view::render(frame, detail, animation_frame);
             return;
         }
+    }
+    if app.backup_manager_visible {
+        if let Some(manager) = &app.backup_manager {
+            crate::backup_manager_view::render(frame, manager, animation_frame);
+        }
+        return;
     }
     if app.instance_detail_visible {
         if let Some(detail) = &app.instance_detail {
@@ -88,10 +107,24 @@ fn render_instances(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         "实例"
     };
     let items = if app.instances.is_empty() {
-        vec![ListItem::new(Span::styled(
-            "暂无实例 · 按 r 刷新",
-            theme::muted(),
-        ))]
+        vec![
+            ListItem::new(Line::from(Span::styled(
+                "还没有服务器",
+                theme::brand().add_modifier(ratatui::style::Modifier::BOLD),
+            ))),
+            ListItem::new(Line::from(Span::styled(
+                "1  按 n 新建 Paper：选择稳定版本，自动检测兼容 Java",
+                theme::accent(),
+            ))),
+            ListItem::new(Line::from(Span::styled(
+                "2  按 / 搜“导入整合包”，先检查 MC、加载器和 Mod",
+                theme::warning(),
+            ))),
+            ListItem::new(Line::from(Span::styled(
+                "3  下载、备份和恢复都在后台任务中可查看、可恢复",
+                theme::muted(),
+            ))),
+        ]
     } else {
         app.instances
             .iter()
@@ -141,6 +174,7 @@ fn render_tasks(frame: &mut Frame<'_>, area: Rect, app: &AppState, animation_fra
             .map(|task| {
                 let progress = task
                     .progress
+                    .clone()
                     .map(|value| format!(" · {}/{}", value.completed_steps, value.total_steps))
                     .unwrap_or_default();
                 ListItem::new(Line::from(vec![
@@ -185,14 +219,14 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         Line::from(vec![
             Span::styled("↑/↓", theme::key_hint()),
             Span::raw(" 选择 · "),
-            Span::styled("Tab", theme::key_hint()),
-            Span::raw(" 切换 · "),
             Span::styled("Enter", theme::key_hint()),
             Span::raw(" 打开 · "),
             Span::styled("n", theme::key_hint()),
             Span::raw(" 新建 · "),
-            Span::styled("r", theme::key_hint()),
-            Span::raw(" 刷新 · "),
+            Span::styled("/", theme::key_hint()),
+            Span::raw(" 命令 · "),
+            Span::styled("Ctrl-K", theme::key_hint()),
+            Span::raw(" 全局命令 · "),
             Span::styled("q", theme::key_hint()),
             Span::raw(" 退出"),
         ]),

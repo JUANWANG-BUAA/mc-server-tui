@@ -75,7 +75,7 @@ fn maps_common_keyboard_actions_without_terminal_io() {
                 editing_console: false,
             },
         ),
-        Action::ListBackups
+        Action::OpenBackupManager
     );
     assert_eq!(
         action_for_key(
@@ -94,6 +94,52 @@ fn maps_common_keyboard_actions_without_terminal_io() {
             UiMode::Dashboard(Panel::Instances),
         ),
         Action::Quit
+    );
+}
+
+#[test]
+fn backup_manager_maps_browse_review_and_confirmation_keys() {
+    let browse = UiMode::BackupManager {
+        editing_confirmation: false,
+        reviewing_plan: false,
+    };
+    assert_eq!(
+        action_for_key(KeyCode::Char('v'), KeyModifiers::NONE, browse),
+        Action::VerifyBackup
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Enter, KeyModifiers::NONE, browse),
+        Action::PreviewRestore
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Char('m'), KeyModifiers::NONE, browse),
+        Action::LoadMoreBackups
+    );
+
+    let review = UiMode::BackupManager {
+        editing_confirmation: false,
+        reviewing_plan: true,
+    };
+    assert_eq!(
+        action_for_key(KeyCode::Char('c'), KeyModifiers::NONE, review),
+        Action::BeginRestoreConfirmation
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Esc, KeyModifiers::NONE, review),
+        Action::BackFromBackups
+    );
+
+    let confirmation = UiMode::BackupManager {
+        editing_confirmation: true,
+        reviewing_plan: true,
+    };
+    assert_eq!(
+        action_for_key(KeyCode::Char('r'), KeyModifiers::NONE, confirmation),
+        Action::RestoreConfirmInsert('r')
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Enter, KeyModifiers::NONE, confirmation),
+        Action::RestoreConfirmSubmit
     );
 }
 
@@ -150,5 +196,77 @@ fn wizard_keeps_text_keys_and_uses_escape_to_go_back() {
     assert_eq!(
         action_for_key(KeyCode::Esc, KeyModifiers::NONE, UiMode::TaskDetail),
         Action::BackFromTaskDetail
+    );
+}
+
+#[test]
+fn slash_and_ctrl_k_open_the_discoverable_command_palette() {
+    assert_eq!(
+        action_for_key(
+            KeyCode::Char('/'),
+            KeyModifiers::NONE,
+            UiMode::Dashboard(Panel::Instances),
+        ),
+        Action::OpenCommandPalette
+    );
+    assert_eq!(
+        action_for_key(
+            KeyCode::Char('k'),
+            KeyModifiers::CONTROL,
+            UiMode::Wizard(WizardStep::Server),
+        ),
+        Action::OpenCommandPalette
+    );
+    assert_eq!(
+        action_for_key(
+            KeyCode::Backspace,
+            KeyModifiers::NONE,
+            UiMode::CommandPalette,
+        ),
+        Action::PaletteBackspace
+    );
+    assert_eq!(
+        action_for_key(
+            KeyCode::Char('备'),
+            KeyModifiers::NONE,
+            UiMode::CommandPalette,
+        ),
+        Action::PaletteInsert('备')
+    );
+}
+
+#[test]
+fn modpack_import_maps_selection_analysis_and_report_navigation() {
+    let browsing = UiMode::ModpackImport {
+        report: false,
+        loading: false,
+    };
+    assert_eq!(
+        action_for_key(KeyCode::Down, KeyModifiers::NONE, browsing),
+        Action::Next
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Enter, KeyModifiers::NONE, browsing),
+        Action::AnalyzeModpack
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Char('r'), KeyModifiers::NONE, browsing),
+        Action::RefreshModpack
+    );
+    let review = UiMode::ModpackImport {
+        report: true,
+        loading: false,
+    };
+    assert_eq!(
+        action_for_key(KeyCode::Esc, KeyModifiers::NONE, review),
+        Action::BackFromModpack
+    );
+    let loading = UiMode::ModpackImport {
+        report: false,
+        loading: true,
+    };
+    assert_eq!(
+        action_for_key(KeyCode::Enter, KeyModifiers::NONE, loading),
+        Action::Ignore
     );
 }

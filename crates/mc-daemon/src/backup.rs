@@ -29,6 +29,7 @@ pub(crate) async fn create_world_backup_task(
                         Some(TaskProgress {
                             completed_steps: 0,
                             total_steps: 1,
+                            transfer: None,
                         }),
                     )
                     .await?;
@@ -43,6 +44,7 @@ pub(crate) async fn create_world_backup_task(
                         Some(TaskProgress {
                             completed_steps: 1,
                             total_steps: 1,
+                            transfer: None,
                         }),
                     )
                     .await?;
@@ -84,6 +86,7 @@ pub(crate) async fn list_world_backups_task(
                         Some(TaskProgress {
                             completed_steps: 0,
                             total_steps: 1,
+                            transfer: None,
                         }),
                     )
                     .await?;
@@ -98,6 +101,7 @@ pub(crate) async fn list_world_backups_task(
                         Some(TaskProgress {
                             completed_steps: 1,
                             total_steps: 1,
+                            transfer: None,
                         }),
                     )
                     .await?;
@@ -128,6 +132,7 @@ pub(crate) async fn verify_world_backup_task(
                         Some(TaskProgress {
                             completed_steps: 0,
                             total_steps: 1,
+                            transfer: None,
                         }),
                     )
                     .await?;
@@ -142,6 +147,7 @@ pub(crate) async fn verify_world_backup_task(
                         Some(TaskProgress {
                             completed_steps: 1,
                             total_steps: 1,
+                            transfer: None,
                         }),
                     )
                     .await?;

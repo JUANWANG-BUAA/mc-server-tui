@@ -40,6 +40,11 @@ pub(crate) enum Command {
         #[command(subcommand)]
         command: TaskCommand,
     },
+    /// Analyze a local Modrinth .mrpack without modifying files.
+    Modpack {
+        #[command(subcommand)]
+        command: ModpackCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -103,6 +108,12 @@ pub(crate) enum BackupCommand {
         #[arg(long)]
         confirm_token: String,
     },
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum ModpackCommand {
+    /// Inspect MC version, loader, mod environment flags, paths, and downloads.
+    Inspect { path: PathBuf },
 }
 
 #[derive(Debug, Subcommand)]
@@ -219,6 +230,9 @@ impl Command {
                     },
                     false,
                 ),
+            },
+            Self::Modpack { command } => match command {
+                ModpackCommand::Inspect { path } => (ApiRequest::AnalyzeModpack { path }, false),
             },
             Self::Task { command } => match command {
                 TaskCommand::List { limit } => (ApiRequest::ListTasks { limit }, false),
@@ -353,6 +367,18 @@ mod tests {
             } if parsed_instance_id == instance_id
                 && parsed_backup_id == backup_id
                 && confirmation_token == token
+        ));
+    }
+    #[test]
+    fn modpack_inspect_maps_to_the_shared_analysis_api() {
+        let args =
+            Args::try_parse_from(["mc-server-tui", "modpack", "inspect", "/tmp/example.mrpack"])
+                .expect("parse modpack inspect");
+        let (request, _) = args.command.into_request();
+        assert!(matches!(
+            request,
+            ApiRequest::AnalyzeModpack { path }
+                if path == std::path::Path::new("/tmp/example.mrpack")
         ));
     }
 }

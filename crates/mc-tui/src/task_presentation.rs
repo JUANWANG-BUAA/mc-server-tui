@@ -22,6 +22,7 @@ pub(crate) fn status_label(status: TaskStatus) -> &'static str {
         TaskStatus::Succeeded => "已完成",
         TaskStatus::Failed => "失败",
         TaskStatus::Interrupted => "已中断",
+        TaskStatus::Cancelled => "已取消",
     }
 }
 
@@ -40,6 +41,7 @@ pub(crate) fn phase_label(phase: TaskPhase) -> &'static str {
         TaskPhase::Completed => "完成",
         TaskPhase::Failed => "失败",
         TaskPhase::Interrupted => "中断",
+        TaskPhase::Cancelled => "已取消",
     }
 }
 
@@ -49,6 +51,7 @@ pub(crate) fn status_style(status: TaskStatus) -> Style {
         TaskStatus::Running => theme::accent(),
         TaskStatus::Succeeded => theme::success(),
         TaskStatus::Failed | TaskStatus::Interrupted => theme::danger(),
+        TaskStatus::Cancelled => theme::muted(),
     }
 }
 
@@ -59,5 +62,6 @@ pub(crate) fn activity_symbol(status: TaskStatus, frame: u8) -> &'static str {
         TaskStatus::Succeeded => "✓",
         TaskStatus::Failed => "×",
         TaskStatus::Interrupted => "!",
+        TaskStatus::Cancelled => "−",
     }
 }

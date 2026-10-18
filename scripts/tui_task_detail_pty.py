@@ -87,7 +87,7 @@ def response_for(request):
                 "retryable": False,
             },
         }
-    return {"protocol_version": 7, "payload": response}
+    return {"protocol_version": 8, "payload": response}
 
 
 def main():

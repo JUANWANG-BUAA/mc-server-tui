@@ -1,7 +1,10 @@
 use crate::TaskStore;
 use chrono::Utc;
 use mc_core::{AppError, TaskPhase, TaskProgress, TaskResult, TaskSnapshot, TaskStatus};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
@@ -10,14 +13,28 @@ use uuid::Uuid;
 pub struct TaskReporter {
     store: TaskStore,
     snapshot: Arc<Mutex<TaskSnapshot>>,
+    cancellation: Arc<AtomicBool>,
 }
 
 impl TaskReporter {
-    pub(crate) fn new(store: TaskStore, snapshot: TaskSnapshot) -> Self {
+    pub(crate) fn new(
+        store: TaskStore,
+        snapshot: TaskSnapshot,
+        cancellation: Arc<AtomicBool>,
+    ) -> Self {
         Self {
             store,
             snapshot: Arc::new(Mutex::new(snapshot)),
+            cancellation,
         }
+    }
+
+    pub fn cancellation_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.cancellation)
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancellation.load(Ordering::Relaxed)
     }
 
     pub async fn set_phase(
@@ -71,10 +88,12 @@ impl TaskReporter {
             TaskResult::InstanceCreated(_) => TaskProgress {
                 completed_steps: 3,
                 total_steps: 3,
+                transfer: None,
             },
             TaskResult::WorldBackupCreated { .. } => TaskProgress {
                 completed_steps: 1,
                 total_steps: 1,
+                transfer: None,
             },
             TaskResult::WorldBackupsListed { .. }
             | TaskResult::WorldBackupVerified { .. }
@@ -82,6 +101,7 @@ impl TaskReporter {
             | TaskResult::WorldBackupRestored { .. } => TaskProgress {
                 completed_steps: 1,
                 total_steps: 1,
+                transfer: None,
             },
         };
         if let Err(error) = self
@@ -103,14 +123,27 @@ impl TaskReporter {
     }
 
     pub(crate) async fn fail(&self, error: AppError) {
+        let cancelled = error.code == mc_core::ErrorCode::TaskCancelled;
         if let Err(persist_error) = self
             .update(|snapshot| {
-                snapshot.status = TaskStatus::Failed;
-                snapshot.phase = TaskPhase::Failed;
-                snapshot.message = error.reason.clone();
+                snapshot.status = if cancelled {
+                    TaskStatus::Cancelled
+                } else {
+                    TaskStatus::Failed
+                };
+                snapshot.phase = if cancelled {
+                    TaskPhase::Cancelled
+                } else {
+                    TaskPhase::Failed
+                };
+                snapshot.message = if cancelled {
+                    "Task cancelled by user.".to_owned()
+                } else {
+                    error.reason.clone()
+                };
                 snapshot.finished_at = Some(Utc::now());
                 snapshot.result = None;
-                snapshot.error = Some(error);
+                snapshot.error = if cancelled { None } else { Some(error) };
             })
             .await
         {

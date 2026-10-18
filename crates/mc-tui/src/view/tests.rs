@@ -13,7 +13,7 @@ fn renders_empty_dashboard_at_reference_width() {
     let text = render_to_text(80, 24, &state, 0);
 
     assert!(text.contains("MCSERVERTUI"));
-    assert!(text.contains("暂无实例"));
+    assert!(text.contains("还没有服务器"));
     assert!(text.contains("后台任务"));
     assert!(text.contains("q退出"));
 }
@@ -45,6 +45,7 @@ fn renders_instance_and_task_state() {
             progress: Some(TaskProgress {
                 completed_steps: 1,
                 total_steps: 3,
+                transfer: None,
             }),
             created_at: Utc::now(),
             updated_at: Utc::now(),

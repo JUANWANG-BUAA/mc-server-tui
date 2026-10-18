@@ -111,6 +111,7 @@ fn reopening_task_detail_resumes_from_the_last_event_sequence() {
             progress: Some(TaskProgress {
                 completed_steps: 1,
                 total_steps: 3,
+                transfer: None,
             }),
             error: None,
         }],
@@ -197,37 +198,51 @@ fn backup_action_queues_a_task_and_surfaces_its_result() {
 }
 
 #[test]
-fn list_backups_action_queues_a_task_for_the_open_instance() {
+fn opening_backup_manager_queues_a_bounded_first_page_for_the_open_instance() {
     let instance_id = Uuid::new_v4();
     let mut state = AppState {
         instance_detail_id: Some(instance_id),
         instance_detail_visible: true,
         ..AppState::default()
     };
-    state.update(Action::ListBackups);
-    assert!(matches!(
-        state.take_instance_command(),
-        Some(InstanceCommand::ListBackups(id)) if id == instance_id
-    ));
+    state.update(Action::OpenBackupManager);
 
-    state.apply_instance_command_result(InstanceCommandResult::Task(Ok(Box::new(TaskSnapshot {
-        id: Uuid::new_v4(),
-        kind: TaskKind::ListWorldBackups,
-        instance_id: Some(instance_id),
-        status: TaskStatus::Queued,
-        phase: TaskPhase::Queued,
-        message: "Backup list queued".to_owned(),
-        progress: None,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-        finished_at: None,
-        result: None,
-        error: None,
-        last_event_sequence: 0,
-    }))));
-    assert_eq!(state.tasks[0].kind, TaskKind::ListWorldBackups);
-    assert!(state.status.contains("备份列表任务"));
-    assert!(state.take_refresh_request());
+    assert!(state.backup_manager_visible);
+    assert!(state.instance_operation_pending);
+    assert!(matches!(
+        state.take_backup_command(),
+        Some(crate::backup_manager::BackupCommand::List {
+            instance_id: requested,
+            cursor: None,
+        }) if requested == instance_id
+    ));
+}
+
+#[test]
+fn visible_backup_task_keeps_animation_active_until_the_terminal_result() {
+    let instance_id = Uuid::new_v4();
+    let mut manager =
+        crate::backup_manager::BackupManagerState::new(instance_id, "生存服".to_owned());
+    manager.begin_list(None);
+    let mut state = AppState {
+        backup_manager: Some(manager),
+        backup_manager_visible: true,
+        ..AppState::default()
+    };
+    assert!(state.has_animated_work());
+
+    state.apply_backup_command_result(Ok(backup_task(
+        instance_id,
+        TaskKind::ListWorldBackups,
+        mc_core::TaskResult::WorldBackupsListed {
+            instance_id,
+            page: mc_core::BackupPage {
+                backups: Vec::new(),
+                next_cursor: None,
+            },
+        },
+    )));
+    assert!(!state.has_animated_work());
 }
 
 #[test]
@@ -294,6 +309,263 @@ fn visible_starting_server_keeps_animation_active_after_start_request_returns() 
     assert!(!state.has_animated_work());
 }
 
+#[test]
+fn backup_manager_load_more_sends_the_cursor_and_deduplicates_results() {
+    let instance_id = Uuid::new_v4();
+    let first_id = Uuid::new_v4();
+    let second_id = Uuid::new_v4();
+    let cursor = mc_core::BackupCursor {
+        created_at: Utc::now(),
+        id: first_id,
+    };
+    let mut manager =
+        crate::backup_manager::BackupManagerState::new(instance_id, "生存服".to_owned());
+    manager.begin_list(None);
+    let mut state = AppState {
+        backup_manager: Some(manager),
+        backup_manager_visible: true,
+        instance_detail_id: Some(instance_id),
+        instance_detail_visible: true,
+        ..AppState::default()
+    };
+    state.apply_backup_command_result(Ok(backup_task(
+        instance_id,
+        TaskKind::ListWorldBackups,
+        mc_core::TaskResult::WorldBackupsListed {
+            instance_id,
+            page: mc_core::BackupPage {
+                backups: vec![mc_core::BackupSummary {
+                    id: first_id,
+                    created_at: Utc::now(),
+                    consistency: mc_core::BackupConsistency::ServerStopped,
+                    file_count: 12,
+                    total_bytes: 2 * 1024 * 1024,
+                }],
+                next_cursor: Some(cursor.clone()),
+            },
+        },
+    )));
+
+    state.update(Action::LoadMoreBackups);
+    assert!(matches!(
+        state.take_backup_command(),
+        Some(crate::backup_manager::BackupCommand::List {
+            instance_id: requested_instance,
+            cursor: Some(requested_cursor),
+        }) if requested_instance == instance_id && requested_cursor == cursor
+    ));
+
+    state.apply_backup_command_result(Ok(backup_task(
+        instance_id,
+        TaskKind::ListWorldBackups,
+        mc_core::TaskResult::WorldBackupsListed {
+            instance_id,
+            page: mc_core::BackupPage {
+                backups: vec![
+                    mc_core::BackupSummary {
+                        id: first_id,
+                        created_at: Utc::now(),
+                        consistency: mc_core::BackupConsistency::ServerStopped,
+                        file_count: 12,
+                        total_bytes: 2 * 1024 * 1024,
+                    },
+                    mc_core::BackupSummary {
+                        id: second_id,
+                        created_at: Utc::now(),
+                        consistency: mc_core::BackupConsistency::ServerStopped,
+                        file_count: 34,
+                        total_bytes: 70 * 1024 * 1024,
+                    },
+                ],
+                next_cursor: None,
+            },
+        },
+    )));
+    assert_eq!(
+        state
+            .backup_manager
+            .as_ref()
+            .map(|manager| manager.backups.len()),
+        Some(2)
+    );
+    assert!(state
+        .backup_manager
+        .as_ref()
+        .is_none_or(|manager| manager.next_cursor.is_none()));
+}
+
+#[test]
+fn backup_manager_requires_exact_restore_confirmation_and_submits_verified_plan() {
+    let instance_id = Uuid::new_v4();
+    let backup_id = Uuid::new_v4();
+    let mut state = AppState {
+        instance_detail_id: Some(instance_id),
+        instance_detail_visible: true,
+        ..AppState::default()
+    };
+
+    state.update(Action::OpenBackupManager);
+    assert!(matches!(
+        state.take_backup_command(),
+        Some(crate::backup_manager::BackupCommand::List {
+            instance_id: requested,
+            cursor: None,
+        }) if requested == instance_id
+    ));
+
+    state.apply_backup_command_result(Ok(backup_task(
+        instance_id,
+        TaskKind::ListWorldBackups,
+        mc_core::TaskResult::WorldBackupsListed {
+            instance_id,
+            page: mc_core::BackupPage {
+                backups: vec![mc_core::BackupSummary {
+                    id: backup_id,
+                    created_at: Utc::now(),
+                    consistency: mc_core::BackupConsistency::ServerStopped,
+                    file_count: 12,
+                    total_bytes: 2 * 1024 * 1024,
+                }],
+                next_cursor: None,
+            },
+        },
+    )));
+    assert_eq!(
+        state
+            .backup_manager
+            .as_ref()
+            .map(|manager| manager.backups.len()),
+        Some(1)
+    );
+    assert!(!state.instance_operation_pending);
+
+    state.update(Action::PreviewRestore);
+    assert!(matches!(
+        state.take_backup_command(),
+        Some(crate::backup_manager::BackupCommand::PlanRestore {
+            instance_id: requested_instance,
+            backup_id: requested_backup,
+        }) if requested_instance == instance_id && requested_backup == backup_id
+    ));
+
+    let token = format!("v1:{}", "a".repeat(64));
+    state.apply_backup_command_result(Ok(backup_task(
+        instance_id,
+        TaskKind::PlanWorldBackupRestore,
+        mc_core::TaskResult::WorldBackupRestorePlanned {
+            instance_id,
+            plan: mc_core::BackupRestorePlan {
+                instance_id,
+                backup_id,
+                created_at: Utc::now(),
+                current_worlds: vec!["world".to_owned()],
+                target_worlds: vec!["world".to_owned(), "world_the_end".to_owned()],
+                replaced_worlds: vec!["world".to_owned()],
+                added_worlds: vec!["world_the_end".to_owned()],
+                removed_worlds: Vec::new(),
+                required_space_bytes: 2 * 1024 * 1024,
+                available_space_bytes: 10 * 1024 * 1024 * 1024,
+                confirmation_token: token.clone(),
+            },
+        },
+    )));
+    assert!(state
+        .backup_manager
+        .as_ref()
+        .is_some_and(|manager| manager.is_reviewing_plan()));
+
+    state.update(Action::BeginRestoreConfirmation);
+    for character in "RESTOR".chars() {
+        state.update(Action::RestoreConfirmInsert(character));
+    }
+    state.update(Action::RestoreConfirmSubmit);
+    assert!(state.take_backup_command().is_none());
+    assert!(state
+        .backup_manager
+        .as_ref()
+        .and_then(|manager| manager.error.as_deref())
+        .is_some_and(|error| error.contains("RESTORE")));
+
+    state.update(Action::RestoreConfirmInsert('E'));
+    state.update(Action::RestoreConfirmSubmit);
+    assert!(matches!(
+        state.take_backup_command(),
+        Some(crate::backup_manager::BackupCommand::Restore {
+            instance_id: requested_instance,
+            backup_id: requested_backup,
+            confirmation_token: requested_token,
+        }) if requested_instance == instance_id
+            && requested_backup == backup_id
+            && requested_token == token
+    ));
+}
+
+#[test]
+fn opening_create_loads_versions_and_java_before_editing() {
+    let mut state = AppState::default();
+    state.update(Action::OpenCreate);
+    assert!(state.take_create_options_request());
+    assert!(state
+        .wizard
+        .as_ref()
+        .is_some_and(|wizard| wizard.options_loading));
+    state.apply_create_options(Ok(crate::wizard::CreateOptions {
+        versions: vec![mc_core::ServerVersion {
+            id: "1.21.11".to_owned(),
+            group: "1.21".to_owned(),
+        }],
+        java_runtimes: vec![mc_core::JavaRuntime {
+            executable: "/opt/java21/bin/java".to_owned(),
+            version: "21.0.2".to_owned(),
+            major_version: Some(21),
+            architecture: Some("aarch64".to_owned()),
+            vendor: Some("Eclipse Adoptium".to_owned()),
+        }],
+        suggested_port: 25565,
+    }));
+    let wizard = state.wizard.as_ref().expect("wizard remains open");
+    assert_eq!(wizard.versions.len(), 1);
+    assert_eq!(wizard.java_runtimes.len(), 1);
+    assert_eq!(wizard.port, "25565");
+    assert!(!wizard.options_loading);
+}
+
+#[test]
+fn command_palette_can_start_the_guided_create_flow() {
+    let mut state = AppState::default();
+    state.update(Action::OpenCommandPalette);
+    assert!(state.command_palette.is_some());
+    for character in "新建".chars() {
+        state.update(Action::PaletteInsert(character));
+    }
+    state.update(Action::PaletteSubmit);
+    assert!(state.command_palette.is_none());
+    assert!(state.wizard.is_some());
+    assert!(state.take_create_options_request());
+}
+
+fn backup_task(instance_id: Uuid, kind: TaskKind, result: mc_core::TaskResult) -> TaskSnapshot {
+    TaskSnapshot {
+        id: Uuid::new_v4(),
+        kind,
+        instance_id: Some(instance_id),
+        status: TaskStatus::Succeeded,
+        phase: TaskPhase::Completed,
+        message: "backup task completed".to_owned(),
+        progress: Some(TaskProgress {
+            completed_steps: 1,
+            total_steps: 1,
+            transfer: None,
+        }),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+        finished_at: Some(Utc::now()),
+        result: Some(result),
+        error: None,
+        last_event_sequence: 2,
+    }
+}
+
 fn task_snapshot() -> TaskSnapshot {
     TaskSnapshot {
         id: Uuid::new_v4(),
@@ -310,4 +582,44 @@ fn task_snapshot() -> TaskSnapshot {
         error: None,
         last_event_sequence: 0,
     }
+}
+
+#[test]
+fn modpack_import_scan_selects_a_pack_and_tracks_analysis_result() {
+    let mut state = AppState::default();
+    state.update(Action::OpenModpackImport);
+    assert!(state.modpack_import_visible);
+    let import = state.modpack_import.as_mut().expect("import state");
+    import.candidates = vec![std::path::PathBuf::from("/tmp/Example.mrpack")];
+    import.error = None;
+    state.update(Action::AnalyzeModpack);
+    assert_eq!(
+        state.take_modpack_analysis_request(),
+        Some(std::path::PathBuf::from("/tmp/Example.mrpack")),
+    );
+    state.apply_modpack_analysis_result(Ok(mc_core::ModpackAnalysisReport {
+        path: std::path::PathBuf::from("/tmp/Example.mrpack"),
+        name: "Example Pack".to_owned(),
+        version_id: "1.0.0".to_owned(),
+        minecraft_version: Some("1.21.1".to_owned()),
+        loader: Some(mc_core::ModpackLoader {
+            dependency: "fabric-loader".to_owned(),
+            version: "0.16.9".to_owned(),
+        }),
+        status: mc_core::ModpackStatus::Ready,
+        install_files: 2,
+        review_files: 0,
+        excluded_files: 1,
+        mod_files: 1,
+        total_install_bytes: 1024,
+        server_override_files: 0,
+        issues: Vec::new(),
+        files: Vec::new(),
+        files_truncated: false,
+    }));
+    assert!(state
+        .modpack_import
+        .as_ref()
+        .and_then(|import| import.report.as_ref())
+        .is_some_and(|report| report.name == "Example Pack"));
 }

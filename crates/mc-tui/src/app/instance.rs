@@ -21,6 +21,8 @@ impl AppState {
         if self.instance_detail_id != Some(instance_id) {
             self.instance_detail = Some(InstanceDetailState::loading(instance_id));
             self.instance_detail_id = Some(instance_id);
+            self.backup_manager = None;
+            self.backup_manager_visible = false;
         }
         self.instance_detail_visible = true;
         self.instance_detail_refresh_requested = true;
@@ -29,6 +31,8 @@ impl AppState {
     pub(super) fn close_instance_detail(&mut self) {
         self.instance_detail_visible = false;
         self.instance_detail_refresh_requested = false;
+        self.backup_manager_visible = false;
+        self.backup_manager = None;
         if let Some(detail) = &mut self.instance_detail {
             detail.cancel_console_input();
         }
@@ -68,6 +72,10 @@ impl AppState {
     }
 
     pub(super) fn queue_backup(&mut self) {
+        if self.backup_manager_visible {
+            self.queue_backup_create();
+            return;
+        }
         let Some(instance_id) = self
             .instance_detail_id
             .filter(|_| self.instance_detail_visible)
@@ -81,25 +89,6 @@ impl AppState {
         self.instance_operation_pending = true;
         self.instance_command_requested = Some(InstanceCommand::Backup(instance_id));
         self.status = "正在提交世界备份任务…".to_owned();
-        if let Some(detail) = self.instance_detail.as_mut() {
-            detail.notice = Some(self.status.clone());
-        }
-    }
-
-    pub(super) fn queue_list_backups(&mut self) {
-        let Some(instance_id) = self
-            .instance_detail_id
-            .filter(|_| self.instance_detail_visible)
-        else {
-            return;
-        };
-        if self.instance_operation_pending {
-            self.status = "上一项实例操作仍在运行。".to_owned();
-            return;
-        }
-        self.instance_operation_pending = true;
-        self.instance_command_requested = Some(InstanceCommand::ListBackups(instance_id));
-        self.status = "正在提交备份列表任务…".to_owned();
         if let Some(detail) = self.instance_detail.as_mut() {
             detail.notice = Some(self.status.clone());
         }

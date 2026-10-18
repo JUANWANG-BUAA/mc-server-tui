@@ -1,7 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use mc_core::{
-    ApiRequest, ApiResponse, AppError, TaskKind, TaskPhase, TaskProgress, TaskResult, TaskSnapshot,
+    ApiRequest, ApiResponse, AppError, ErrorCode, TaskKind, TaskPhase, TaskProgress, TaskResult,
+    TaskSnapshot,
 };
 use mc_instance::InstanceSpec;
 use mc_task::TaskReporter;
@@ -219,6 +220,25 @@ pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiRes
             .await
             .map(ApiResponse::TaskEvents)
             .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::CancelTask { task_id } => state
+            .tasks
+            .cancel(task_id)
+            .await
+            .map(ApiResponse::Task)
+            .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::AnalyzeModpack { path } => {
+            match tokio::task::spawn_blocking(move || mc_modpack::analyze(path)).await {
+                Ok(Ok(report)) => ApiResponse::ModpackAnalysis(report),
+                Ok(Err(error)) => ApiResponse::Error(error),
+                Err(error) => ApiResponse::Error(
+                    AppError::new(
+                        ErrorCode::Internal,
+                        "The modpack analysis worker stopped unexpectedly.",
+                    )
+                    .with_evidence(error.to_string()),
+                ),
+            }
+        }
     }
 }
 
@@ -299,10 +319,14 @@ async fn create_paper_instance(
             Some(TaskProgress {
                 completed_steps: 0,
                 total_steps: 3,
+                transfer: None,
             }),
         )
         .await?;
     let plan = provider.resolve_build(&game_version, build_id).await?;
+    if reporter.is_cancelled() {
+        return Err(cancelled_task_error());
+    }
 
     reporter
         .set_phase(
@@ -311,10 +335,14 @@ async fn create_paper_instance(
             Some(TaskProgress {
                 completed_steps: 1,
                 total_steps: 3,
+                transfer: None,
             }),
         )
         .await?;
-    let blob = downloader.fetch(&plan).await?;
+    let blob = download_with_progress(&downloader, &plan, &reporter).await?;
+    if reporter.is_cancelled() {
+        return Err(cancelled_task_error());
+    }
 
     reporter
         .set_phase(
@@ -323,9 +351,80 @@ async fn create_paper_instance(
             Some(TaskProgress {
                 completed_steps: 2,
                 total_steps: 3,
+                transfer: None,
             }),
         )
         .await?;
     let summary = instances.create(&plan, &blob, &spec).await?;
     Ok(TaskResult::InstanceCreated(summary))
+}
+
+async fn download_with_progress(
+    downloader: &mc_download::DownloadManager,
+    plan: &mc_core::ArtifactPlan,
+    reporter: &TaskReporter,
+) -> Result<mc_download::VerifiedBlob, AppError> {
+    let control = mc_download::DownloadControl::new(reporter.cancellation_flag());
+    let source = format!(
+        "Paper 官方 CDN · {}",
+        plan.download_url.host_str().unwrap_or("host unavailable")
+    );
+    let fetch = downloader.fetch_with_control(plan, &control);
+    tokio::pin!(fetch);
+    let mut progress_timer = tokio::time::interval_at(
+        tokio::time::Instant::now() + std::time::Duration::from_millis(500),
+        std::time::Duration::from_millis(500),
+    );
+    progress_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut last_bytes = 0u64;
+    let mut last_instant = tokio::time::Instant::now();
+    loop {
+        tokio::select! {
+            result = &mut fetch => return result,
+            _ = progress_timer.tick() => {
+                if reporter.is_cancelled() {
+                    control.request_cancel();
+                }
+                let downloaded = control.downloaded_bytes();
+                let now = tokio::time::Instant::now();
+                let elapsed = now.duration_since(last_instant).as_secs_f64();
+                let speed = if elapsed > 0.0 && downloaded >= last_bytes {
+                    Some(((downloaded - last_bytes) as f64 / elapsed) as u64)
+                } else {
+                    None
+                };
+                last_bytes = downloaded;
+                last_instant = now;
+                reporter
+                    .set_phase(
+                        TaskPhase::DownloadingArtifact,
+                        format!(
+                            "Downloading {} ({:.1} / {:.1} MiB).",
+                            plan.artifact_name,
+                            downloaded as f64 / 1_048_576.0,
+                            plan.expected_size as f64 / 1_048_576.0,
+                        ),
+                        Some(TaskProgress {
+                            completed_steps: 1,
+                            total_steps: 3,
+                            transfer: Some(mc_core::TransferProgress {
+                                downloaded_bytes: downloaded,
+                                total_bytes: plan.expected_size,
+                                bytes_per_second: speed,
+                                source: source.clone(),
+                            }),
+                        }),
+                    )
+                    .await?;
+            }
+        }
+    }
+}
+
+fn cancelled_task_error() -> AppError {
+    AppError::new(
+        ErrorCode::TaskCancelled,
+        "The task was cancelled by user request.",
+    )
+    .with_action("Submit the same operation again to resume from its verified partial file.")
 }

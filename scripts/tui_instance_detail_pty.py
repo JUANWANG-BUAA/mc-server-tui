@@ -23,6 +23,11 @@ ANSI_SEQUENCE = re.compile(
 INSTANCE_ID = "22222222-2222-4222-8222-222222222222"
 BACKUP_TASK_ID = "44444444-4444-4444-8444-444444444444"
 LIST_TASK_ID = "55555555-5555-4555-8555-555555555555"
+VERIFY_TASK_ID = "66666666-6666-4666-8666-666666666666"
+PLAN_TASK_ID = "77777777-7777-4777-8777-777777777777"
+RESTORE_TASK_ID = "99999999-9999-4999-8999-999999999999"
+BACKUP_ID = "88888888-8888-4888-8888-888888888888"
+TOKEN = "v1:" + "a" * 64
 
 
 def instance_summary():
@@ -113,6 +118,100 @@ def completed_list_task_snapshot():
     return task
 
 
+def operation_task_snapshot(task_id, kind, message):
+    task = backup_task_snapshot()
+    task["id"] = task_id
+    task["kind"] = kind
+    task["message"] = message
+    return task
+
+
+def completed_verify_task_snapshot():
+    task = operation_task_snapshot(
+        VERIFY_TASK_ID, "verify_world_backup", "Backup integrity verified."
+    )
+    task.update(
+        {
+            "status": "succeeded",
+            "phase": "completed",
+            "progress": {"completed_steps": 1, "total_steps": 1},
+            "finished_at": "2026-10-17T00:00:02Z",
+            "result": {
+                "kind": "world_backup_verified",
+                "data": {
+                    "instance_id": INSTANCE_ID,
+                    "backup": {
+                        "id": BACKUP_ID,
+                        "created_at": "2026-10-17T00:00:00Z",
+                        "consistency": "server_stopped",
+                        "file_count": 12,
+                        "total_bytes": 2097152,
+                    },
+                },
+            },
+            "last_event_sequence": 2,
+        }
+    )
+    return task
+
+def completed_plan_task_snapshot():
+    task = operation_task_snapshot(
+        PLAN_TASK_ID,
+        "plan_world_backup_restore",
+        "Restore plan verified.",
+    )
+    task.update(
+        {
+            "status": "succeeded",
+            "phase": "completed",
+            "progress": {"completed_steps": 1, "total_steps": 1},
+            "finished_at": "2026-10-17T00:00:03Z",
+            "result": {
+                "kind": "world_backup_restore_planned",
+                "data": {
+                    "instance_id": INSTANCE_ID,
+                    "plan": {
+                        "instance_id": INSTANCE_ID,
+                        "backup_id": BACKUP_ID,
+                        "created_at": "2026-10-17T00:00:00Z",
+                        "current_worlds": ["world", "world_nether"],
+                        "target_worlds": ["world", "world_the_end"],
+                        "replaced_worlds": ["world"],
+                        "added_worlds": ["world_the_end"],
+                        "removed_worlds": ["world_nether"],
+                        "required_space_bytes": 2097152,
+                        "available_space_bytes": 10737418240,
+                        "confirmation_token": TOKEN,
+                    },
+                },
+            },
+            "last_event_sequence": 2,
+        }
+    )
+    return task
+
+
+def completed_restore_task_snapshot():
+    task = operation_task_snapshot(
+        RESTORE_TASK_ID,
+        "restore_world_backup",
+        "World restore committed and verified.",
+    )
+    task.update(
+        {
+            "status": "succeeded",
+            "phase": "completed",
+            "progress": {"completed_steps": 1, "total_steps": 1},
+            "finished_at": "2026-10-17T00:00:04Z",
+            "result": {
+                "kind": "world_backup_restored",
+                "data": {"instance_id": INSTANCE_ID, "backup_id": BACKUP_ID},
+            },
+            "last_event_sequence": 2,
+        }
+    )
+    return task
+
 def response_for(request, state):
     payload = request["payload"]
     operation = payload["operation"]
@@ -124,8 +223,23 @@ def response_for(request, state):
         response = {"result": "tasks", "data": tasks}
     elif operation == "get_task":
         task_id = arguments["task_id"]
-        if task_id == LIST_TASK_ID and state["list_task"]:
-            response = {"result": "task", "data": completed_list_task_snapshot()}
+        queued_by_id = {
+            LIST_TASK_ID: state["list_task"],
+            VERIFY_TASK_ID: state["verify_task"],
+            PLAN_TASK_ID: state["plan_task"],
+            RESTORE_TASK_ID: state["restore_task"],
+        }
+        completed_by_id = {
+            LIST_TASK_ID: completed_list_task_snapshot,
+            VERIFY_TASK_ID: completed_verify_task_snapshot,
+            PLAN_TASK_ID: completed_plan_task_snapshot,
+            RESTORE_TASK_ID: completed_restore_task_snapshot,
+        }
+        if task_id in completed_by_id and queued_by_id[task_id]:
+            polls = state["task_polls"].get(task_id, 0) + 1
+            state["task_polls"][task_id] = polls
+            data = queued_by_id[task_id] if polls <= 1 else completed_by_id[task_id]()
+            response = {"result": "task", "data": data}
         else:
             response = {"result": "error", "data": {
                 "code": "TASK_NOT_FOUND",
@@ -169,6 +283,33 @@ def response_for(request, state):
         state["list_arguments"] = arguments
         state["list_task"] = list_task_snapshot()
         response = {"result": "task_queued", "data": state["list_task"]}
+    elif operation == "verify_world_backup":
+        state["verify_requests"] += 1
+        state["verify_arguments"] = arguments
+        state["verify_task"] = operation_task_snapshot(
+            VERIFY_TASK_ID,
+            "verify_world_backup",
+            "Verifying selected backup.",
+        )
+        response = {"result": "task_queued", "data": state["verify_task"]}
+    elif operation == "plan_world_backup_restore":
+        state["plan_requests"] += 1
+        state["plan_arguments"] = arguments
+        state["plan_task"] = operation_task_snapshot(
+            PLAN_TASK_ID,
+            "plan_world_backup_restore",
+            "Building restore impact preview.",
+        )
+        response = {"result": "task_queued", "data": state["plan_task"]}
+    elif operation == "restore_world_backup":
+        state["restore_requests"] += 1
+        state["restore_arguments"] = arguments
+        state["restore_task"] = operation_task_snapshot(
+            RESTORE_TASK_ID,
+            "restore_world_backup",
+            "Restoring verified world backup.",
+        )
+        response = {"result": "task_queued", "data": state["restore_task"]}
     elif operation == "start_server":
         state["server_state"] = "running"
         state["message"] = "Server is ready."
@@ -202,7 +343,7 @@ def response_for(request, state):
                 "retryable": False,
             },
         }
-    return {"protocol_version": 7, "payload": response}
+    return {"protocol_version": 8, "payload": response}
 
 
 def main():
@@ -232,6 +373,16 @@ def main():
             "list_instance_id": None,
             "list_arguments": None,
             "list_task": None,
+            "verify_requests": 0,
+            "verify_arguments": None,
+            "verify_task": None,
+            "plan_requests": 0,
+            "plan_arguments": None,
+            "plan_task": None,
+            "restore_requests": 0,
+            "restore_arguments": None,
+            "restore_task": None,
+            "task_polls": {},
             "console_commands": [],
         }
         lock = threading.Lock()
@@ -321,8 +472,29 @@ def main():
                     raise AssertionError("TUI submitted the backup for the wrong instance")
 
             os.write(master, b"l")
-            if not wait_for("备份列表任务已加入后台队列".encode()):
-                raise AssertionError("backup list action did not show queued-task feedback")
+            manager_offset = len(captured)
+            if not wait_for("世界与备份".encode(), start_offset=manager_offset):
+                raise AssertionError("backup manager did not open")
+            loading_frames = set()
+            animation_deadline = time.monotonic() + 1.2
+            while time.monotonic() < animation_deadline and len(loading_frames) < 2:
+                ready, _, _ = select.select([master], [], [], 0.05)
+                if ready:
+                    try:
+                        captured.extend(os.read(master, 65536))
+                    except OSError:
+                        break
+                clean = ANSI_SEQUENCE.sub(b"", captured[manager_offset:])
+                for glyph in ("◐", "◓", "◑", "◒"):
+                    if glyph.encode() in clean:
+                        loading_frames.add(glyph)
+            if len(loading_frames) < 2:
+                raise AssertionError("backup task spinner did not advance through two frames")
+
+            if not wait_for("12个文件".encode(), start_offset=manager_offset):
+                raise AssertionError("backup manager did not render the verified page")
+            if not wait_for("2.0MiB".encode(), start_offset=manager_offset):
+                raise AssertionError("backup manager did not render total size")
             with lock:
                 if state["list_requests"] != 1:
                     raise AssertionError("TUI did not submit exactly one backup list request")
@@ -332,6 +504,61 @@ def main():
                     raise AssertionError("TUI did not request the bounded first page")
                 if state["list_arguments"].get("cursor") is not None:
                     raise AssertionError("TUI first-page request unexpectedly included a cursor")
+                if state["task_polls"].get(LIST_TASK_ID, 0) < 2:
+                    raise AssertionError("TUI did not poll the list task to completion")
+
+            verify_offset = len(captured)
+            os.write(master, b"v")
+            if not wait_for("完整性已验证".encode(), start_offset=verify_offset):
+                raise AssertionError("TUI did not surface successful backup verification")
+            with lock:
+                if state["verify_requests"] != 1:
+                    raise AssertionError("TUI did not submit exactly one verify request")
+                expected_verify = {
+                    "instance_id": INSTANCE_ID,
+                    "backup_id": BACKUP_ID,
+                }
+                if state["verify_arguments"] != expected_verify:
+                    raise AssertionError("TUI submitted the wrong verify arguments")
+
+            plan_offset = len(captured)
+            os.write(master, b"\r")
+            if not wait_for("恢复影响预览".encode(), start_offset=plan_offset):
+                raise AssertionError("restore plan preview did not render")
+            if not wait_for("RESTORE".encode(), start_offset=plan_offset):
+                raise AssertionError("restore confirmation guidance was not visible")
+            with lock:
+                if state["plan_requests"] != 1:
+                    raise AssertionError("TUI did not submit exactly one plan request")
+                expected_plan = {
+                    "instance_id": INSTANCE_ID,
+                    "backup_id": BACKUP_ID,
+                }
+                if state["plan_arguments"] != expected_plan:
+                    raise AssertionError("TUI submitted the wrong restore-plan arguments")
+
+            confirm_offset = len(captured)
+            os.write(master, b"c")
+            if not wait_for("确认>".encode(), start_offset=confirm_offset):
+                raise AssertionError("restore confirmation input did not open")
+            os.write(master, b"RESTORE\r")
+            if not wait_for("世界恢复完成".encode(), start_offset=confirm_offset):
+                raise AssertionError("TUI did not render the successful restore result")
+            with lock:
+                if state["restore_requests"] != 1:
+                    raise AssertionError("TUI did not submit exactly one restore request")
+                expected_restore = {
+                    "instance_id": INSTANCE_ID,
+                    "backup_id": BACKUP_ID,
+                    "confirmation_token": TOKEN,
+                }
+                if state["restore_arguments"] != expected_restore:
+                    raise AssertionError("TUI submitted the wrong restore confirmation")
+
+            detail_offset = len(captured)
+            os.write(master, b"\x1b")
+            if not wait_for("s启动".encode(), start_offset=detail_offset):
+                raise AssertionError("Esc did not return from backup manager to instance detail")
 
             os.write(master, b"s")
             if not wait_for("SERVER_READY".encode()):
@@ -361,29 +588,26 @@ def main():
                     )
             if not wait_for("COMMAND:sayhi".encode()):
                 raise AssertionError("TUI did not refresh the console output after command submission")
+            if not wait_for("控制台命令已发送".encode()):
+                raise AssertionError("console command completion did not clear the pending guard")
 
+            stop_offset = len(captured)
             os.write(master, b"x")
-            if not wait_for("已停止".encode()):
-                raise AssertionError("stop action did not display stopped state")
+            if not wait_for(b"Serverstoppedsuccessfully", start_offset=stop_offset):
+                recent = re.sub(
+                    rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured[-5000:])
+                )
+                raise AssertionError(f"stop action did not land; recent={recent}")
             with lock:
                 if state["stop_requests"] != 1:
-                    raise AssertionError("TUI did not submit exactly one stop request")
+                    raise AssertionError(
+                        f"TUI stop request count was {state['stop_requests']}"
+                    )
 
             dashboard_offset = len(captured)
             os.write(master, b"\x1b")
             if not wait_for("Enter打开".encode(), start_offset=dashboard_offset):
                 raise AssertionError("Esc did not return to the dashboard")
-            os.write(master, b"\t\r")
-            if not wait_for("本页1个备份".encode()):
-                raise AssertionError("backup list task detail did not render its summary")
-            if not wait_for("12个文件".encode()):
-                raise AssertionError("backup list task detail did not render file count")
-            if not wait_for("2.0MiB".encode()):
-                raise AssertionError("backup list task detail did not render total size")
-            task_dashboard_offset = len(captured)
-            os.write(master, b"\x1b")
-            if not wait_for("Enter打开".encode(), start_offset=task_dashboard_offset):
-                raise AssertionError("Esc did not return from task detail")
             os.write(master, b"q")
             deadline = time.monotonic() + 4
             status = None
@@ -407,8 +631,11 @@ def main():
             print("Instance detail at 80×24: passed")
             print("ANSI truecolor theme output: passed")
             print("Stopped-world backup queue feedback: passed")
-            print("Bounded backup-list task feedback: passed")
-            print("Backup page result in task detail: passed")
+            print("Backup-task spinner advanced through two frames: passed")
+            print("Bounded backup-list task and cursor request: passed")
+            print("Direct backup verification and restore preview: passed")
+            print("Explicit RESTORE confirmation and durable restore task: passed")
+            print("Backup manager return to instance detail: passed")
             print("Start and readiness refresh: passed")
             print("Console command and incremental output: passed")
             print("Graceful stop and dashboard return: passed")

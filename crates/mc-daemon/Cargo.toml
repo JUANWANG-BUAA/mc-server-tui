@@ -15,6 +15,7 @@ mc-backup = { path = "../mc-backup" }
 mc-core = { path = "../mc-core" }
 mc-download = { path = "../mc-download" }
 mc-instance = { path = "../mc-instance" }
+mc-modpack = { path = "../mc-modpack" }
 mc-supervisor = { path = "../mc-supervisor" }
 mc-system = { path = "../mc-system" }
 mc-task = { path = "../mc-task" }

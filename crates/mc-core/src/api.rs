@@ -5,7 +5,7 @@ use crate::{
     TaskEvent, TaskSnapshot,
 };
 
-pub const API_PROTOCOL_VERSION: u16 = 7;
+pub const API_PROTOCOL_VERSION: u16 = 8;
 
 /// Versioned request envelope shared by CLI, TUI, and the local daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,6 +113,12 @@ pub enum ApiRequest {
         task_id: uuid::Uuid,
         after_sequence: i64,
     },
+    CancelTask {
+        task_id: uuid::Uuid,
+    },
+    AnalyzeModpack {
+        path: std::path::PathBuf,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -132,6 +138,7 @@ pub enum ApiResponse {
     Tasks(Vec<TaskSnapshot>),
     Task(TaskSnapshot),
     TaskEvents(Vec<TaskEvent>),
+    ModpackAnalysis(crate::ModpackAnalysisReport),
     Error(AppError),
 }
 
@@ -251,6 +258,28 @@ mod tests {
                     assert_eq!(decoded_token, token);
                 }
                 _ => panic!("decoded a different restore request"),
+            }
+        }
+    }
+    #[test]
+    fn protocol_v8_cancel_and_modpack_requests_round_trip() {
+        let task_id = uuid::Uuid::new_v4();
+        let path = std::path::PathBuf::from("/tmp/example.mrpack");
+        for request in [
+            ApiRequest::CancelTask { task_id },
+            ApiRequest::AnalyzeModpack { path: path.clone() },
+        ] {
+            let envelope = ApiRequestEnvelope::current(request);
+            let encoded = serde_json::to_string(&envelope).expect("serialize request");
+            let decoded: ApiRequestEnvelope =
+                serde_json::from_str(&encoded).expect("deserialize request");
+            assert_eq!(decoded.protocol_version, API_PROTOCOL_VERSION);
+            match decoded.payload {
+                ApiRequest::CancelTask {
+                    task_id: decoded_task_id,
+                } => assert_eq!(decoded_task_id, task_id),
+                ApiRequest::AnalyzeModpack { path: decoded_path } => assert_eq!(decoded_path, path),
+                _ => panic!("decoded a different protocol v8 request"),
             }
         }
     }

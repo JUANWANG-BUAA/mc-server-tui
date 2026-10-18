@@ -1,7 +1,16 @@
 use crate::{instance_locks::InstanceLockRegistry, TaskReporter, TaskStore};
 use futures_util::FutureExt;
 use mc_core::{AppError, ErrorCode, TaskEvent, TaskKind, TaskResult, TaskSnapshot};
-use std::{future::Future, panic::AssertUnwindSafe, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    future::Future,
+    panic::AssertUnwindSafe,
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+};
 use tokio::sync::Semaphore;
 use uuid::Uuid;
 
@@ -17,6 +26,7 @@ pub struct TaskManager {
     outstanding_slots: Arc<Semaphore>,
     instance_locks: InstanceLockRegistry,
     submission_lock: Arc<tokio::sync::Mutex<()>>,
+    cancellations: Arc<Mutex<HashMap<Uuid, Arc<AtomicBool>>>>,
 }
 
 impl TaskManager {
@@ -44,6 +54,7 @@ impl TaskManager {
             outstanding_slots: Arc::new(Semaphore::new(max_outstanding)),
             instance_locks: InstanceLockRegistry::default(),
             submission_lock: Arc::new(tokio::sync::Mutex::new(())),
+            cancellations: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -71,9 +82,20 @@ impl TaskManager {
                     .retryable()
                 })?;
         let snapshot = self.store.create(kind, instance_id).await?;
-        let reporter = TaskReporter::new(self.store.clone(), snapshot.clone());
+        let cancellation = Arc::new(AtomicBool::new(false));
+        self.cancellations
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(snapshot.id, Arc::clone(&cancellation));
+        let reporter = TaskReporter::new(
+            self.store.clone(),
+            snapshot.clone(),
+            Arc::clone(&cancellation),
+        );
         let execution_slots = Arc::clone(&self.execution_slots);
         let instance_locks = self.instance_locks.clone();
+        let cancellations = Arc::clone(&self.cancellations);
+        let task_id = snapshot.id;
 
         tokio::spawn(async move {
             let _outstanding_permit = outstanding_permit;
@@ -104,7 +126,13 @@ impl TaskManager {
                 .catch_unwind()
                 .await;
             match outcome {
-                Ok(Ok(result)) => reporter.succeed(result).await,
+                Ok(Ok(result)) => {
+                    if reporter.is_cancelled() {
+                        reporter.fail(task_cancelled()).await;
+                    } else {
+                        reporter.succeed(result).await;
+                    }
+                }
                 Ok(Err(error)) => reporter.fail(error).await,
                 Err(payload) => {
                     let detail = payload
@@ -124,6 +152,10 @@ impl TaskManager {
                         .await;
                 }
             }
+            cancellations
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .remove(&task_id);
             drop(execution_permit);
         });
         Ok(snapshot)
@@ -152,6 +184,34 @@ impl TaskManager {
         self.store.get(id).await
     }
 
+    pub async fn cancel(&self, id: Uuid) -> Result<TaskSnapshot, AppError> {
+        let snapshot = self.store.get(id).await?;
+        if snapshot.status == mc_core::TaskStatus::Queued
+            || snapshot.status == mc_core::TaskStatus::Running
+        {
+            let cancellation = self
+                .cancellations
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .get(&id)
+                .cloned()
+                .ok_or_else(|| {
+                    AppError::new(
+                        ErrorCode::TaskCancelled,
+                        "This task cannot be interrupted safely.",
+                    )
+                    .with_action("Wait for it to finish or inspect its current phase.")
+                })?;
+            cancellation.store(true, Ordering::Relaxed);
+            Ok(snapshot)
+        } else {
+            Err(
+                AppError::new(ErrorCode::InvalidInput, "The task is no longer running.")
+                    .with_action("Refresh the task and inspect its final state."),
+            )
+        }
+    }
+
     pub async fn list(&self, limit: u16) -> Result<Vec<TaskSnapshot>, AppError> {
         self.store.list(limit).await
     }
@@ -164,4 +224,12 @@ impl TaskManager {
     ) -> Result<Vec<TaskEvent>, AppError> {
         self.store.events(id, after_sequence, limit).await
     }
+}
+
+fn task_cancelled() -> AppError {
+    AppError::new(
+        ErrorCode::TaskCancelled,
+        "The task was cancelled by user request.",
+    )
+    .with_action("Resume by submitting the same operation again.")
 }

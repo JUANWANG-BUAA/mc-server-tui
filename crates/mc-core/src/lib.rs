@@ -6,6 +6,7 @@ mod doctor;
 mod domain;
 mod error;
 mod lifecycle;
+mod modpack;
 mod provider;
 mod task;
 
@@ -23,7 +24,12 @@ pub use domain::{
 };
 pub use error::{AppError, ErrorCode};
 pub use lifecycle::StoppedInstanceLease;
+pub use modpack::{
+    ModpackAnalysisReport, ModpackFileDisposition, ModpackFilePlan, ModpackIssue, ModpackLoader,
+    ModpackSeverity, ModpackStatus,
+};
 pub use provider::ServerProvider;
 pub use task::{
     TaskEvent, TaskKind, TaskPhase, TaskProgress, TaskResult, TaskSnapshot, TaskStatus,
+    TransferProgress,
 };

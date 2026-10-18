@@ -10,6 +10,7 @@ mod input;
 
 use crate::{
     app::{Action, AppState, DashboardData},
+    backup_manager::BackupCommand,
     instance_detail::{
         InstanceCommand, InstanceCommandResult, InstanceDetailQuery, InstanceDetailUpdate,
     },
@@ -21,6 +22,7 @@ use crate::{
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(2);
 const ANIMATION_INTERVAL: Duration = Duration::from_millis(160);
+const BACKUP_TASK_POLL_INTERVAL: Duration = Duration::from_millis(500);
 
 pub(crate) async fn run_app(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
@@ -38,18 +40,43 @@ pub(crate) async fn run_app(
         ANIMATION_INTERVAL,
     );
     animation_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut backup_poll_timer = tokio::time::interval_at(
+        tokio::time::Instant::now() + BACKUP_TASK_POLL_INTERVAL,
+        BACKUP_TASK_POLL_INTERVAL,
+    );
+    backup_poll_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut task_detail_poll_timer = tokio::time::interval_at(
+        tokio::time::Instant::now() + BACKUP_TASK_POLL_INTERVAL,
+        BACKUP_TASK_POLL_INTERVAL,
+    );
+    task_detail_poll_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut animation_frame = 0u8;
     let (refresh_tx, mut refresh_rx) = mpsc::channel::<Result<DashboardData, AppError>>(1);
     let (create_tx, mut create_rx) = mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
+    let (create_options_tx, mut create_options_rx) =
+        mpsc::channel::<Result<crate::wizard::CreateOptions, AppError>>(1);
     let (detail_tx, mut detail_rx) = mpsc::channel::<Result<TaskDetailUpdate, AppError>>(1);
     let (instance_detail_tx, mut instance_detail_rx) =
         mpsc::channel::<Result<InstanceDetailUpdate, AppError>>(1);
     let (instance_command_tx, mut instance_command_rx) = mpsc::channel::<InstanceCommandResult>(1);
+    let (backup_command_tx, mut backup_command_rx) =
+        mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
+    let (backup_task_tx, mut backup_task_rx) =
+        mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
+    let (task_cancel_tx, mut task_cancel_rx) =
+        mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
+    let (modpack_tx, mut modpack_rx) =
+        mpsc::channel::<Result<mc_core::ModpackAnalysisReport, AppError>>(1);
     let mut refresh_in_flight = true;
     let mut create_in_flight = false;
+    let mut create_options_in_flight = false;
     let mut detail_in_flight = false;
     let mut instance_detail_in_flight = false;
     let mut instance_command_in_flight = false;
+    let mut backup_command_in_flight = false;
+    let mut backup_task_in_flight = false;
+    let mut task_cancel_in_flight = false;
+    let mut modpack_in_flight = false;
     let mut refresh_pending = false;
     let mut detail_pending = false;
     let mut instance_detail_pending = false;
@@ -76,9 +103,9 @@ pub(crate) async fn run_app(
                 None => break,
             },
             _ = refresh_timer.tick(), if (state.task_detail_visible && !detail_in_flight)
-                || (!state.task_detail_visible && state.instance_detail_visible && !instance_detail_in_flight
+                || (!state.task_detail_visible && !state.backup_manager_visible && state.instance_detail_visible && !instance_detail_in_flight
                     && !state.instance_detail.as_ref().is_some_and(|detail| detail.editing_console))
-                || (!state.task_detail_visible && !state.instance_detail_visible && !refresh_in_flight) => {
+                || (!state.task_detail_visible && !state.backup_manager_visible && !state.instance_detail_visible && !refresh_in_flight) => {
                 if state.task_detail_visible {
                     state.update(Action::RefreshTaskDetail);
                 } else if state.instance_detail_visible {
@@ -90,6 +117,15 @@ pub(crate) async fn run_app(
             _ = animation_timer.tick(), if state.has_animated_work() => {
                 animation_frame = animation_frame.wrapping_add(1);
             }
+            _ = backup_poll_timer.tick(), if !backup_task_in_flight && state.backup_task_to_poll().is_some() => {
+                if let Some(task_id) = state.backup_task_to_poll() {
+                    backup_task_in_flight = true;
+                    start_backup_task_poll(Arc::clone(&source), backup_task_tx.clone(), task_id);
+                }
+            }
+            _ = task_detail_poll_timer.tick(), if !detail_in_flight && state.task_detail_should_poll_fast() => {
+                state.update(Action::RefreshTaskDetail);
+            }
             result = refresh_rx.recv(), if refresh_in_flight => {
                 refresh_in_flight = false;
                 if let Some(result) = result {
@@ -100,6 +136,12 @@ pub(crate) async fn run_app(
                 create_in_flight = false;
                 if let Some(result) = result {
                     state.apply_create_result(result);
+                }
+            }
+            result = create_options_rx.recv(), if create_options_in_flight => {
+                create_options_in_flight = false;
+                if let Some(result) = result {
+                    state.apply_create_options(result);
                 }
             }
             result = detail_rx.recv(), if detail_in_flight => {
@@ -120,6 +162,31 @@ pub(crate) async fn run_app(
                     state.apply_instance_command_result(result);
                 }
             }
+            result = backup_command_rx.recv(), if backup_command_in_flight => {
+                backup_command_in_flight = false;
+                if let Some(result) = result {
+                    state.apply_backup_command_result(result);
+                }
+            }
+            result = backup_task_rx.recv(), if backup_task_in_flight => {
+                backup_task_in_flight = false;
+                if let Some(result) = result {
+                    state.apply_backup_task_update(result);
+                }
+            }
+
+            result = task_cancel_rx.recv(), if task_cancel_in_flight => {
+                task_cancel_in_flight = false;
+                if let Some(result) = result {
+                    state.apply_task_cancel_result(result);
+                }
+            }
+            result = modpack_rx.recv(), if modpack_in_flight => {
+                modpack_in_flight = false;
+                if let Some(result) = result {
+                    state.apply_modpack_analysis_result(result);
+                }
+            }
         }
 
         if !state.task_detail_visible {
@@ -127,6 +194,11 @@ pub(crate) async fn run_app(
         }
         if !state.instance_detail_visible {
             instance_detail_pending = false;
+        }
+
+        if state.take_create_options_request() && !create_options_in_flight {
+            create_options_in_flight = true;
+            start_create_options(Arc::clone(&source), create_options_tx.clone());
         }
 
         if let Some(input) = state.take_create_request() {
@@ -158,6 +230,27 @@ pub(crate) async fn run_app(
             if !instance_command_in_flight {
                 instance_command_in_flight = true;
                 start_instance_command(Arc::clone(&source), instance_command_tx.clone(), command);
+            }
+        }
+
+        if let Some(command) = state.take_backup_command() {
+            if !backup_command_in_flight {
+                backup_command_in_flight = true;
+                start_backup_command(Arc::clone(&source), backup_command_tx.clone(), command);
+            }
+        }
+
+        if let Some(task_id) = state.take_task_cancel_request() {
+            if !task_cancel_in_flight {
+                task_cancel_in_flight = true;
+                start_task_cancel(Arc::clone(&source), task_cancel_tx.clone(), task_id);
+            }
+        }
+
+        if let Some(path) = state.take_modpack_analysis_request() {
+            if !modpack_in_flight {
+                modpack_in_flight = true;
+                start_modpack_analysis(Arc::clone(&source), modpack_tx.clone(), path);
             }
         }
 
@@ -247,9 +340,6 @@ fn start_instance_command(
             InstanceCommand::Backup(instance_id) => {
                 InstanceCommandResult::Task(source.create_backup(instance_id).await.map(Box::new))
             }
-            InstanceCommand::ListBackups(instance_id) => {
-                InstanceCommandResult::Task(source.list_backups(instance_id).await.map(Box::new))
-            }
             InstanceCommand::Console {
                 instance_id,
                 command,
@@ -258,5 +348,78 @@ fn start_instance_command(
             ),
         };
         let _ = sender.send(result).await;
+    });
+}
+
+fn start_backup_command(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<Result<mc_core::TaskSnapshot, AppError>>,
+    command: BackupCommand,
+) {
+    tokio::spawn(async move {
+        let result = match command {
+            BackupCommand::List {
+                instance_id,
+                cursor,
+            } => source.list_backups(instance_id, cursor).await,
+            BackupCommand::Create { instance_id } => source.create_backup(instance_id).await,
+            BackupCommand::Verify {
+                instance_id,
+                backup_id,
+            } => source.verify_backup(instance_id, backup_id).await,
+            BackupCommand::PlanRestore {
+                instance_id,
+                backup_id,
+            } => source.plan_restore(instance_id, backup_id).await,
+            BackupCommand::Restore {
+                instance_id,
+                backup_id,
+                confirmation_token,
+            } => {
+                source
+                    .restore_backup(instance_id, backup_id, confirmation_token)
+                    .await
+            }
+        };
+        let _ = sender.send(result).await;
+    });
+}
+
+fn start_backup_task_poll(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<Result<mc_core::TaskSnapshot, AppError>>,
+    task_id: uuid::Uuid,
+) {
+    tokio::spawn(async move {
+        let _ = sender.send(source.load_task(task_id).await).await;
+    });
+}
+
+fn start_task_cancel(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<Result<mc_core::TaskSnapshot, AppError>>,
+    task_id: uuid::Uuid,
+) {
+    tokio::spawn(async move {
+        let _ = sender.send(source.cancel_task(task_id).await).await;
+    });
+}
+
+fn start_create_options(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<Result<crate::wizard::CreateOptions, AppError>>,
+) {
+    tokio::spawn(async move {
+        let _ = sender.send(source.load_create_options().await).await;
+    });
+}
+
+fn start_modpack_analysis(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<Result<mc_core::ModpackAnalysisReport, AppError>>,
+    path: std::path::PathBuf,
+) {
+    tokio::spawn(async move {
+        let _ = sender.send(source.analyze_modpack(path).await).await;
     });
 }

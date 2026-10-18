@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use mc_core::{JavaRuntime, ServerVersion};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WizardStep {
     Server,
@@ -13,6 +15,8 @@ pub(crate) enum WizardAction {
     Back,
     FocusNext,
     FocusPrevious,
+    PreviousChoice,
+    NextChoice,
     Insert(char),
     Backspace,
     ToggleAcceptance,
@@ -36,18 +40,30 @@ pub(crate) struct CreateInstanceInput {
     pub accept_eula: bool,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct CreateOptions {
+    pub versions: Vec<ServerVersion>,
+    pub java_runtimes: Vec<JavaRuntime>,
+    pub suggested_port: u16,
+}
+
+const MEMORY_PROFILES: [(u32, u32); 4] = [(512, 1024), (1024, 2048), (2048, 4096), (4096, 8192)];
+
 #[derive(Debug)]
 pub(crate) struct CreateWizard {
     pub step: WizardStep,
     pub name: String,
-    pub game_version: String,
-    pub java_path: String,
-    pub min_memory_mb: String,
-    pub max_memory_mb: String,
+    pub versions: Vec<ServerVersion>,
+    pub selected_version: usize,
+    pub java_runtimes: Vec<JavaRuntime>,
+    pub selected_java: usize,
+    pub memory_profile: usize,
     pub port: String,
     pub accept_eula: bool,
     pub focused_field: usize,
     pub error: Option<String>,
+    pub options_loading: bool,
+    pub options_error: Option<String>,
     pub submitting: bool,
 }
 
@@ -56,20 +72,89 @@ impl Default for CreateWizard {
         Self {
             step: WizardStep::Server,
             name: String::new(),
-            game_version: String::new(),
-            java_path: String::new(),
-            min_memory_mb: "1024".to_owned(),
-            max_memory_mb: "2048".to_owned(),
+            versions: Vec::new(),
+            selected_version: 0,
+            java_runtimes: Vec::new(),
+            selected_java: 0,
+            memory_profile: 1,
             port: "25565".to_owned(),
             accept_eula: false,
             focused_field: 0,
             error: None,
+            options_loading: true,
+            options_error: None,
             submitting: false,
         }
     }
 }
 
 impl CreateWizard {
+    pub fn apply_options(&mut self, mut options: CreateOptions) {
+        self.options_loading = false;
+        options.versions.retain(|version| {
+            let id = version.id.to_ascii_lowercase();
+            !id.contains("-pre") && !id.contains("-rc")
+        });
+        if options.versions.is_empty() {
+            self.options_error = Some("Paper 没有返回可用稳定版本，请稍后重试。".to_owned());
+            return;
+        }
+        self.versions = options.versions;
+        self.selected_version = 0;
+        self.java_runtimes = options.java_runtimes;
+        self.selected_java = preferred_java_index(&self.java_runtimes).unwrap_or(0);
+        self.port = options.suggested_port.to_string();
+        self.options_error = if self.java_runtimes.is_empty() {
+            Some("未检测到可用 Java。请先安装 Java 21 或更高版本，再重新打开创建向导。".to_owned())
+        } else {
+            None
+        };
+        self.error = None;
+    }
+
+    pub fn set_options_error(&mut self, error: String) {
+        self.options_loading = false;
+        self.options_error = Some(error);
+    }
+
+    pub fn selected_version(&self) -> Option<&ServerVersion> {
+        self.versions.get(self.selected_version)
+    }
+
+    pub fn selected_java(&self) -> Option<&JavaRuntime> {
+        self.java_runtimes.get(self.selected_java)
+    }
+
+    pub fn memory_range(&self) -> (u32, u32) {
+        MEMORY_PROFILES
+            .get(self.memory_profile)
+            .copied()
+            .unwrap_or(MEMORY_PROFILES[1])
+    }
+
+    pub fn java_choice_label(&self, index: usize) -> String {
+        let Some(runtime) = self.java_runtimes.get(index) else {
+            return "无可用 Java".to_owned();
+        };
+        let major = runtime
+            .major_version
+            .map(|major| format!("Java {major}"))
+            .unwrap_or_else(|| runtime.version.clone());
+        let vendor = runtime
+            .vendor
+            .clone()
+            .unwrap_or_else(|| "未知发行版".to_owned());
+        let arch = runtime
+            .architecture
+            .clone()
+            .unwrap_or_else(|| "未知架构".to_owned());
+        format!("{major} · {vendor} · {arch}")
+    }
+
+    pub fn java_is_recommended(&self, index: usize) -> bool {
+        preferred_java_index(&self.java_runtimes) == Some(index)
+    }
+
     pub fn handle(&mut self, action: WizardAction) -> WizardOutcome {
         if self.submitting {
             return WizardOutcome::None;
@@ -88,6 +173,14 @@ impl CreateWizard {
                     .checked_sub(1)
                     .unwrap_or_else(|| self.field_count() - 1);
                 self.error = None;
+                WizardOutcome::None
+            }
+            WizardAction::PreviousChoice => {
+                self.adjust_choice(-1);
+                WizardOutcome::None
+            }
+            WizardAction::NextChoice => {
+                self.adjust_choice(1);
                 WizardOutcome::None
             }
             WizardAction::Insert(character) => {
@@ -110,6 +203,25 @@ impl CreateWizard {
     pub fn set_submit_error(&mut self, error: String) {
         self.submitting = false;
         self.error = Some(error);
+    }
+
+    fn adjust_choice(&mut self, delta: isize) {
+        self.error = None;
+        match (self.step, self.focused_field) {
+            (WizardStep::Server, 1) if !self.versions.is_empty() => {
+                self.selected_version =
+                    adjusted_index(self.selected_version, self.versions.len(), delta);
+            }
+            (WizardStep::Runtime, 0) if !self.java_runtimes.is_empty() => {
+                self.selected_java =
+                    adjusted_index(self.selected_java, self.java_runtimes.len(), delta);
+            }
+            (WizardStep::Runtime, 1) => {
+                self.memory_profile =
+                    adjusted_index(self.memory_profile, MEMORY_PROFILES.len(), delta);
+            }
+            _ => {}
+        }
     }
 
     fn advance(&mut self) -> WizardOutcome {
@@ -168,7 +280,7 @@ impl CreateWizard {
     fn field_count(&self) -> usize {
         match self.step {
             WizardStep::Server => 2,
-            WizardStep::Runtime => 4,
+            WizardStep::Runtime => 3,
             WizardStep::Review => 1,
         }
     }
@@ -179,11 +291,7 @@ impl CreateWizard {
         }
         let value = match (self.step, self.focused_field) {
             (WizardStep::Server, 0) => &mut self.name,
-            (WizardStep::Server, 1) => &mut self.game_version,
-            (WizardStep::Runtime, 0) => &mut self.java_path,
-            (WizardStep::Runtime, 1) => &mut self.min_memory_mb,
-            (WizardStep::Runtime, 2) => &mut self.max_memory_mb,
-            (WizardStep::Runtime, 3) => &mut self.port,
+            (WizardStep::Runtime, 2) => &mut self.port,
             _ => return,
         };
         value.push(character);
@@ -193,11 +301,7 @@ impl CreateWizard {
     fn backspace(&mut self) {
         let value = match (self.step, self.focused_field) {
             (WizardStep::Server, 0) => &mut self.name,
-            (WizardStep::Server, 1) => &mut self.game_version,
-            (WizardStep::Runtime, 0) => &mut self.java_path,
-            (WizardStep::Runtime, 1) => &mut self.min_memory_mb,
-            (WizardStep::Runtime, 2) => &mut self.max_memory_mb,
-            (WizardStep::Runtime, 3) => &mut self.port,
+            (WizardStep::Runtime, 2) => &mut self.port,
             _ => return,
         };
         value.pop();
@@ -205,50 +309,60 @@ impl CreateWizard {
     }
 
     fn validate_server(&self) -> Result<(), (usize, String)> {
+        if self.options_loading {
+            return Err((0, "正在读取 Paper 稳定版本，请稍候。".to_owned()));
+        }
+        if let Some(error) = &self.options_error {
+            return Err((0, error.clone()));
+        }
         let name = self.name.trim();
         if name.is_empty() || name.len() > 128 || name.chars().any(char::is_control) {
             return Err((0, "实例名称需为 1–128 个 UTF-8 字节。".to_owned()));
         }
-        if self.game_version.trim().is_empty() {
-            return Err((1, "请输入 Minecraft 版本，例如 1.21.11。".to_owned()));
+        if self.selected_version().is_none() {
+            return Err((1, "请选择一个 Paper 稳定版本。".to_owned()));
         }
         Ok(())
     }
 
     fn validate_runtime(&self) -> Result<(), (usize, String)> {
-        self.validated_runtime().map(|_| ())
-    }
-
-    fn validated_runtime(&self) -> Result<(PathBuf, u32, u32, u16), (usize, String)> {
-        let java_path = PathBuf::from(self.java_path.trim());
-        if !java_path.is_absolute() {
-            return Err((0, "Java 路径必须是绝对路径。".to_owned()));
-        }
-        let min_memory_mb = parse_memory(&self.min_memory_mb).map_err(|message| (1, message))?;
-        let max_memory_mb = parse_memory(&self.max_memory_mb).map_err(|message| (2, message))?;
-        if min_memory_mb > max_memory_mb {
-            return Err((1, "最小内存不能大于最大内存。".to_owned()));
+        if self.selected_java().is_none() {
+            return Err((
+                0,
+                "没有可用的 Java 运行时，请先安装 Java 21 或更高版本。".to_owned(),
+            ));
         }
         let port = self
             .port
             .parse::<u16>()
             .ok()
             .filter(|port| *port >= 1024)
-            .ok_or_else(|| (3, "端口需为 1024–65535 之间的整数。".to_owned()))?;
-        Ok((java_path, min_memory_mb, max_memory_mb, port))
+            .ok_or_else(|| (2, "端口需为 1024–65535 之间的整数。".to_owned()))?;
+        let _ = port;
+        Ok(())
     }
 
     fn to_input(&self) -> Result<CreateInstanceInput, String> {
         self.validate_server().map_err(|(_, message)| message)?;
-        let (java_path, min_memory_mb, max_memory_mb, port) =
-            self.validated_runtime().map_err(|(_, message)| message)?;
+        self.validate_runtime().map_err(|(_, message)| message)?;
         if !self.accept_eula {
-            return Err("请先阅读并明确接受 Minecraft EULA。".to_owned());
+            return Err("请先用 Space 明确接受 Minecraft EULA。".to_owned());
         }
+        let version = self
+            .selected_version()
+            .ok_or_else(|| "Paper 版本选择已失效，请重新打开向导。".to_owned())?;
+        let java = self
+            .selected_java()
+            .ok_or_else(|| "Java 运行时选择已失效，请重新打开向导。".to_owned())?;
+        let (min_memory_mb, max_memory_mb) = self.memory_range();
+        let port = self
+            .port
+            .parse::<u16>()
+            .map_err(|_| "端口格式不正确。".to_owned())?;
         Ok(CreateInstanceInput {
             name: self.name.trim().to_owned(),
-            game_version: self.game_version.trim().to_owned(),
-            java_path,
+            game_version: version.id.clone(),
+            java_path: PathBuf::from(&java.executable),
             min_memory_mb,
             max_memory_mb,
             port,
@@ -257,12 +371,37 @@ impl CreateWizard {
     }
 }
 
-fn parse_memory(value: &str) -> Result<u32, String> {
-    value
-        .parse::<u32>()
-        .ok()
-        .filter(|memory| (512..=65_536).contains(memory))
-        .ok_or_else(|| "内存需为 512–65536 MiB 之间的整数。".to_owned())
+fn adjusted_index(current: usize, length: usize, delta: isize) -> usize {
+    if length == 0 {
+        return 0;
+    }
+    let next = current as isize + delta;
+    next.rem_euclid(length as isize) as usize
+}
+
+fn preferred_java_index(runtimes: &[JavaRuntime]) -> Option<usize> {
+    if runtimes.is_empty() {
+        return None;
+    }
+    if let Some(index) = runtimes
+        .iter()
+        .position(|runtime| runtime.major_version == Some(21))
+    {
+        return Some(index);
+    }
+    if let Some((index, _)) = runtimes
+        .iter()
+        .enumerate()
+        .filter(|(_, runtime)| runtime.major_version.is_some_and(|major| major >= 21))
+        .min_by_key(|(_, runtime)| runtime.major_version.unwrap_or(u16::MAX))
+    {
+        return Some(index);
+    }
+    runtimes
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, runtime)| runtime.major_version.unwrap_or(0))
+        .map(|(index, _)| index)
 }
 
 #[cfg(test)]

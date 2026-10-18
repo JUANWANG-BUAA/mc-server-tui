@@ -1,8 +1,8 @@
 use super::*;
 use chrono::Utc;
 use mc_core::{
-    ErrorCode, InstanceSummary, TaskKind, TaskPhase, TaskProgress, TaskResult, TaskSnapshot,
-    TaskStatus,
+    AppError, ErrorCode, InstanceSummary, TaskKind, TaskPhase, TaskProgress, TaskResult,
+    TaskSnapshot, TaskStatus,
 };
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -41,7 +41,10 @@ async fn wait_until_finished(manager: &TaskManager, id: Uuid) -> TaskSnapshot {
             let snapshot = manager.get(id).await.expect("task should remain readable");
             if matches!(
                 snapshot.status,
-                TaskStatus::Succeeded | TaskStatus::Failed | TaskStatus::Interrupted
+                TaskStatus::Succeeded
+                    | TaskStatus::Failed
+                    | TaskStatus::Interrupted
+                    | TaskStatus::Cancelled
             ) {
                 return snapshot;
             }
@@ -67,6 +70,7 @@ async fn task_phases_and_events_are_durable_and_ordered() {
                     Some(TaskProgress {
                         completed_steps: 1,
                         total_steps: 3,
+                        transfer: None,
                     }),
                 )
                 .await?;
@@ -83,7 +87,8 @@ async fn task_phases_and_events_are_durable_and_ordered() {
         completed.progress,
         Some(TaskProgress {
             completed_steps: 3,
-            total_steps: 3
+            total_steps: 3,
+            transfer: None,
         })
     );
     assert!(completed.instance_id.is_some());
@@ -518,4 +523,31 @@ async fn task_schema_migrates_without_changing_the_instance_index_version() {
         .expect("task tables remain queryable");
     assert_eq!(index_version, 1);
     assert_eq!(task_tables, 2);
+}
+
+#[tokio::test]
+async fn cooperative_cancellation_reaches_a_distinct_terminal_state() {
+    let temp = TempDir::new().expect("temporary state directory");
+    let manager = TaskManager::with_limits(database(&temp), 2, 4)
+        .await
+        .expect("task manager opens");
+    let queued = manager
+        .submit(TaskKind::CreatePaperInstance, None, |reporter| async move {
+            while !reporter.is_cancelled() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            Err(AppError::new(
+                ErrorCode::TaskCancelled,
+                "The task was cancelled by user request.",
+            ))
+        })
+        .await
+        .expect("task should be accepted");
+    let accepted = manager.cancel(queued.id).await.expect("cancel accepted");
+    assert_eq!(accepted.id, queued.id);
+    let finished = wait_until_finished(&manager, queued.id).await;
+    assert_eq!(finished.status, TaskStatus::Cancelled);
+    assert_eq!(finished.phase, TaskPhase::Cancelled);
+    assert!(finished.error.is_none());
+    assert!(finished.message.contains("cancelled"));
 }
