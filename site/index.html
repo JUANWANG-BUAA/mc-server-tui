@@ -3,7 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script>document.documentElement.classList.add("js");</script>
+  <script>
+    document.documentElement.classList.add("js");
+    window.addEventListener("error", function () {
+      document.documentElement.classList.remove("js");
+    }, true);
+  </script>
   <title>mc-server-tui — Minecraft servers without the browser</title>
   <meta name="description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Guided Paper setup, a resident supervisor, live console, verified downloads, world backups, and a Claude Code-style TUI.">
   <meta name="keywords" content="Minecraft server manager, PaperMC, Rust TUI, Ratatui, macOS, Linux, self-hosted, Minecraft backup, terminal UI, server supervisor">
@@ -12,6 +17,7 @@
   <link rel="canonical" href="https://juanwang-buaa.github.io/mc-server-tui/">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/styles.css">
+  <noscript><style>[data-reveal]{opacity:1!important;transform:none!important}</style></noscript>
   <meta property="og:type" content="website">
   <meta property="og:title" content="mc-server-tui — Minecraft servers without the browser">
   <meta property="og:description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Paper setup, resident runner, live console, verified downloads, backups.">

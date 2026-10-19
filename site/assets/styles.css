@@ -984,3 +984,10 @@ code {
 }
 .terminal-screen img.is-switching { opacity: 0.35; }
 .nav a.is-active { color: var(--text); }
+
+
+@media print {
+  .js [data-reveal] { opacity: 1 !important; transform: none !important; }
+  .site-header, .page-glow, .theme-picker { display: none !important; }
+  body { background: #fff; color: #111; }
+}

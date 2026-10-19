@@ -5,6 +5,12 @@ All notable user-facing changes are recorded here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Static, dependency-free GitHub Pages landing site with real TUI screenshots,
+  interactive theme switching, pixel Steve, architecture/install/roadmap
+  sections, SEO metadata, sitemap, and a custom 404 page.
+
 ### Planned
 
 - Vanilla provider and takeover of existing server directories.
