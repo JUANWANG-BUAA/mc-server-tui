@@ -191,7 +191,7 @@ python3 scripts/tui_instance_detail_pty.py
 - [MIT](LICENSE-MIT)
 - [Apache License 2.0](LICENSE-APACHE)
 
-贡献声明见 [LICENSE](LICENSE)。
+贡献按 MIT 或 Apache-2.0 双许可接收。
 
 本项目是独立项目，与 Mojang、Microsoft、PaperMC 无隶属关系。Minecraft 是
 Mojang Synergies AB 的商标。

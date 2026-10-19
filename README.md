@@ -281,7 +281,7 @@ Dual-licensed under either of:
 - [MIT](LICENSE-MIT)
 - [Apache License 2.0](LICENSE-APACHE)
 
-at your option. See [LICENSE](LICENSE) for the contribution statement.
+at your option. Contributions are accepted under the same dual license.
 
 `mc-server-tui` is an independent project. It is not affiliated with Mojang,
 Microsoft, or PaperMC. Minecraft is a trademark of Mojang Synergies AB.

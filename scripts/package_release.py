@@ -25,7 +25,6 @@ DOCUMENTS = (
     "README.md",
     "README.zh-CN.md",
     "CHANGELOG.md",
-    "LICENSE",
     "LICENSE-MIT",
     "LICENSE-APACHE",
 )

@@ -69,4 +69,4 @@ release-ready lifecycle change.
 ## License
 
 By contributing, you agree that your contribution is dual-licensed under
-MIT OR Apache-2.0, at the project's option. See [LICENSE](LICENSE).
+MIT OR Apache-2.0, at the project's option. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE).
