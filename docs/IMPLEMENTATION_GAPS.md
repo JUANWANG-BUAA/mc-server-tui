@@ -158,7 +158,7 @@
 ## 6. 发布与分发阻塞项（按严重度）
 
 1. **服务安装只完成了 Phase 0**：`mc service` 已有 launchd/systemd 实现，但 Linux 真实安装、登录/开机启动、更新时“不杀 runner”的服务级验证还没完成。
-2. **发布产物/签名仍未完成**：Phase 1 已有本机可验证的 tar.gz、SHA-256、manifest、版本化安装器和 Homebrew formula 模板；但没有公开下载、签名/公证、实际 tap/apt/dnf 仓库、SBOM、changelog，CI 也未发布 Release。
+2. **发布产物已有，但签名/渠道仍未完成**：`v0.1.0` 已作为 unsigned alpha pre-release 发布四个平台的 tar.gz、SHA-256、manifest、install.sh 和 Homebrew formula；仍没有签名/公证、实际 tap/apt/dnf 仓库、SBOM、changelog。
 3. **没有协议兼容窗口**：TUI/CLI 与 daemon 仍精确匹配 API v8；`ServerInfo` 已能报告范围，但 daemon 不接受 N/N-1。daemon 热更新会瞬间让旧 TUI 报协议错误。
 4. **没有状态迁移/降级保护**：实例 schema 仅 v1；更新后无法安全回退，缺少迁移前快照。
 5. **没有更新保护**：下载/备份/恢复任务运行时重启 daemon 会把这些任务标记为 interrupted；没有“排空/拒绝/等待”策略。

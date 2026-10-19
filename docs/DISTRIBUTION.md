@@ -1,7 +1,7 @@
 # macOS / Linux 分发与热更新设计
 
 > 版本：0.1 · 2026-10-19  
-> 状态：Phase 0 与 Phase 1 发布工具已实现；Phase 2–4 仍是方案（2026-10-19）  
+> 状态：Phase 0/1 与首个 unsigned alpha 发布已完成；Phase 2–4 仍是方案（2026-10-19）  
 > 关联：[实现差距](IMPLEMENTATION_GAPS.md)、[监督契约](SUPERVISION.md)、[产品设计的发布要求](../PRODUCT_DESIGN.md)
 
 ## 0. 一句话结论
@@ -19,6 +19,7 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 - launchd LaunchAgent / systemd user unit：`install/start/stop/restart/status/uninstall`，`--dry-run` 输出生成内容；launchd 已在 macOS 做过临时配置真实闭环。
 - Phase 1：`scripts/package_release.py` 生成 tar.gz + SHA-256 + manifest；`scripts/install.sh` 安装到 `versions/<version>`、切换 `current`、写稳定 launcher；`mc uninstall` 清理服务/launcher/版本目录并保留数据；`packaging/homebrew/` 模板与渲染脚本。
 - 基础 CI：macOS 14 / Ubuntu 22.04，fmt、clippy、test、build、launcher/PTY smoke；release job 打包并执行本地 installer/uninstaller smoke。
+- 首个发布：`v0.1.0`（unsigned alpha pre-release）已包含四个 target、manifest、install.sh 和 Homebrew formula；CI/Release 两个 workflow 均为绿色。
 
 尚未落地（Phase 2+）：
 
@@ -521,7 +522,8 @@ mc
 ### macOS / Linux（tarball）
 
 ```sh
-curl -fsSL https://github.com/JUANWANG-BUAA/mc-server-tui/releases/latest/download/install.sh | sh
+TAG=v0.1.0
+curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
 ```
