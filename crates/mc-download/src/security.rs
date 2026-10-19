@@ -13,7 +13,7 @@ pub(crate) fn validate_url(url: &Url, allowed_hosts: &HashSet<String>) -> Result
         && url.password().is_none()
         && url.fragment().is_none()
         && url.port_or_known_default() == Some(443)
-        && !host.parse::<IpAddr>().is_ok()
+        && host.parse::<IpAddr>().is_err()
         && allowed_hosts.contains(&host.to_ascii_lowercase());
     if !valid {
         return Err(redirect_error("URL is outside the trusted HTTPS origins"));

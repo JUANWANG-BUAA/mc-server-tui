@@ -257,10 +257,7 @@ impl AppState {
         };
         match result {
             Ok(task) => {
-                if !manager
-                    .tracked_task_id()
-                    .is_some_and(|tracked| tracked == task.id)
-                {
+                if manager.tracked_task_id() != Some(task.id) {
                     return;
                 }
                 let finished = manager.track_task(&task);
