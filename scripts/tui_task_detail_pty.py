@@ -172,7 +172,7 @@ def main():
                             break
                 return observed
 
-            if not wait_for_output("q退出".encode()):
+            if not wait_for_output("F1帮助".encode()):
                 raise AssertionError("dashboard did not render with the fake daemon")
             if not wait_for_output("下载校验".encode()):
                 raise AssertionError("dashboard did not load the running task")
@@ -180,9 +180,7 @@ def main():
             if len(animation_frames) < 2:
                 raise AssertionError("running-task spinner did not advance between frames")
 
-            os.write(master, b"\t")
-            time.sleep(0.1)
-            os.write(master, b"\r")
+            os.write(master, b"/task 1\r")
             if not wait_for_output("EVENT_TWO_DOWNLOADED".encode()):
                 raise AssertionError("task detail did not render its initial event history")
 
@@ -200,7 +198,7 @@ def main():
 
             os.write(master, b"\x1b")
             time.sleep(0.2)
-            os.write(master, b"\r")
+            os.write(master, b"/task 1\r")
             deadline = time.monotonic() + 3
             resumed = False
             while time.monotonic() < deadline and not resumed:
@@ -220,7 +218,7 @@ def main():
             if not resumed:
                 raise AssertionError("reopening task detail did not resume from sequence 3")
 
-            os.write(master, b"q")
+            os.write(master, b"/quit\r")
             deadline = time.monotonic() + 3
             exit_code = None
             while time.monotonic() < deadline:

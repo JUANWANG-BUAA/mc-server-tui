@@ -216,9 +216,9 @@ def main():
                 )
                 return marker in clean
 
-            if not wait_for("q退出".encode()):
+            if not wait_for("F1帮助".encode()):
                 raise AssertionError("dashboard did not render")
-            os.write(master, b"/")
+            os.write(master, b"\x0b")
             if not wait_for("命令面板".encode()):
                 raise AssertionError("slash command palette did not open")
             os.write(master, "新建".encode())
@@ -232,7 +232,12 @@ def main():
 
             os.write(master, b"GuidedServer")
             if not wait_for("GuidedServer".encode()):
-                raise AssertionError("instance name input was not rendered")
+                recent = re.sub(
+                    rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured[-4000:])
+                )
+                raise AssertionError(
+                    f"instance name input was not rendered; recent={recent!r}"
+                )
             os.write(master, b"\t")
             os.write(master, b"\x1b[C")
             os.write(master, b"\r")
@@ -245,7 +250,7 @@ def main():
                 raise AssertionError("review plan did not render")
             os.write(master, b" \r")
             dashboard_offset = len(captured)
-            if not wait_for("后台任务".encode(), start_offset=dashboard_offset):
+            if not wait_for("创建任务已加入后台队列".encode(), start_offset=dashboard_offset):
                 raise AssertionError("create submission did not return to dashboard")
 
             with lock:
@@ -267,7 +272,7 @@ def main():
                 if arguments.get("accept_eula") is not True:
                     raise AssertionError("EULA acceptance was not explicit")
 
-            os.write(master, b"\t\r")
+            os.write(master, b"/task 1\r")
             if not wait_for("下载".encode()):
                 raise AssertionError("task detail did not render download progress")
             if not wait_for("50%".encode()):

@@ -64,3 +64,14 @@ fn english_import_query_reaches_the_modpack_flow() {
         Some(CommandId::ImportModpack),
     );
 }
+
+#[test]
+fn shell_palette_exposes_session_navigation_and_classic_switch() {
+    let state = AppState::default();
+    let palette = CommandPaletteState::for_state(&state);
+    let ids: Vec<_> = palette.filtered_entries().map(|entry| entry.id).collect();
+    assert!(ids.contains(&CommandId::OpenCreate));
+    assert!(ids.contains(&CommandId::OpenSelectedInstance));
+    assert!(ids.contains(&CommandId::ShowClassic));
+    assert!(ids.contains(&CommandId::Theme));
+}

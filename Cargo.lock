@@ -1042,6 +1042,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mc"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "libc",
+ "mc-client",
+ "mc-config",
+ "mc-core",
+ "mc-system",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "mc-backup"
 version = "0.1.0"
 dependencies = [
@@ -1063,6 +1079,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "mc-client",
+ "mc-config",
  "mc-core",
  "tokio",
  "uuid",
@@ -1077,6 +1094,16 @@ dependencies = [
  "serde_json",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "mc-config"
+version = "0.1.0"
+dependencies = [
+ "directories",
+ "serde",
+ "thiserror",
+ "toml",
 ]
 
 [[package]]
@@ -1097,8 +1124,8 @@ name = "mc-daemon"
 version = "0.1.0"
 dependencies = [
  "clap",
- "directories",
  "mc-backup",
+ "mc-config",
  "mc-core",
  "mc-download",
  "mc-instance",
@@ -1216,12 +1243,15 @@ dependencies = [
  "chrono",
  "clap",
  "crossterm",
+ "directories",
  "futures-util",
  "mc-client",
+ "mc-config",
  "mc-core",
  "ratatui",
  "tempfile",
  "tokio",
+ "unicode-width 0.2.0",
  "uuid",
 ]
 

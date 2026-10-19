@@ -1,8 +1,11 @@
 use mc_core::AppError;
 
-use crate::instance_detail::{
-    InstanceCommand, InstanceCommandResult, InstanceDetailQuery, InstanceDetailState,
-    InstanceDetailUpdate,
+use crate::{
+    instance_detail::{
+        InstanceCommand, InstanceCommandResult, InstanceDetailQuery, InstanceDetailState,
+        InstanceDetailUpdate,
+    },
+    transcript::TranscriptEntry,
 };
 
 use super::{AppState, Panel};
@@ -39,18 +42,29 @@ impl AppState {
     }
 
     pub(super) fn request_instance_detail_refresh(&mut self) {
-        if self.instance_detail_visible {
+        if self.instance_detail_visible || (self.shell_visible && self.instance_detail_id.is_some())
+        {
             self.instance_detail_refresh_requested = true;
         }
     }
 
-    pub(super) fn queue_server_command(&mut self, stop: bool) {
-        let Some(instance_id) = self
-            .instance_detail_id
+    pub(super) fn selected_instance_id(&self) -> Option<uuid::Uuid> {
+        self.instance_detail_id
             .filter(|_| self.instance_detail_visible)
-        else {
+            .or_else(|| {
+                self.instances
+                    .get(self.selected_instance)
+                    .map(|instance| instance.id)
+            })
+            .or(self.instance_detail_id)
+    }
+
+    pub(super) fn queue_server_command(&mut self, stop: bool) {
+        let Some(instance_id) = self.selected_instance_id() else {
+            self.status = "当前没有选中的实例。".to_owned();
             return;
         };
+        self.instance_detail_id = Some(instance_id);
         if self.instance_operation_pending {
             self.status = "上一项服务器操作仍在运行。".to_owned();
             return;
@@ -76,12 +90,11 @@ impl AppState {
             self.queue_backup_create();
             return;
         }
-        let Some(instance_id) = self
-            .instance_detail_id
-            .filter(|_| self.instance_detail_visible)
-        else {
+        let Some(instance_id) = self.selected_instance_id() else {
+            self.status = "当前没有选中的实例。".to_owned();
             return;
         };
+        self.instance_detail_id = Some(instance_id);
         if self.instance_operation_pending {
             self.status = "上一项实例操作仍在运行。".to_owned();
             return;
@@ -148,6 +161,24 @@ impl AppState {
         }
     }
 
+    pub(super) fn queue_console_command(&mut self, command: String) {
+        if self.instance_operation_pending {
+            self.status = "上一项实例操作仍在运行。".to_owned();
+            return;
+        }
+        let Some(instance_id) = self.selected_instance_id() else {
+            self.status = "当前没有选中的实例。".to_owned();
+            return;
+        };
+        self.instance_detail_id = Some(instance_id);
+        self.instance_operation_pending = true;
+        self.instance_command_requested = Some(InstanceCommand::Console {
+            instance_id,
+            command,
+        });
+        self.status = "正在发送控制台命令…".to_owned();
+    }
+
     pub fn apply_instance_detail_result(&mut self, result: Result<InstanceDetailUpdate, AppError>) {
         let Some(instance_id) = self.instance_detail_id else {
             return;
@@ -159,7 +190,7 @@ impl AppState {
         if let Some(error) = &detail.error {
             self.status = format!("实例详情刷新失败：{error}");
         } else if let Some(server) = detail.detail.as_ref().map(|detail| &detail.server) {
-            self.status = format!("{} · {}", server.address, server.message);
+            self.status = server.message.clone();
         }
     }
 
@@ -167,15 +198,24 @@ impl AppState {
         self.instance_operation_pending = false;
         match result {
             InstanceCommandResult::Status(result) => {
+                let mut transcript = None;
                 if let Some(detail) = self.instance_detail.as_mut() {
                     detail.apply_status(result);
                     if let Some(error) = &detail.error {
                         self.status = format!("生命周期操作失败：{error}");
                         detail.notice = Some(error.clone());
+                        transcript = Some(TranscriptEntry::error(self.status.clone()));
                     } else if let Some(server) = detail.detail.as_ref().map(|data| &data.server) {
                         self.status = format!("{} · {}", server.address, server.message);
                         detail.notice = Some(server.message.clone());
+                        transcript = Some(TranscriptEntry::success(format!(
+                            "服务器状态：{} · {}",
+                            server.address, server.message
+                        )));
                     }
+                }
+                if let Some(entry) = transcript {
+                    self.push_transcript(entry);
                 }
             }
             InstanceCommandResult::Console(result) => match result {
@@ -185,6 +225,7 @@ impl AppState {
                         detail.notice = Some(self.status.clone());
                     }
                     self.instance_detail_refresh_requested = true;
+                    self.push_transcript(TranscriptEntry::success("控制台命令已发送。"));
                 }
                 Err(error) => {
                     let message = match error.next_action {
@@ -196,6 +237,9 @@ impl AppState {
                         detail.notice = Some(message.clone());
                     }
                     self.status = format!("控制台命令失败：{message}");
+                    self.push_transcript(TranscriptEntry::error(format!(
+                        "控制台命令失败：{message}"
+                    )));
                 }
             },
             InstanceCommandResult::Task(result) => match result {
@@ -215,6 +259,7 @@ impl AppState {
                         detail.notice = Some(self.status.clone());
                     }
                     self.refresh_requested = true;
+                    self.push_transcript(TranscriptEntry::success(message));
                 }
                 Err(error) => {
                     let message = match error.next_action {
@@ -226,6 +271,9 @@ impl AppState {
                         detail.notice = Some(message.clone());
                     }
                     self.status = format!("实例后台任务提交失败：{message}");
+                    self.push_transcript(TranscriptEntry::error(format!(
+                        "后台任务提交失败：{message}"
+                    )));
                 }
             },
         }
@@ -233,9 +281,7 @@ impl AppState {
     }
 
     pub fn take_instance_detail_query(&mut self) -> Option<InstanceDetailQuery> {
-        if !self.instance_detail_visible
-            || !std::mem::take(&mut self.instance_detail_refresh_requested)
-        {
+        if !std::mem::take(&mut self.instance_detail_refresh_requested) {
             return None;
         }
         self.instance_detail

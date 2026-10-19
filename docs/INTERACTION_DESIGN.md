@@ -12,6 +12,45 @@ The interaction layer borrows patterns, not visual assets, from mature terminal 
 
 The design rule is: a first-time user must be able to complete the normal path without knowing Paper API fields, Java executable locations, raw ports, or daemon internals. An advanced user can still reach exact values and durable task details.
 
+
+## 默认会话 shell（Claude Code 骨架）
+
+主界面采用单会话结构，而不是让用户在多屏之间找回上下文：
+
+1. **会话记录**：用户命令、系统结果、错误和任务状态按时间顺序追加，可用 PgUp/PgDn 或鼠标滚轮回看；`/help`、`/status`、`/tasks`、`/instances`、`/theme` 这类列表输出会从第一行开始展示，`/logs` 则保持尾部日志可见。
+2. **底部 composer**：一个输入框同时承担 slash 命令、参数补全和当前实例控制台命令。输入 `/` 时在输入框上方弹出命令补全；Tab 填入，↑/↓ 选择或翻阅历史。补全高亮时 Enter 直接执行高亮命令，但输入已经是精确命令名时以输入为准。composer 支持 ←/→、Home/End、Delete、Ctrl-A/E 的光标编辑和长行水平滚动，长命令不需要只能从末尾退格。
+3. **输入框下方状态坞**：持续显示选中实例、版本/端口、配置内存、运行状态、CPU/RSS、最多两个活动任务的阶段和字节进度条。它不依赖用户打开任务详情或实例详情才能看见。
+4. **结构化流程仍然保留**：`/create` 打开版本/Java/EULA 向导，`/open` 打开完整日志与交互式控制台，`/backups` 打开世界备份页。日常的 `/status`、`/tasks`、`/logs`、`/cancel` 都在会话内完成，不切页；只有设置、完整控制台和破坏性恢复才进入下一层。纯文本输入不会伪装成结构化选择；破坏性操作仍然需要显式确认。
+5. **上下文快捷动作**：状态坞第五行根据状态显示 `/start` 或 `/stop`、`/open`、`/logs`、`/backups`、`/tasks`，有可取消下载时追加 `/cancel`。用户不需要记住整套命令表。
+6. **经典双面板**：`/classic` 或实际界面中的 `t` 可切回实例/任务双面板；`t` 或命令面板切回会话。会话记录在切换期间保留。
+
+鼠标是可选增强：滚轮滚动列表/会话，单击选中行，双击打开实例或任务，点击 EULA 行切换勾选。
+
+## 主题
+
+七套共享结构的低对比主题：
+
+- **Claude**：近黑背景，暖珊瑚色 accent，绿色/琥珀色/红色只用于状态。
+- **DeepSeek**：深海蓝背景，品牌蓝 accent，冷色调状态色。
+- **Codex**：近黑中性背景，OpenAI 绿 accent，终端感较强。
+- **Kimi**：近黑紫背景，柔和紫罗兰 accent。
+- **PCL2**：近黑青蓝背景，天空蓝 accent，偏 Minecraft 启动器的活泼感但保持低饱和。
+- **Mono**：纯黑背景，灰阶文字，仅错误保留红色。
+- **Ocean**：近黑偏蓝背景，低饱和青色 accent。
+
+主题用 `F2` 顺序循环、`/theme <name>` 指定、`/theme` 列出全部主题、命令面板切换，或由 `MC_SERVER_TUI_THEME` 覆盖。选择写入平台配置目录的 `theme` 文件，下次启动恢复。边框、keycap 和 footer 使用中性灰；彩色仅保留给选中标记、输入提示、活动 spinner、进度条和像素吉祥物，避免整屏高饱和。
+
+### 像素吉祥物
+
+状态坞左侧固定一个 7×4 像素史蒂夫头像（再加一行状态符号，共 5 行）：
+
+- 保持 Minecraft 的经典配色：棕色头发、肤色、白色眼白与蓝色瞳孔、棕色嘴；
+- 有活动任务时眼睛睁开，头顶 `✦/✧/·` 依次闪烁；
+- 空闲时眼睛闭合成深色眼睑，并显示 `z/Z` 打盹；
+- 每约 3.8 秒眨眼一次；
+- 主题 accent 只用于头顶闪光或打盹符号，避免把史蒂夫染成七种奇怪的颜色；
+- 它在 80×24 下占用 11 列，信息列仍保持实例、任务、资源、主题四类信息；40×12 紧凑布局隐藏吉祥物，把空间留给 composer 和状态文本。
+
 ## Visual hierarchy
 
 Every primary screen follows the same scan order:
@@ -25,7 +64,7 @@ Color is never the only carrier of state. Selected rows use a cursor and backgro
 
 ## Slash command palette
 
-- `/` opens the palette on non-text screens; `Ctrl-K` opens it from text-editing screens.
+- In the session shell, typing `/` starts inline command completion. `Ctrl-K` opens the full command palette from any screen; on classic non-text screens `/` also opens the palette.
 - The query matches Chinese titles, English aliases, descriptions, and command names with subsequence matching. Prefix matches rank first.
 - Commands are grouped by intent: 创建、实例、世界与备份、任务、导航、应用.
 - Each row shows the human title, shortcut, and a short explanation of the effect.

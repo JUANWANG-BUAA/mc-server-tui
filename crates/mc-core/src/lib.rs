@@ -11,7 +11,8 @@ mod provider;
 mod task;
 
 pub use api::{
-    ApiRequest, ApiRequestEnvelope, ApiResponse, ApiResponseEnvelope, API_PROTOCOL_VERSION,
+    ApiRequest, ApiRequestEnvelope, ApiResponse, ApiResponseEnvelope, ServerInfo, API_PROTOCOL_MAX,
+    API_PROTOCOL_MIN, API_PROTOCOL_VERSION,
 };
 pub use backup::{
     BackupConsistency, BackupCursor, BackupPage, BackupRestorePlan, BackupSummary,

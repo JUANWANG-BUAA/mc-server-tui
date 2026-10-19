@@ -51,6 +51,7 @@ fn update(
         created_at: Utc::now(),
     };
     InstanceDetailUpdate {
+        stats: None,
         detail: mc_core::InstanceDetail {
             instance,
             server: ServerSnapshot {

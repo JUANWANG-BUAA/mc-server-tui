@@ -20,7 +20,7 @@ import time
 ANSI_SEQUENCE = re.compile(
     rb"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))"
 )
-FOOTER = "q退出".encode()
+FOOTER = "F1帮助".encode()
 WIZARD_TITLE = "新建Paper服务器".encode()
 LOADING_MARKER = "正在读取Paper稳定版本".encode()
 
@@ -111,7 +111,7 @@ def main():
             if len(state["connections"]) < 2:
                 raise AssertionError("instance and task requests were not concurrent")
 
-            os.write(master, b"n")
+            os.write(master, b"/new\r")
             deadline = time.monotonic() + 2
             while time.monotonic() < deadline:
                 clean_output = ANSI_SEQUENCE.sub(b"", captured)
@@ -128,8 +128,23 @@ def main():
             compact_output = re.sub(rb"\s+", b"", clean_output)
             if WIZARD_TITLE not in compact_output:
                 raise AssertionError("wizard did not open while daemon requests were pending")
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                clean_output = ANSI_SEQUENCE.sub(b"", captured)
+                compact_output = re.sub(rb"\s+", b"", clean_output)
+                if LOADING_MARKER in compact_output:
+                    break
+                ready, _, _ = select.select([master], [], [], 0.1)
+                if ready:
+                    try:
+                        captured.extend(os.read(master, 65536))
+                    except OSError:
+                        break
             if LOADING_MARKER not in compact_output:
-                raise AssertionError("guided wizard did not show its loading guidance")
+                raise AssertionError(
+                    "guided wizard did not show its loading guidance; "
+                    f"recent={clean_output[-1200:]!r}"
+                )
 
             started = time.monotonic()
             os.write(master, b"\x03")

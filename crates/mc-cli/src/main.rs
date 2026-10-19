@@ -3,7 +3,7 @@ mod output;
 
 use clap::Parser;
 use command::Args;
-use mc_client::{default_socket_path, DaemonClient};
+use mc_client::DaemonClient;
 use mc_core::{AppError, ErrorCode};
 
 #[tokio::main]
@@ -24,9 +24,16 @@ async fn main() {
 }
 
 async fn run(args: Args) -> Result<(), AppError> {
+    let config = mc_config::Config::load().map_err(|error| {
+        AppError::new(
+            ErrorCode::Internal,
+            "Could not load the local configuration.",
+        )
+        .with_evidence(error.to_string())
+    })?;
     let socket = match args.socket {
         Some(path) => path,
-        None => default_socket_path().map_err(|error| {
+        None => config.resolved_socket().map_err(|error| {
             AppError::new(
                 ErrorCode::Internal,
                 "Could not determine the daemon socket path.",

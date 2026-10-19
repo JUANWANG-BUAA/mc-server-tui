@@ -13,11 +13,14 @@ async-trait.workspace = true
 chrono.workspace = true
 clap.workspace = true
 crossterm.workspace = true
+directories.workspace = true
 futures-util.workspace = true
 mc-client.workspace = true
+mc-config.workspace = true
 mc-core = { path = "../mc-core" }
 ratatui.workspace = true
 tokio.workspace = true
+unicode-width = "0.2"
 uuid.workspace = true
 
 [dev-dependencies]

@@ -1,7 +1,7 @@
 use std::fs;
 
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::Modifier,
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
@@ -10,9 +10,18 @@ use ratatui::{
 
 use mc_core::{ModpackAnalysisReport, ModpackSeverity, ModpackStatus};
 
-use crate::{modpack_import::ModpackImportState, theme};
+use crate::{
+    hit::{HitMap, HitTarget},
+    modpack_import::ModpackImportState,
+    theme, ui,
+};
 
-pub(crate) fn render(frame: &mut Frame<'_>, state: &ModpackImportState, animation_frame: u8) {
+pub(crate) fn render(
+    frame: &mut Frame<'_>,
+    state: &ModpackImportState,
+    animation_frame: u8,
+    hits: &mut HitMap,
+) {
     let compact = frame.area().width < 80 || frame.area().height < 20;
     let areas = Layout::default()
         .direction(Direction::Vertical)
@@ -54,12 +63,17 @@ pub(crate) fn render(frame: &mut Frame<'_>, state: &ModpackImportState, animatio
     } else if let Some(report) = &state.report {
         render_report(frame, areas[1], report, compact);
     } else {
-        render_picker(frame, areas[1], state);
+        render_picker(frame, areas[1], state, hits);
     }
     render_footer(frame, areas[2], state, animation_frame);
 }
 
-fn render_picker(frame: &mut Frame<'_>, area: ratatui::layout::Rect, state: &ModpackImportState) {
+fn render_picker(
+    frame: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
+    state: &ModpackImportState,
+    hits: &mut HitMap,
+) {
     let items = if state.candidates.is_empty() {
         vec![ListItem::new(Line::from(vec![
             Span::styled("未找到 .mrpack", theme::warning()),
@@ -110,6 +124,25 @@ fn render_picker(frame: &mut Frame<'_>, area: ratatui::layout::Rect, state: &Mod
         .highlight_symbol("▸ ")
         .highlight_style(theme::selected_row());
     frame.render_stateful_widget(list, area, &mut list_state);
+    let offset = list_state.offset();
+    let inner = Block::default().borders(Borders::ALL).inner(area);
+    let visible_items = (inner.height / 2) as usize;
+    for (row, index) in (offset..state.candidates.len())
+        .take(visible_items)
+        .enumerate()
+    {
+        hits.push(
+            Rect::new(inner.x, inner.y + (row as u16) * 2, inner.width, 2),
+            HitTarget::Modpack(index),
+        );
+    }
+    ui::scrollbar(
+        frame,
+        area,
+        state.candidates.len(),
+        state.selected,
+        visible_items.max(1),
+    );
 }
 
 fn render_loading(
@@ -204,6 +237,8 @@ fn render_footer(
             Span::raw(" 检查 · "),
             Span::styled("r", theme::key_hint()),
             Span::raw(" 重新扫描 · "),
+            Span::styled("?", theme::key_hint()),
+            Span::raw(" 帮助 · "),
             Span::styled("Esc", theme::key_hint()),
             Span::raw(" 返回"),
         ])

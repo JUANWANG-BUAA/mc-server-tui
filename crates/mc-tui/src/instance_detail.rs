@@ -7,10 +7,17 @@ pub(crate) struct InstanceDetailQuery {
     pub after_offset: u64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ProcessStats {
+    pub cpu_percent: f64,
+    pub rss_bytes: u64,
+}
+
 #[derive(Debug)]
 pub(crate) struct InstanceDetailUpdate {
     pub detail: InstanceDetail,
     pub logs: ServerLogChunk,
+    pub stats: Option<ProcessStats>,
 }
 
 #[derive(Debug)]
@@ -34,10 +41,13 @@ pub(crate) struct InstanceDetailState {
     pub detail: Option<InstanceDetail>,
     pub logs: String,
     pub log_offset: u64,
+    pub stats: Option<ProcessStats>,
     pub error: Option<String>,
     pub notice: Option<String>,
     pub console_input: String,
     pub editing_console: bool,
+    /// Number of log lines scrolled up from the tail. Zero means follow.
+    pub log_scroll: usize,
 }
 
 impl InstanceDetailState {
@@ -47,11 +57,26 @@ impl InstanceDetailState {
             detail: None,
             logs: String::new(),
             log_offset: 0,
+            stats: None,
             error: None,
             notice: None,
             console_input: String::new(),
             editing_console: false,
+            log_scroll: 0,
         }
+    }
+
+    pub fn scroll_logs(&mut self, delta: isize) {
+        let next = self.log_scroll as isize + delta;
+        self.log_scroll = next.max(0) as usize;
+    }
+
+    pub fn scroll_to_oldest(&mut self) {
+        self.log_scroll = usize::MAX / 2;
+    }
+
+    pub fn scroll_to_latest(&mut self) {
+        self.log_scroll = 0;
     }
 
     pub fn query(&self) -> InstanceDetailQuery {
@@ -83,6 +108,7 @@ impl InstanceDetailState {
             self.logs.push_str(&update.logs.content);
         }
         self.log_offset = update.logs.next_offset;
+        self.stats = update.stats;
         trim_log_buffer(&mut self.logs);
         self.error = None;
     }

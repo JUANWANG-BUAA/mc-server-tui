@@ -1,6 +1,6 @@
 # Server lifecycle and process identity contract
 
-> API protocol 6 · implemented in `mc-supervisor` and wired through `mc-daemon`
+> API protocol 8 · implemented in `mc-supervisor` and wired through `mc-daemon`
 
 ## API operations
 
@@ -31,7 +31,7 @@ Start and stop responses are observations, not long-lived promises. The TUI poll
 
 ## Current platform boundary
 
-The macOS process path and daemon-exit reattachment are covered with a real runner child-process test using a fake Java executable. The Linux `/proc` branch is implemented but still needs CI or host validation. User-level daemon installation and boot/login startup through launchd or systemd are not implemented; the daemon must currently be started separately with `cargo run -p mc-daemon` or the installed binary. Reboot auto-start is therefore outside this slice.
+The macOS process path and daemon-exit reattachment are covered with a real runner child-process test using a fake Java executable. The Linux `/proc` branch is implemented but still needs CI or host validation. Phase 0 adds user-level launchd/systemd service management through `mc service install/start/stop/restart/status/uninstall`; the macOS launchd path has a real install/restart/stop/uninstall smoke test, while Linux systemd unit generation is covered by tests and still needs a real host/CI install run. Login startup is provided by launchd `RunAtLoad` and systemd `enable`; starting before login on Linux still requires an explicit `loginctl enable-linger`.
 
 Run the focused implementation checks with:
 

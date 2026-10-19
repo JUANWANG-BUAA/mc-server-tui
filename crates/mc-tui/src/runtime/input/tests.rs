@@ -3,7 +3,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use crate::app::{Action, Panel};
 use crate::wizard::WizardStep;
 
-use super::{action_for_key, UiMode};
+use super::{action_for_key, mode_for_state, UiMode};
 
 #[test]
 fn maps_common_keyboard_actions_without_terminal_io() {
@@ -268,5 +268,57 @@ fn modpack_import_maps_selection_analysis_and_report_navigation() {
     assert_eq!(
         action_for_key(KeyCode::Enter, KeyModifiers::NONE, loading),
         Action::Ignore
+    );
+}
+
+#[test]
+fn shell_mode_maps_composer_navigation_and_theme_keys() {
+    assert_eq!(
+        action_for_key(KeyCode::Enter, KeyModifiers::NONE, UiMode::Shell),
+        Action::ShellSubmit
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Tab, KeyModifiers::NONE, UiMode::Shell),
+        Action::ShellComplete
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Up, KeyModifiers::NONE, UiMode::Shell),
+        Action::ShellUp
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Left, KeyModifiers::NONE, UiMode::Shell),
+        Action::ShellCursorLeft
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Home, KeyModifiers::NONE, UiMode::Shell),
+        Action::ShellCursorHome
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Home, KeyModifiers::CONTROL, UiMode::Shell),
+        Action::First
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Char('a'), KeyModifiers::CONTROL, UiMode::Shell),
+        Action::ShellCursorHome
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Delete, KeyModifiers::NONE, UiMode::Shell),
+        Action::ShellDelete
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Char('/'), KeyModifiers::NONE, UiMode::Shell),
+        Action::ShellInsert('/')
+    );
+    assert_eq!(
+        action_for_key(KeyCode::PageUp, KeyModifiers::NONE, UiMode::Shell),
+        Action::PagePrevious
+    );
+    assert_eq!(
+        action_for_key(KeyCode::F(2), KeyModifiers::NONE, UiMode::Shell),
+        Action::CycleTheme
+    );
+    assert_eq!(
+        mode_for_state(&crate::app::AppState::default()),
+        UiMode::Shell
     );
 }

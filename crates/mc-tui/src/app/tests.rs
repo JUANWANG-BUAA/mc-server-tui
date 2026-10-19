@@ -623,3 +623,300 @@ fn modpack_import_scan_selects_a_pack_and_tracks_analysis_result() {
         .and_then(|import| import.report.as_ref())
         .is_some_and(|report| report.name == "Example Pack"));
 }
+
+#[test]
+fn shell_use_selects_an_instance_and_requests_its_status() {
+    let instance_id = Uuid::new_v4();
+    let mut state = AppState {
+        instances: vec![InstanceSummary {
+            id: instance_id,
+            name: "生存服".to_owned(),
+            provider: "Paper".to_owned(),
+            game_version: "1.21.11".to_owned(),
+            build_id: 17,
+            java_path: "/opt/java/bin/java".into(),
+            min_memory_mb: 1024,
+            max_memory_mb: 2048,
+            port: 25565,
+            directory: "/tmp/server".into(),
+            created_at: Utc::now(),
+        }],
+        ..AppState::default()
+    };
+    state.shell_input = "/use 1".to_owned();
+    state.update(Action::ShellSubmit);
+
+    assert_eq!(state.selected_instance, 0);
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("已选择 #1")));
+    assert_eq!(
+        state
+            .take_instance_detail_query()
+            .map(|query| query.instance_id),
+        Some(instance_id)
+    );
+}
+
+#[test]
+fn shell_status_and_tasks_render_structured_output() {
+    let instance_id = Uuid::new_v4();
+    let mut state = AppState {
+        instances: vec![InstanceSummary {
+            id: instance_id,
+            name: "生存服".to_owned(),
+            provider: "Paper".to_owned(),
+            game_version: "1.21.11".to_owned(),
+            build_id: 17,
+            java_path: "/opt/java/bin/java".into(),
+            min_memory_mb: 1024,
+            max_memory_mb: 2048,
+            port: 25565,
+            directory: "/tmp/server".into(),
+            created_at: Utc::now(),
+        }],
+        tasks: vec![task_snapshot()],
+        ..AppState::default()
+    };
+
+    state.shell_input = "/status".to_owned();
+    state.update(Action::ShellSubmit);
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("当前实例：生存服")));
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("后台任务：1 个")));
+
+    state.shell_input = "/tasks".to_owned();
+    state.update(Action::ShellSubmit);
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("后台任务 · 1")));
+}
+
+#[test]
+fn shell_free_text_queues_a_console_command() {
+    let instance_id = Uuid::new_v4();
+    let mut state = AppState {
+        instances: vec![InstanceSummary {
+            id: instance_id,
+            name: "生存服".to_owned(),
+            provider: "Paper".to_owned(),
+            game_version: "1.21.11".to_owned(),
+            build_id: 17,
+            java_path: "/opt/java/bin/java".into(),
+            min_memory_mb: 1024,
+            max_memory_mb: 2048,
+            port: 25565,
+            directory: "/tmp/server".into(),
+            created_at: Utc::now(),
+        }],
+        ..AppState::default()
+    };
+    state.shell_input = "say hello".to_owned();
+    state.update(Action::ShellSubmit);
+
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("发送到「生存服」控制台")));
+    match state.take_instance_command() {
+        Some(InstanceCommand::Console {
+            instance_id: id,
+            command,
+        }) => {
+            assert_eq!(id, instance_id);
+            assert_eq!(command, "say hello");
+        }
+        other => panic!("expected console command, got {other:?}"),
+    }
+    assert!(state.instance_operation_pending);
+}
+
+#[test]
+fn shell_history_completion_and_unknown_commands_are_actionable() {
+    let mut state = AppState {
+        shell_history: vec!["/status".to_owned()],
+        ..AppState::default()
+    };
+    state.update(Action::ShellUp);
+    assert_eq!(state.shell_input, "/status");
+    state.update(Action::ShellEscape);
+    assert!(state.shell_input.is_empty());
+
+    state.shell_input = "/sta".to_owned();
+    state.update(Action::ShellComplete);
+    assert_eq!(state.shell_input, "/status ");
+
+    state.shell_input = "/nope".to_owned();
+    state.update(Action::ShellSubmit);
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("未知命令")));
+}
+
+#[test]
+fn shell_theme_command_lists_all_themes() {
+    let mut state = AppState {
+        shell_input: "/theme".to_owned(),
+        ..AppState::default()
+    };
+    state.update(Action::ShellSubmit);
+    let text = state
+        .transcript
+        .iter()
+        .map(|entry| entry.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    for name in [
+        "Claude", "DeepSeek", "Codex", "Kimi", "PCL2", "Mono", "Ocean",
+    ] {
+        assert!(text.contains(name), "missing theme {name}");
+    }
+}
+
+#[test]
+fn shell_logs_command_tails_console_output_inline() {
+    let instance_id = Uuid::new_v4();
+    let mut detail = crate::instance_detail::InstanceDetailState::loading(instance_id);
+    detail.logs = "Starting minecraft server\nDone (2.4s)!\nPlayer Steve joined\n".to_owned();
+    let mut state = AppState {
+        instances: vec![InstanceSummary {
+            id: instance_id,
+            name: "生存服".to_owned(),
+            provider: "Paper".to_owned(),
+            game_version: "1.21.11".to_owned(),
+            build_id: 17,
+            java_path: "/opt/java/bin/java".into(),
+            min_memory_mb: 1024,
+            max_memory_mb: 2048,
+            port: 25565,
+            directory: "/tmp/server".into(),
+            created_at: Utc::now(),
+        }],
+        instance_detail: Some(detail),
+        instance_detail_id: Some(instance_id),
+        shell_input: "/logs".to_owned(),
+        ..AppState::default()
+    };
+    state.update(Action::ShellSubmit);
+
+    let text = state
+        .transcript
+        .iter()
+        .map(|entry| entry.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(text.contains("最近控制台日志"));
+    assert!(text.contains("Player Steve joined"));
+    assert!(!state.instance_detail_visible);
+}
+
+#[test]
+fn shell_cancel_command_queues_cancellation_without_opening_task_detail() {
+    let mut state = AppState::default();
+    let mut task = task_snapshot();
+    task.phase = TaskPhase::DownloadingArtifact;
+    let task_id = task.id;
+    state.tasks = vec![task];
+    state.shell_input = "/cancel 1".to_owned();
+    state.update(Action::ShellSubmit);
+
+    assert_eq!(state.take_task_cancel_request(), Some(task_id));
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("已请求取消任务 #1")));
+}
+
+#[test]
+fn shell_cursor_edits_mid_line_and_home_end() {
+    let mut state = AppState::default();
+    for character in "abcd".chars() {
+        state.shell_insert(character);
+    }
+    state.shell_cursor_left();
+    state.shell_cursor_left();
+    state.shell_insert('X');
+    assert_eq!(state.shell_input, "abXcd");
+    assert_eq!(state.shell_cursor, 3);
+
+    state.shell_delete();
+    assert_eq!(state.shell_input, "abXd");
+    state.shell_backspace();
+    assert_eq!(state.shell_input, "abd");
+    state.shell_cursor_home();
+    state.shell_insert('Z');
+    assert_eq!(state.shell_input, "Zabd");
+    state.shell_cursor_end();
+    state.shell_backspace();
+    assert_eq!(state.shell_input, "Zab");
+}
+
+#[test]
+fn shell_enter_executes_highlighted_completion_for_a_prefix() {
+    let mut state = AppState::default();
+    state.shell_input = "/sta".to_owned();
+    state.shell_cursor = state.shell_input.len();
+    state.shell_suggestion_index = 1;
+    state.update(Action::ShellSubmit);
+    let user = state
+        .transcript
+        .iter()
+        .rev()
+        .find(|entry| entry.role == crate::transcript::TranscriptRole::User)
+        .expect("user command entry");
+    assert_eq!(user.text, "/start");
+
+    let mut exact = AppState::default();
+    exact.shell_input = "/stop".to_owned();
+    exact.shell_cursor = exact.shell_input.len();
+    exact.shell_suggestion_index = 0;
+    exact.update(Action::ShellSubmit);
+    let user = exact
+        .transcript
+        .iter()
+        .rev()
+        .find(|entry| entry.role == crate::transcript::TranscriptRole::User)
+        .expect("user command entry");
+    assert_eq!(user.text, "/stop");
+}
+
+#[test]
+fn shell_help_reveals_the_start_of_the_command_list() {
+    let mut state = AppState::default();
+    state.update(Action::ToggleHelp);
+    state.update(Action::CloseHelp);
+    state.shell_viewport.set(10);
+    state.shell_input = "/help".to_owned();
+    state.shell_cursor = state.shell_input.len();
+    state.update(Action::ShellSubmit);
+
+    assert!(state.shell_scroll > 0);
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("可用命令") && entry.text.contains("/status")));
+}
+
+#[test]
+fn shell_minecraft_slash_commands_get_a_console_hint() {
+    let mut state = AppState::default();
+    state.shell_input = "/say hello".to_owned();
+    state.shell_cursor = state.shell_input.len();
+    state.update(Action::ShellSubmit);
+    let text = state
+        .transcript
+        .iter()
+        .map(|entry| entry.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(text.contains("未知命令 /say"));
+    assert!(text.contains("Minecraft 控制台命令不加前导 /"));
+}

@@ -180,7 +180,12 @@ impl ManagementSource for DaemonDashboardSource {
         {
             return Err(unexpected_response("instance detail"));
         }
-        Ok(InstanceDetailUpdate { detail, logs })
+        let stats = process_stats(detail.server.pid).await;
+        Ok(InstanceDetailUpdate {
+            detail,
+            logs,
+            stats,
+        })
     }
 
     async fn start_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError> {
@@ -391,6 +396,26 @@ fn expect_task_events(response: ApiResponse) -> Result<Vec<mc_core::TaskEvent>, 
         ApiResponse::Error(error) => Err(error),
         _ => Err(unexpected_response("task event list")),
     }
+}
+
+async fn process_stats(pid: Option<u32>) -> Option<crate::instance_detail::ProcessStats> {
+    let pid = pid?;
+    let output = tokio::process::Command::new("ps")
+        .args(["-o", "%cpu=,rss=", "-p", &pid.to_string()])
+        .output()
+        .await
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout);
+    let mut parts = text.split_whitespace();
+    let cpu_percent = parts.next()?.parse::<f64>().ok()?;
+    let rss_kib = parts.next()?.parse::<u64>().ok()?;
+    Some(crate::instance_detail::ProcessStats {
+        cpu_percent,
+        rss_bytes: rss_kib.saturating_mul(1024),
+    })
 }
 
 fn expect_instance_detail(response: ApiResponse) -> Result<mc_core::InstanceDetail, AppError> {

@@ -43,11 +43,7 @@ impl TaskDetailState {
     }
 
     pub fn can_cancel(&self) -> bool {
-        self.task.kind == mc_core::TaskKind::CreatePaperInstance
-            && matches!(
-                self.task.status,
-                mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running
-            )
+        crate::task_presentation::is_cancelable_download(&self.task)
     }
 
     pub fn request_cancel(&mut self) -> Option<Uuid> {

@@ -1,0 +1,21 @@
+[package]
+name = "mc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "mc"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+libc.workspace = true
+mc-client.workspace = true
+mc-config.workspace = true
+mc-core = { path = "../mc-core" }
+mc-system = { path = "../mc-system" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true

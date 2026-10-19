@@ -8,10 +8,12 @@ Keep the TUI split along responsibilities so screen growth does not turn the run
 
 - `app.rs` owns the screen-level state and action transitions. Feature state and behavior that need their own lifecycle belong in `app/`, `instance_detail.rs`, `backup_manager.rs`, `task_detail.rs`, or `wizard.rs` with colocated tests.
 - `runtime.rs` owns the async event loop, request scheduling, and result delivery. Key mapping is isolated in `runtime/input.rs`; daemon access is behind `ManagementSource` in `source.rs`.
-- `view.rs` routes to the dashboard, wizard, task-detail, instance-detail, and world-backup renderers. Each screen renderer owns its layout and presentation, while `theme.rs` is the single palette and shared-style boundary.
+- `shell_view.rs` and `transcript.rs` own the default session shell: transcript, composer, inline command completion, and the status dock. `shell.rs` owns the static slash-command catalog and fuzzy completion. `app/shell.rs` owns command dispatch and transcript appends.
+- `view.rs` routes to the session shell, classic dashboard, wizard, task-detail, instance-detail, and world-backup renderers. Each screen renderer owns its layout and presentation, while `theme.rs` is the single palette and shared-style boundary.
+- `theme.rs` carries three near-black palettes (`Claude`, `Mono`, `Ocean`). The selected theme is process-global, switched with `F2` or `/theme`, saved under the platform config directory, and overridable with `MC_SERVER_TUI_THEME`.
 - Renderers consume state and return no I/O effects. User actions update state; the runtime observes the resulting queries/commands and schedules bounded asynchronous work. Keep daemon protocol details out of view modules.
 
-The shared theme uses 24-bit RGB colors for the page, surfaces, focus, status, and key hints. Crossterm honors `NO_COLOR`; the browser color-review command removes that variable only for the visual check. Status meaning remains available through text and symbols when color is unavailable.
+The shared themes use 24-bit RGB colors for the page, surfaces, focus, status, and key hints. The default is near-black with a warm accent; `DeepSeek` uses brand blue, `Codex` green, `Kimi` violet, `PCL2` sky blue, `Mono` is grayscale, and `Ocean` is low-saturation teal. Color is reserved for focus, selected markers, status words, spinners, and active progress. Crossterm honors `NO_COLOR`; the browser color-review command removes that variable only for the visual check. Status meaning remains available through text and symbols when color is unavailable. The status dock also reads `ps -o %cpu=,rss=` for the selected server PID and shows CPU/RSS next to configured memory; a missing process is shown as unavailable rather than fabricated.
 
 Animation is presentation-only. The runtime advances its four-frame status symbol every 160 ms while `AppState::has_animated_work` reports queued/running tasks, a pending operation, wizard submission, or a visible server start/stop transition. The Tokio interval uses `MissedTickBehavior::Skip`, so a delayed frame is dropped instead of causing a catch-up redraw burst. The normal two-second refresh and terminal event stream remain independent of animation; all waits are selected asynchronously, so animation does not block input or daemon replies. When adding an animated state, add both a state predicate test and a PTY assertion that observes at least two distinct frames.
 
@@ -20,8 +22,8 @@ The `TestBackend` tests own deterministic layout and content checks. PTY tests o
 ## Automated checks
 
 1. Keep screen state and wizard input separate from rendering and daemon I/O. State tests cover field validation, back navigation with retained values, explicit EULA acceptance, queued task success, retry after a submission error, monotonic event cursors, duplicate event replay, retaining the last good detail after a failed refresh, backup-page deduplication, verification failure retention, and exact restore confirmation.
-2. Render dashboard, wizard, task detail, instance detail, backup catalog, and restore-preview states to an in-memory terminal backend. Cover 80×24 reference layouts and 40×12 compact layouts, including every wizard step, EULA control, task progress/event cursor, server state/address, lifecycle controls, backup rows, restore impacts, and the explicit confirmation control.
-3. Run input and polling together against fake daemons that delay replies or emit ordered events/log chunks. Assert that navigation, wizard text input, console editing, backup confirmation, and Ctrl-C remain responsive while a request is pending; task detail resumes from its event sequence; instance detail resumes from its log byte offset; durable backup tasks are polled from queued to terminal results; and a failed request preserves the last good data.
+2. Render the session shell, classic dashboard, wizard, task detail, instance detail, backup catalog, and restore-preview states to an in-memory terminal backend. Cover 80×24 reference layouts and 40×12 compact layouts, including the shell transcript/composer/dock, inline command completion, every wizard step, EULA control, task progress/event cursor, server state/address, lifecycle controls, backup rows, restore impacts, and the explicit confirmation control.
+3. Run input and polling together against fake daemons that delay replies or emit ordered events/log chunks. Assert that shell command submission, completion/history, navigation, wizard text input, console editing, backup confirmation, and Ctrl-C remain responsive while a request is pending; task detail resumes from its event sequence; instance detail resumes from its log byte offset; durable backup tasks are polled from queued to terminal results; and a failed request preserves the last good data.
 4. Use a PTY smoke test for raw-mode entry, resize, key handling, and terminal restoration on normal exit and panic. Keep this separate from view-model tests because terminal ownership is process-level behavior.
 
 ## Visual review
@@ -41,26 +43,75 @@ cargo build -p mc-tui
 env -u NO_COLOR ttyd --interface 127.0.0.1 --port 7681 --writable --max-clients 1 --client-option fontSize=17 ./target/debug/mc-server-tui --socket /tmp/mc-tui-visual.sock
 ```
 
-Open `http://127.0.0.1:7681`. With ttyd 1.7.7 at `fontSize=17`, an `830×500` browser viewport yields a measured terminal of exactly 80×24 cells; the older `820×520` viewport yielded only 79 columns and is not a valid 80-column visual reference. Capture the dashboard first:
+Open `http://127.0.0.1:7681`. With ttyd 1.7.7 at `fontSize=17`, an `830×500` browser viewport yields a measured terminal of exactly 80×24 cells; the older `820×520` viewport yielded only 79 columns and is not a valid 80-column visual reference. Capture the default session shell first:
 
 ```sh
-npx playwright screenshot --channel chrome --wait-for-timeout 1800 --viewport-size 830,500 http://127.0.0.1:7681 output/playwright/theme-dashboard-80x24.png
+npx playwright screenshot --channel chrome --wait-for-timeout 1800 --viewport-size 830,500 http://127.0.0.1:7681 output/playwright/shell-session-claude-80x24.png
 ```
 
-Then press `Enter` to open instance detail, `l` to open the world-backup manager, and capture `output/playwright/theme-backup-manager-80x24.png`. Press `v` to verify the selected snapshot, then Enter to build the restore plan and capture `output/playwright/theme-backup-restore-plan-80x24.png`. The instance-detail PTY test separately performs `c`, types `RESTORE`, submits the durable restore task, and verifies the stored confirmation token. The PTY test also verifies that a running-task spinner emits at least two distinct frames; no screenshot can establish motion from a single frame.
+The session screenshots saved from the 2026-10-18 review are:
+
+| Screenshot | State |
+| --- | --- |
+| `shell-session-claude-80x24.png` | default near-black shell, selected instance, CPU/RSS, two progress bars |
+| `shell-session-deepseek-80x24.png` | DeepSeek blue palette |
+| `shell-session-codex-80x24.png` | Codex green palette |
+| `shell-session-kimi-80x24.png` | Kimi violet palette |
+| `shell-session-pcl2-80x24.png` | PCL2 sky-blue palette |
+| `shell-session-mono-80x24.png` | `F2` grayscale theme with transcript output |
+| `shell-session-ocean-80x24.png` | low-saturation teal theme |
+| `shell-mascot-idle-80x24.png` | idle mascot with closed eyes and `Z` |
+| `shell-theme-list-80x24.png` | `/theme` listing all seven palettes |
+| `themes-overview.png` | contact sheet of all seven palettes |
+| `mascot-states.png` | active Steve (open eyes + sparkle) and idle Steve (closed eyes + `z/Z`) states |
+| `shell-command-completion-80x24.png` | `/` inline completion |
+| `shell-completion-exec-80x24.png` | Enter executes the highlighted `/start` instead of the raw prefix |
+| `shell-cursor-edit-80x24.png` | mid-line caret edit (`/consX|ole say hi`) |
+| `shell-console-inline-80x24.png` | console command sent and confirmed without leaving the shell |
+| `shell-help-first-line-80x24.png` | `/help` starts at its first line, with `PgDn/Ctrl-End` to return |
+| `theme-command-palette-80x24.png` | full command palette from the shell |
+| `theme-instance-detail-80x24.png` | instance detail with CPU/RSS and live console |
+| `shell-status-80x24.png` | `/status` structured output in the transcript |
+| `shell-help-80x24.png` | `F1` full keyboard/mouse help |
+| `theme-create-version-80x24.png` | structured version list with ↑/↓ selection, window counter and scrollbar |
+| `theme-download-progress-80x24.png` | task detail byte progress bar, source, speed, and events |
+| `theme-dashboard-80x24.png` | classic two-panel dashboard via `/classic` |
+| `theme-backup-manager-80x24.png` | world/backup catalog in the current theme |
+
+Then use `/open` to open instance detail and `/backups` to open the world-backup manager, and capture `output/playwright/theme-backup-manager-80x24.png`. Press `v` to verify the selected snapshot, then Enter to build the restore plan and capture `output/playwright/theme-backup-restore-plan-80x24.png`. The instance-detail PTY test separately performs `c`, types `RESTORE`, submits the durable restore task, and verifies the stored confirmation token. The PTY test also verifies that a running-task spinner emits at least two distinct frames; no screenshot can establish motion from a single frame.
 
 The screen sequence is tested independently:
 
 | Screen | In-memory renderer/state | PTY interaction |
 | --- | --- | --- |
-| Dashboard | Empty-state guidance, populated layout and grouped command palette at both sizes | `/`, fuzzy search, Enter dispatch and Ctrl-C while daemon replies are stalled |
-| Guided create | Version/Java/memory pickers, review, explicit EULA and loading/error states at both sizes | `/new` path selection, Tab/arrow navigation, submit, byte progress and two-press cancellation |
-| Task detail | Status, byte transfer bar, source, speed, events and cursor at both sizes | Events `1→2→3`, refresh cursor, close/reopen, progress polling and cancellation request |
+| Session shell | Welcome transcript, composer, status dock, selected instance, CPU/RSS, task bars, completion popup, both sizes | `/status`/`/tasks`/`/use`, free-text console command, completion/history, theme switching (renderer/state) |
+| Classic dashboard | Empty-state guidance, populated layout and grouped command palette at both sizes | Ctrl-K palette dispatch, `/new` shell wizard entry, Ctrl-C while daemon replies are stalled |
+| Guided create | Version/Java/memory pickers, review, explicit EULA and loading/error states at both sizes | palette `/new` path selection, ↑/↓ version navigation, submit, byte progress and two-press cancellation |
+| Task detail | Status, byte transfer bar, source, speed, events and cursor at both sizes | `/task 1`, events `1→2→3`, refresh cursor, close/reopen, progress polling and cancellation request |
 | Modpack import | Picker, loading, blocked/review report and compact layout | Palette entry, local `.mrpack` selection and daemon analysis response (renderer/state coverage) |
-| Instance detail | State, address, logs and controls at both sizes | Enter detail, start, incremental console log, console command, graceful stop, return and restore terminal |
+| Instance detail | State, address, CPU/RSS, logs and controls at both sizes | `/open`, start, incremental console log, console command, graceful stop, return and restore terminal |
 | World and backups | Catalog, selected summary, plan impact, confirmation and restore result at both sizes | Enter detail, open manager, poll list task, verify selected backup, build restore plan, type RESTORE, poll restore task, return to detail |
 
 Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 scripts/tui_task_detail_pty.py && python3 scripts/tui_guided_create_pty.py && python3 scripts/tui_instance_detail_pty.py`. These PTY checks validate the terminal stream and key path against fake daemons. The integrated create flow asserts the exact submitted version, Java executable, memory, port, EULA flag, transfer content, cancel request count, and alternate-screen cleanup.
+
+## 会话 shell 与主题（2026-10-18）
+
+默认入口从双面板改为 Claude Code 骨架的单会话界面，解决三个具体问题：
+
+- **上下文不再丢**：slash 命令、结果、错误和任务提交都追加到 transcript；PgUp/PgDn、Home/End 和鼠标滚轮可回看。`Ctrl-L` 清空会话，`/classic` 保留双面板作为可选视图。
+- **命令有发现路径**：输入 `/` 在 composer 上方展开目录；Tab 填入、↑/↓ 选择、Enter 执行。目录覆盖创建、选择实例、状态、任务、启停、控制台、备份、恢复、主题和经典面板。自由文本直接发往当前实例控制台。
+- **重要信息常驻**：输入框下方状态坞显示选中实例、版本、端口、配置内存、服务状态、CPU/RSS，以及最多两个活动任务的阶段、百分比和字节进度；不再必须打开任务详情才能看到进度。第五行是上下文快捷动作，`/logs` 在会话内显示最近 12 行控制台日志，`/cancel [n]` 直接取消下载并保留续传文件。composer 支持 ←/→、Home/End、Delete、Ctrl-A/E 光标编辑；补全高亮时 Enter 执行高亮命令；`/help` 等列表输出会定位到第一行。
+- **一次真实操作发现并修掉的交互问题**：输入 `/st` 后高亮 `/start` 但 Enter 执行原始 `/st`；composer 不能用方向键改中间字符；`/help` 自动滚到底；`/console` 的 Tab 因旧别名 `console-page` 被补全成 `/open`；`End` 提示与实际光标键冲突。对应修复为高亮补全执行、光标编辑与水平滚动、列表输出定位、建议排序（精确名 > 名称前缀 > 别名包含）和 `PgDn/Ctrl-End` 提示。
+- **滚动语义正确**：向导版本/Java 列表使用 ↑/↓ 选择，PgUp/PgDn 翻页，Home/End 首尾；列表右侧有滚动条和 `start-end/total` 窗口计数。←/→ 只作为兼容别名。鼠标滚轮、单击选择、双击打开、点击 EULA 行切换也已接入。
+- **黑色简约主题**：`Claude`（近黑 + 暖珊瑚）、`DeepSeek`（深海蓝 + 品牌蓝）、`Codex`（近黑 + OpenAI 绿）、`Kimi`（近黑紫 + 柔紫）、`PCL2`（近黑青蓝 + 天空蓝）、`Mono`（纯黑灰阶）、`Ocean`（近黑 + 低饱和青）。`F2` 循环、`/theme <name>` 指定、`/theme` 列出现有主题、命令面板切换；选择写入平台配置目录的 `theme` 文件，`MC_SERVER_TUI_THEME` 可覆盖。边框、keycap、footer 使用中性灰，彩色只保留给焦点、状态、spinner、活动进度和像素吉祥物。
+- **像素吉祥物**：状态坞左侧 7×4 像素史蒂夫头像 + 一行状态符号，保留 Minecraft 经典配色；活动时睁眼并闪烁 `✦/✧/·`，空闲时闭眼显示 `z/Z`，约每 3.8 秒眨眼。主题 accent 只用于闪光/打盹符号。40×12 紧凑布局隐藏吉祥物，保留实例/任务/资源文本。
+- **真实资源读数**：`source.rs` 在实例详情响应后对 PID 执行 `ps -o %cpu=,rss=`，把结果放进 `InstanceDetailUpdate`；状态坞和实例详情显示 CPU/RSS，读取失败则显示不可用，不伪造数值。
+
+验证：
+
+- `cargo test -p mc-tui`：74 个单元/渲染测试，覆盖 shell 命令、光标编辑、Enter 执行高亮补全、列表输出定位、transcript、completion popup、内联 `/logs`/`/cancel`、主题解析/枚举、史蒂夫像素头像帧差异、版本列表滚动和 classic 回归。
+- 四个 PTY 脚本已改为 shell 入口：smoke 用 `/new` 打开向导；guided create 用 Ctrl-K 打开命令面板、`/task 1` 打开任务；task detail 用 `/task 1` 重开并保持事件游标；instance detail 用 `/open` 打开、`/quit` 退出。四者均通过。
+- 浏览器 80×24 截图覆盖 `shell-session-claude/mono/ocean`、命令补全、`/status`、F1 帮助、向导版本列表、任务进度和经典双面板。截图是视觉审查证据，交互和动画仍由状态测试与 PTY 字节流证明。
 
 ## 历史真实终端验收记录（2026-10-17）
 
@@ -166,8 +217,10 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 ## 本轮自动化回归
 
-- `cargo test --workspace --all-features --no-fail-fast`：通过，131 项测试全部通过，其中 `mc-tui` 52 项、`mc-modpack` 2 项、`mc-task` 10 项、`mc-download` 8 项、`mc-core` 7 项。
-- `cargo clippy --workspace --all-targets --all-features -- -D warnings`：通过。
+- `cargo test --workspace`：通过，macOS 本地 164 项测试（Linux 额外运行 `systemd-analyze` 校验，为 165 项），其中 `mc-tui` 74 项、`mc-config` 4 项、`mc` 6 项（Linux 7 项）、`mc-modpack` 2 项、`mc-task` 10 项、`mc-download` 8 项、`mc-core` 8 项。
+- `cargo clippy --workspace --all-targets -- -D warnings`：通过。
+- `./target/debug/mc version --json`、`mc service install --dry-run`、macOS launchd 临时配置安装/重启/停止/卸载：通过。
+- Phase 1 发布工具：`package_release.py` 生成 tar.gz/SHA-256/manifest，`install.sh` 安装到版本化目录，`mc uninstall` 清理服务/launcher/版本目录并保留数据；本机 file:// manifest 安装闭环、版本化 launcher + launchd `setup`/`uninstall` 已跑通。
 - `cargo fmt --all --check`：通过。
 - `python3 -m py_compile scripts/tui_visual_fake_daemon.py scripts/tui_pty_smoke.py scripts/tui_task_detail_pty.py scripts/tui_guided_create_pty.py scripts/tui_instance_detail_pty.py`：通过。
 - 四个 PTY 脚本全部通过：仪表盘及向导在 daemon 请求挂起时保持响应，Ctrl-C 在 0.00 秒内退出并恢复 alternate screen；命令面板新建流程验证稳定版本、推荐 Java、内存、端口和 EULA 参数；任务详情显示 50%、27/54 MiB、3.0 MiB/s 与真实来源，两次 `x` 后恰好发送一次取消请求并进入已取消状态；任务事件游标 `0 → 2 → 3` 且重开从最后游标继续，运行任务 spinner 输出至少两种帧；实例页 `b` 提交目标实例备份，`l` 打开备份管理器并轮询分页列表任务；随后 `v` 校验选中断点，Enter 生成恢复预览，输入 `RESTORE` 后恢复请求携带完整后端 token；返回实例详情后启动、日志增量、控制台命令、优雅停止和终端恢复均通过。实例 PTY 另外确认 TUI 发出了配置的 24 位 ANSI 品牌色，并观察到备份任务 spinner 至少两种不同帧。

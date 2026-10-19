@@ -25,6 +25,7 @@ struct PaperCreateCommand {
 pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiResponse {
     match request {
         ApiRequest::Ping => ApiResponse::Pong,
+        ApiRequest::ServerInfo => ApiResponse::ServerInfo(mc_core::ServerInfo::current()),
         ApiRequest::Doctor => ApiResponse::Doctor(mc_system::run_doctor().await),
         ApiRequest::PaperVersions => state
             .provider

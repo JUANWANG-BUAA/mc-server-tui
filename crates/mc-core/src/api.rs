@@ -6,6 +6,32 @@ use crate::{
 };
 
 pub const API_PROTOCOL_VERSION: u16 = 8;
+/// The range this build can speak. Enforcement is currently exact, but the
+/// range is carried in ServerInfo so the updater/launcher can reason about
+/// compatibility before a rollout.
+pub const API_PROTOCOL_MIN: u16 = 8;
+pub const API_PROTOCOL_MAX: u16 = 8;
+
+/// Additive capability probe. `Ping` remains the minimal liveness check so a
+/// newer launcher can still talk to a daemon that predates this operation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerInfo {
+    pub product: String,
+    pub version: String,
+    pub api_protocol_min: u16,
+    pub api_protocol_max: u16,
+}
+
+impl ServerInfo {
+    pub fn current() -> Self {
+        Self {
+            product: "mc-server-tui".to_owned(),
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+            api_protocol_min: API_PROTOCOL_MIN,
+            api_protocol_max: API_PROTOCOL_MAX,
+        }
+    }
+}
 
 /// Versioned request envelope shared by CLI, TUI, and the local daemon.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +69,7 @@ impl ApiResponseEnvelope {
 #[serde(tag = "operation", content = "arguments", rename_all = "snake_case")]
 pub enum ApiRequest {
     Ping,
+    ServerInfo,
     Doctor,
     PaperVersions,
     PaperBuilds {
@@ -125,6 +152,7 @@ pub enum ApiRequest {
 #[serde(tag = "result", content = "data", rename_all = "snake_case")]
 pub enum ApiResponse {
     Pong,
+    ServerInfo(ServerInfo),
     Doctor(DoctorReport),
     PaperVersions(Vec<ServerVersion>),
     PaperBuilds(Vec<BuildInfo>),
@@ -145,6 +173,20 @@ pub enum ApiResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn server_info_is_an_additive_protocol_probe() {
+        let info = ServerInfo::current();
+        assert_eq!(info.product, "mc-server-tui");
+        assert_eq!(info.api_protocol_min, API_PROTOCOL_MIN);
+        assert_eq!(info.api_protocol_max, API_PROTOCOL_MAX);
+        let envelope = ApiRequestEnvelope::current(ApiRequest::ServerInfo);
+        let encoded = serde_json::to_string(&envelope).expect("serialize server info request");
+        assert!(encoded.contains("server_info"));
+        let decoded: ApiRequestEnvelope =
+            serde_json::from_str(&encoded).expect("deserialize server info request");
+        assert!(matches!(decoded.payload, ApiRequest::ServerInfo));
+    }
 
     #[test]
     fn request_envelope_carries_protocol_version() {

@@ -7,12 +7,18 @@ use ratatui::{
 };
 
 use crate::{
+    hit::HitMap,
     task_detail::TaskDetailState,
     task_presentation::{activity_symbol, kind_label, phase_label, status_label, status_style},
-    theme,
+    theme, ui,
 };
 
-pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_frame: u8) {
+pub(crate) fn render(
+    frame: &mut Frame<'_>,
+    detail: &TaskDetailState,
+    animation_frame: u8,
+    _hits: &mut HitMap,
+) {
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -25,7 +31,11 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-            Span::styled(kind_label(detail.task.kind), theme::accent()),
+            Span::styled("任务 · ", theme::dim()),
+            Span::styled(
+                kind_label(detail.task.kind),
+                theme::text().add_modifier(Modifier::BOLD),
+            ),
         ]))
         .block(
             Block::default()
@@ -72,9 +82,15 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_
         .unwrap_or_else(|| {
             Line::from(vec![
                 Span::styled("↑/↓", theme::key_hint()),
-                Span::raw(" 翻阅事件 · "),
+                Span::raw(" 翻阅 · "),
+                Span::styled("PgUp/PgDn", theme::key_hint()),
+                Span::raw(" 翻页 · "),
                 Span::styled("r", theme::key_hint()),
-                Span::raw(" 立即刷新 · "),
+                Span::raw(" 刷新 · "),
+                Span::styled("d", theme::key_hint()),
+                Span::raw(" 主页 · "),
+                Span::styled("?", theme::key_hint()),
+                Span::raw(" 帮助 · "),
                 Span::styled("Esc", theme::key_hint()),
                 Span::raw(" 返回"),
             ])
@@ -99,7 +115,7 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &TaskDetailState, animation_
         }
     } else {
         Line::from(Span::styled(
-            "/ 命令 · Esc 返回任务列表 · q 退出 TUI",
+            "/ 命令 · d 主页 · ? 帮助 · q 退出",
             theme::muted(),
         ))
     };
@@ -350,6 +366,18 @@ fn render_events(frame: &mut Frame<'_>, area: ratatui::layout::Rect, detail: &Ta
         ),
         area,
     );
+    let position = detail
+        .events
+        .len()
+        .saturating_sub(1)
+        .saturating_sub(detail.scroll_offset);
+    ui::scrollbar(
+        frame,
+        area,
+        detail.events.len(),
+        position,
+        visible_rows.max(1),
+    );
 }
 
 #[cfg(test)]
@@ -361,14 +389,14 @@ fn transfer_progress_line(progress: &mc_core::TransferProgress, compact: bool) -
     } else {
         (progress.downloaded_bytes as f64 / progress.total_bytes as f64).clamp(0.0, 1.0)
     };
-    let width = if compact { 12 } else { 24 };
+    let width = if compact { 12 } else { 18 };
     let filled = ((ratio * width as f64).round() as usize).min(width);
     let bar = format!("{}{}", "█".repeat(filled), "░".repeat(width - filled),);
     let percent = (ratio * 100.0).round() as u8;
     if compact {
         Line::from(vec![
             Span::styled("下载 ", theme::muted()),
-            Span::styled(bar, theme::success()),
+            Span::styled(bar, theme::progress()),
             Span::styled(format!(" {percent}%"), theme::accent()),
         ])
     } else {
@@ -376,19 +404,33 @@ fn transfer_progress_line(progress: &mc_core::TransferProgress, compact: bool) -
             .bytes_per_second
             .map(format_transfer_rate)
             .unwrap_or_else(|| "速度计算中".to_owned());
-        Line::from(vec![
-            Span::styled("下载  ", theme::muted()),
-            Span::styled(bar, theme::success()),
-            Span::styled(format!(" {percent}%"), theme::accent()),
-            Span::styled(
+        let eta = progress
+            .bytes_per_second
+            .filter(|rate| *rate > 0)
+            .map(|rate| {
                 format!(
-                    " · {} / {} · {speed}",
-                    format_bytes(progress.downloaded_bytes),
-                    format_bytes(progress.total_bytes)
-                ),
-                theme::muted(),
+                    " · 剩余 {}",
+                    ui::format_eta(
+                        progress
+                            .total_bytes
+                            .saturating_sub(progress.downloaded_bytes),
+                        rate
+                    )
+                )
+            })
+            .unwrap_or_default();
+        let mut spans = vec![Span::styled("下载  ", theme::muted())];
+        spans.extend(ui::progress_bar(ratio, width, theme::progress()));
+        spans.push(Span::styled(format!(" {percent:>3}%"), theme::accent()));
+        spans.push(Span::styled(
+            format!(
+                " · {} / {} · {speed}{eta}",
+                format_bytes(progress.downloaded_bytes),
+                format_bytes(progress.total_bytes)
             ),
-        ])
+            theme::muted(),
+        ));
+        Line::from(spans)
     }
 }
 

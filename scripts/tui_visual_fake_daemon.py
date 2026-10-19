@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import pathlib
 import signal
 import socket
@@ -61,12 +62,16 @@ def task_snapshot(task_id=TASK_ID, sequence=3, status="running"):
     }
 
 
-def download_task_snapshot():
-    task = task_snapshot(CREATED_TASK_ID, sequence=1, status="running")
+def download_task_snapshot(cancelled=False):
+    task = task_snapshot(
+        CREATED_TASK_ID, sequence=1, status="cancelled" if cancelled else "running"
+    )
     task.update(
         {
-            "phase": "downloading_artifact",
-            "message": "Downloading Paper server.jar.",
+            "phase": "cancelled" if cancelled else "downloading_artifact",
+            "message": "Download cancelled; resumable partial file retained."
+            if cancelled
+            else "Downloading Paper server.jar.",
             "progress": {
                 "completed_steps": 1,
                 "total_steps": 3,
@@ -220,7 +225,7 @@ def completed_plan_task_snapshot():
     )
     return task
 
-def task_events(after_sequence):
+def task_events(after_sequence, task_id=TASK_ID):
     events = [
         (1, "resolving_artifact", "已解析 Paper 稳定版本"),
         (2, "downloading_artifact", "服务端文件校验完成"),
@@ -229,7 +234,7 @@ def task_events(after_sequence):
     return [
         {
             "sequence": sequence,
-            "task_id": TASK_ID,
+            "task_id": task_id,
             "occurred_at": NOW,
             "status": "running",
             "phase": phase,
@@ -247,7 +252,7 @@ def server_snapshot(state, status=None, message=None):
     return {
         "instance_id": INSTANCE_ID,
         "state": server_state,
-        "pid": 4312 if server_state in ("starting", "running", "stopping") else None,
+        "pid": os.getpid() if server_state in ("starting", "running", "stopping") else None,
         "port": 25565,
         "address": "127.0.0.1:25565",
         "started_at": NOW if server_state != "installed" else None,
@@ -288,30 +293,50 @@ def response_for(request, state):
             },
         }
     if operation == "paper_versions":
+        stable = [
+            ("1.21.11", "1.21"),
+            ("1.21.10", "1.21"),
+            ("26.3", "26.3"),
+            ("26.2", "26.2"),
+            ("1.21.9", "1.21"),
+            ("1.21.8", "1.21"),
+            ("1.21.7", "1.21"),
+            ("1.21.6", "1.21"),
+            ("1.21.5", "1.21"),
+            ("1.21.4", "1.21"),
+            ("1.21.3", "1.21"),
+            ("1.21.2", "1.21"),
+            ("1.21.1", "1.21"),
+            ("1.20.6", "1.20"),
+            ("1.20.4", "1.20"),
+            ("1.20.2", "1.20"),
+            ("1.20.1", "1.20"),
+            ("1.19.4", "1.19"),
+            ("1.18.2", "1.18"),
+        ]
         return {
             "result": "paper_versions",
             "data": [
-                {"id": "1.21.11", "group": "1.21"},
-                {"id": "1.21.10", "group": "1.21"},
-                {"id": "26.3", "group": "26.3"},
-                {"id": "26.2", "group": "26.2"},
-                {"id": "1.20.6", "group": "1.20"},
-                {"id": "1.21.11-rc1", "group": "1.21"},
-            ],
+                {"id": version, "group": group} for version, group in stable
+            ]
+            + [{"id": "1.21.11-rc1", "group": "1.21"}],
         }
     if operation == "list_instances":
         return {"result": "instances", "data": [instance_summary()]}
     if operation == "list_tasks":
-        tasks = [task_snapshot()]
-        if state["created_task"]:
-            tasks.insert(0, download_task_snapshot())
+        if state.get("idle"):
+            return {"result": "tasks", "data": []}
+        tasks = [download_task_snapshot(state["download_cancelled"]), task_snapshot()]
         if state["backup_list_task"]:
             tasks.insert(0, completed_backup_list_task_snapshot())
         return {"result": "tasks", "data": tasks}
     if operation == "get_task":
         task_id = arguments["task_id"]
-        if task_id == CREATED_TASK_ID and state["created_task"]:
-            return {"result": "task", "data": download_task_snapshot()}
+        if task_id == CREATED_TASK_ID:
+            return {
+                "result": "task",
+                "data": download_task_snapshot(state["download_cancelled"]),
+            }
         if task_id == BACKUP_LIST_TASK_ID and state["backup_list_task"]:
             return {"result": "task", "data": completed_backup_list_task_snapshot()}
         if task_id == VERIFY_BACKUP_TASK_ID and state["verify_task"]:
@@ -320,11 +345,12 @@ def response_for(request, state):
             return {"result": "task", "data": completed_plan_task_snapshot()}
         return {"result": "task", "data": task_snapshot()}
     if operation == "list_task_events":
-        if arguments["task_id"] in (BACKUP_LIST_TASK_ID, CREATED_TASK_ID):
+        request_task_id = arguments["task_id"]
+        if request_task_id == BACKUP_LIST_TASK_ID:
             return {"result": "task_events", "data": []}
         return {
             "result": "task_events",
-            "data": task_events(arguments["after_sequence"]),
+            "data": task_events(arguments["after_sequence"], request_task_id),
         }
     if operation == "get_instance_detail":
         return {
@@ -427,6 +453,12 @@ def response_for(request, state):
                 "files_truncated": False,
             },
         }
+    if operation == "cancel_task":
+        state["download_cancelled"] = True
+        return {
+            "result": "task",
+            "data": download_task_snapshot(state["download_cancelled"]),
+        }
     if operation == "create_paper_instance":
         state["created_task"] = download_task_snapshot()
         state["created_task"]["message"] = f"已提交创建：{arguments['name']}"
@@ -468,15 +500,21 @@ def serve_connection(connection, state, lock):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--socket", type=pathlib.Path, required=True)
+    parser.add_argument("--idle", action="store_true", help="return no background tasks")
     args = parser.parse_args()
     args.socket.parent.mkdir(parents=True, exist_ok=True)
     args.socket.unlink(missing_ok=True)
     state = {
-        "server_state": "installed",
-        "message": "已安装，当前未运行。",
-        "logs": "",
+        "server_state": "running",
+        "message": "Paper 已就绪，监听 25565 端口。",
+        "logs": 'Starting minecraft server version 1.21.11\n'
+        'Preparing level "world"\n'
+        'Done (2.4s)! For help, type "help"\n'
+        'Player Steve joined the game\n',
         "console_commands": [],
         "created_task": None,
+        "idle": args.idle,
+        "download_cancelled": False,
         "backup_list_task": None,
         "verify_task": None,
         "plan_task": None,

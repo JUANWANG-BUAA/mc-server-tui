@@ -8,10 +8,16 @@ use ratatui::{
 
 use crate::{
     backup_manager::{format_bytes, BackupManagerState},
-    theme,
+    hit::{HitMap, HitTarget},
+    theme, ui,
 };
 
-pub(crate) fn render(frame: &mut Frame<'_>, state: &BackupManagerState, animation_frame: u8) {
+pub(crate) fn render(
+    frame: &mut Frame<'_>,
+    state: &BackupManagerState,
+    animation_frame: u8,
+    hits: &mut HitMap,
+) {
     let compact = frame.area().width < 80 || frame.area().height < 18;
     let areas = Layout::default()
         .direction(Direction::Vertical)
@@ -32,7 +38,7 @@ pub(crate) fn render(frame: &mut Frame<'_>, state: &BackupManagerState, animatio
     } else if state.backups.is_empty() && state.operation().is_some() {
         render_loading(frame, areas[1], state, animation_frame);
     } else {
-        render_browser(frame, areas[1], state, animation_frame, compact);
+        render_browser(frame, areas[1], state, animation_frame, hits);
     }
     render_footer(frame, areas[2], state, animation_frame);
 }
@@ -73,14 +79,15 @@ fn render_browser(
     area: Rect,
     state: &BackupManagerState,
     animation_frame: u8,
-    compact: bool,
+    hits: &mut HitMap,
 ) {
+    let compact = area.width < 80 || area.height < 18;
     if compact {
         let rows = Layout::default()
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(3), Constraint::Min(2)])
             .split(area);
-        render_backup_list(frame, rows[0], state);
+        render_backup_list(frame, rows[0], state, hits);
         render_selected_backup(frame, rows[1], state, animation_frame, true);
     } else {
         let rows = Layout::default()
@@ -112,12 +119,17 @@ fn render_browser(
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(48), Constraint::Percentage(52)])
             .split(rows[1]);
-        render_backup_list(frame, columns[0], state);
+        render_backup_list(frame, columns[0], state, hits);
         render_selected_backup(frame, columns[1], state, animation_frame, false);
     }
 }
 
-fn render_backup_list(frame: &mut Frame<'_>, area: Rect, state: &BackupManagerState) {
+fn render_backup_list(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    state: &BackupManagerState,
+    hits: &mut HitMap,
+) {
     let items = if state.backups.is_empty() {
         vec![ListItem::new(Span::styled(
             "没有可恢复的备份",
@@ -170,6 +182,24 @@ fn render_backup_list(frame: &mut Frame<'_>, area: Rect, state: &BackupManagerSt
         .highlight_symbol("▸ ")
         .highlight_style(theme::selected_row());
     frame.render_stateful_widget(list, area, &mut list_state);
+    let offset = list_state.offset();
+    let inner = Block::default().borders(Borders::ALL).inner(area);
+    for (row, index) in (offset..state.backups.len())
+        .take(inner.height as usize)
+        .enumerate()
+    {
+        hits.push(
+            Rect::new(inner.x, inner.y + row as u16, inner.width, 1),
+            HitTarget::Backup(index),
+        );
+    }
+    ui::scrollbar(
+        frame,
+        area,
+        state.backups.len(),
+        state.selected,
+        inner.height as usize,
+    );
 }
 
 fn render_selected_backup(
@@ -572,7 +602,7 @@ fn render_footer(
         )
     } else {
         (
-            help_line("v", "校验所选", "Enter", "恢复预览", "r", "刷新"),
+            help_line("v", "校验所选", "Enter", "恢复预览", "d", "主页"),
             if state.has_more() {
                 help_line("m", "更多", "b", "新建备份", "Esc", "返回")
             } else {
@@ -585,6 +615,7 @@ fn render_footer(
 fn panel(title: &'static str, focused: bool) -> Block<'static> {
     Block::default()
         .borders(Borders::ALL)
+        .border_type(theme::border_type())
         .border_style(theme::border(focused))
         .title(title)
         .title_style(theme::title(focused))

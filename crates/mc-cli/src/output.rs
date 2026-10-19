@@ -6,6 +6,12 @@ pub(crate) fn print_response(
 ) -> Result<(), AppError> {
     match response {
         ApiResponse::Pong => println!("daemon: running"),
+        ApiResponse::ServerInfo(info) => {
+            println!(
+                "{} {} (API protocol {}–{})",
+                info.product, info.version, info.api_protocol_min, info.api_protocol_max
+            );
+        }
         ApiResponse::Doctor(report) => {
             println!("Platform: {} ({})", report.platform, report.architecture);
             if let Some(directory) = report.data_directory {

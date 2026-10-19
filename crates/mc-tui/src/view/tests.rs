@@ -9,7 +9,8 @@ use super::render;
 
 #[test]
 fn renders_empty_dashboard_at_reference_width() {
-    let state = AppState::default();
+    let mut state = AppState::default();
+    state.shell_visible = false;
     let text = render_to_text(80, 24, &state, 0);
 
     assert!(text.contains("MCSERVERTUI"));
@@ -21,6 +22,7 @@ fn renders_empty_dashboard_at_reference_width() {
 #[test]
 fn renders_instance_and_task_state() {
     let mut state = AppState::default();
+    state.shell_visible = false;
     state.apply_refresh(Ok(DashboardData {
         instances: vec![InstanceSummary {
             id: Uuid::new_v4(),
@@ -59,7 +61,7 @@ fn renders_instance_and_task_state() {
     let text = render_to_text(100, 30, &state, 0);
 
     assert!(text.contains("生存服"));
-    assert!(text.contains("Paper1.21.11"));
+    assert!(text.contains("paper1.21.11"));
     assert!(text.contains("下载校验"));
     assert!(text.contains("1/3"));
     assert!(text.contains("◐"));
@@ -70,13 +72,15 @@ fn renders_instance_and_task_state() {
         .iter()
         .find(|(symbol, _, _)| symbol == "◆")
         .expect("colored brand mark");
-    assert_eq!(brand.1, Color::Rgb(45, 212, 191));
-    assert_eq!(brand.2, Color::Rgb(12, 18, 28));
+    assert_eq!(brand.1, Color::Rgb(217, 119, 87));
+    assert_eq!(brand.2, Color::Rgb(10, 10, 10));
 }
 
 #[test]
 fn compact_terminal_render_does_not_panic() {
-    let text = render_to_text(40, 12, &AppState::default(), 0);
+    let mut state = AppState::default();
+    state.shell_visible = false;
+    let text = render_to_text(40, 12, &state, 0);
     assert!(text.contains("MCSERVERTUI"));
 }
 

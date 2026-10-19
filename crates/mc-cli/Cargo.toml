@@ -11,6 +11,7 @@ path = "src/main.rs"
 [dependencies]
 clap.workspace = true
 mc-client.workspace = true
+mc-config.workspace = true
 mc-core = { path = "../mc-core" }
 tokio.workspace = true
 uuid.workspace = true

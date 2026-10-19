@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/mc-core",
     "crates/mc-client",
+    "crates/mc-config",
     "crates/mc-download",
     "crates/mc-instance",
     "crates/mc-task",
@@ -13,6 +14,7 @@ members = [
     "crates/mc-system",
     "crates/mc-daemon",
     "crates/mc-cli",
+    "crates/mc",
     "crates/mc-tui",
 ]
 
@@ -31,6 +33,7 @@ fs2 = "0.4"
 futures-util = "0.3"
 libc = "0.2"
 mc-client = { path = "crates/mc-client" }
+mc-config = { path = "crates/mc-config" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 ratatui = "0.29.0"
 rusqlite = { version = "0.40.2", features = ["bundled"] }

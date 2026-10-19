@@ -21,7 +21,7 @@ This contract keeps slow network, filesystem, and SQLite work from blocking the 
 ## Progress and UI contract
 
 - The task row and its event are committed in one SQLite transaction before a phase update is reported complete.
-- Progress counts completed phases, not bytes. Download currently reports an indeterminate phase because the downloader does not yet expose byte-level progress.
+- Progress carries completed phases plus an optional `TransferProgress { downloaded_bytes, total_bytes, bytes_per_second, source }`. The Paper download path reports real byte progress, speed, and source; the TUI shows it in the task list/detail and status dock.
 - Clients submit long operations once, then request `GetTask` and `ListTaskEvents(after_sequence)` as needed. Event sequence numbers let a TUI reconnect without losing transitions.
 - The CLI exposes the same records through `task list`, `task show <id>`, and `task events <id>`.
 - The TUI visual feedback and test loop is specified in [`TUI_TESTING.md`](TUI_TESTING.md). Its fake daemons use the shared versioned socket protocol and keep each screen's renderer test separate from process-level PTY behavior.
@@ -37,4 +37,4 @@ This contract keeps slow network, filesystem, and SQLite work from blocking the 
 - Do not call synchronous filesystem, process, socket, or database APIs from a request handler. Put unavoidable blocking work in `spawn_blocking` and bound its admission.
 - Do not spawn one task per request without a semaphore or bounded queue.
 - Keep network timeouts and transfer limits in the provider/download boundary. Keep one instance's lifecycle operations mutually exclusive; operations on separate instances must not hold a global lock while waiting on I/O.
-- Cancellation and safe resume are not exposed yet. Until their side effects are defined, daemon restart marks active work interrupted and asks the caller to review and retry.
+- Cooperative task cancellation is exposed through `CancelTask` and is checked by the download/task paths. File-level resume is implemented through verified `.part` files; **task-level safe replay after daemon restart is still not implemented**, so active tasks become `interrupted` and require review/retry.

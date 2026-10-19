@@ -6,9 +6,9 @@ use ratatui::{
     Frame,
 };
 
-use crate::{instance_detail::InstanceDetailState, theme};
+use crate::{hit::HitMap, instance_detail::InstanceDetailState, theme, ui};
 
-pub(crate) fn render_loading(frame: &mut Frame<'_>, instance_id: uuid::Uuid) {
+pub(crate) fn render_loading(frame: &mut Frame<'_>, instance_id: uuid::Uuid, _hits: &mut HitMap) {
     let area = frame.area();
     frame.render_widget(
         Paragraph::new(vec![
@@ -26,7 +26,12 @@ pub(crate) fn render_loading(frame: &mut Frame<'_>, instance_id: uuid::Uuid) {
     );
 }
 
-pub(crate) fn render(frame: &mut Frame<'_>, detail: &InstanceDetailState, animation_frame: u8) {
+pub(crate) fn render(
+    frame: &mut Frame<'_>,
+    detail: &InstanceDetailState,
+    animation_frame: u8,
+    _hits: &mut HitMap,
+) {
     let compact = frame.area().width < 80 || frame.area().height < 18;
     let (header_height, summary_height, footer_height) =
         if compact { (2, 4, 3) } else { (3, 7, 4) };
@@ -53,7 +58,8 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &InstanceDetailState, animat
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-            Span::styled(name, theme::accent()),
+            Span::styled("实例 · ", theme::dim()),
+            Span::styled(name, theme::text().add_modifier(Modifier::BOLD)),
             Span::raw("  ·  "),
             Span::styled(
                 format!("{} ", theme::server_marker(server_state, animation_frame)),
@@ -135,6 +141,14 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &InstanceDetailState, animat
                     theme::muted(),
                 ),
             ]));
+            if let Some(stats) = detail.stats {
+                lines.push(Line::from(vec![
+                    Span::styled("占用  ", label_style()),
+                    Span::styled(format!("CPU {:.1}%", stats.cpu_percent), theme::accent()),
+                    Span::styled("  ·  RSS ", label_style()),
+                    Span::styled(ui::format_bytes(stats.rss_bytes), theme::accent()),
+                ]));
+            }
             lines.push(Line::from(Span::styled(
                 server.message.clone(),
                 state_style(state_label(server.state)),
@@ -161,11 +175,14 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &InstanceDetailState, animat
 
     let visible_rows = areas[2].height.saturating_sub(2) as usize;
     let log_lines: Vec<&str> = detail.logs.lines().collect();
-    let start = log_lines.len().saturating_sub(visible_rows.max(1));
+    let max_scroll = log_lines.len().saturating_sub(visible_rows.max(1));
+    let scroll = detail.log_scroll.min(max_scroll);
+    let end = log_lines.len().saturating_sub(scroll);
+    let start = end.saturating_sub(visible_rows.max(1));
     let lines = if log_lines.is_empty() {
         vec![Line::from("等待服务端输出…")]
     } else {
-        log_lines[start..]
+        log_lines[start..end]
             .iter()
             .map(|line| Line::from(*line))
             .collect()
@@ -175,11 +192,25 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &InstanceDetailState, animat
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(theme::border(false))
-                .title(format!("控制台日志 · byte {}", detail.log_offset))
+                .title(if scroll == 0 {
+                    format!("控制台日志 · byte {} · 跟随最新", detail.log_offset)
+                } else {
+                    format!(
+                        "控制台日志 · byte {} · 已上滚 {} 行",
+                        detail.log_offset, scroll
+                    )
+                })
                 .title_style(theme::title(false))
                 .style(theme::surface()),
         ),
         areas[2],
+    );
+    ui::scrollbar(
+        frame,
+        areas[2],
+        log_lines.len(),
+        log_lines.len().saturating_sub(end),
+        visible_rows.max(1),
     );
 
     let status_line = if detail.editing_console {
@@ -205,7 +236,7 @@ pub(crate) fn render(frame: &mut Frame<'_>, detail: &InstanceDetailState, animat
     frame.render_widget(
         Paragraph::new(vec![
             status_line,
-            action_help_line(compact, detail.editing_console),
+            action_help_line(compact, detail.editing_console, server_state),
             navigation_help_line(detail.editing_console),
         ]),
         areas[3],
@@ -216,38 +247,66 @@ fn label_style() -> Style {
     theme::muted().add_modifier(Modifier::BOLD)
 }
 
-fn action_help_line(compact: bool, editing_console: bool) -> Line<'static> {
+fn action_help_line(
+    compact: bool,
+    editing_console: bool,
+    state: mc_core::ServerState,
+) -> Line<'static> {
     if editing_console {
-        Line::from(Span::styled("控制台命令输入", theme::muted()))
-    } else if compact {
+        return Line::from(Span::styled("控制台命令输入", theme::muted()));
+    }
+    let can_start = matches!(
+        state,
+        mc_core::ServerState::Installed
+            | mc_core::ServerState::Stopped
+            | mc_core::ServerState::Failed
+            | mc_core::ServerState::Unknown
+    );
+    if compact {
         Line::from(vec![
-            Span::styled("s", theme::key_hint()),
-            Span::raw(" 启动 · "),
-            Span::styled("x", theme::key_hint()),
-            Span::raw(" 停止 · "),
+            if can_start {
+                Span::styled("s", theme::key_hint())
+            } else {
+                Span::styled("x", theme::key_hint())
+            },
+            Span::raw(if can_start {
+                " 启动 · "
+            } else {
+                " 停止 · "
+            }),
+            Span::styled(":", theme::key_hint()),
+            Span::raw(" 控制台 · "),
             Span::styled("b", theme::key_hint()),
             Span::raw(" 备份 · "),
             Span::styled("l", theme::key_hint()),
-            Span::raw(" 备份 · "),
+            Span::raw(" 备份页 · "),
             Span::styled("/", theme::key_hint()),
             Span::raw(" 命令"),
         ])
     } else {
         Line::from(vec![
-            Span::styled("s", theme::key_hint()),
-            Span::raw(" 启动 · "),
-            Span::styled("x", theme::key_hint()),
-            Span::raw(" 停止 · "),
+            if can_start {
+                Span::styled("s", theme::key_hint())
+            } else {
+                Span::styled("x", theme::key_hint())
+            },
+            Span::raw(if can_start {
+                " 启动 · "
+            } else {
+                " 优雅停止 · "
+            }),
+            Span::styled(":", theme::key_hint()),
+            Span::raw(" 控制台 · "),
             Span::styled("b", theme::key_hint()),
             Span::raw(" 备份 · "),
             Span::styled("l", theme::key_hint()),
             Span::raw(" 世界与备份 · "),
-            Span::styled(":", theme::key_hint()),
-            Span::raw(" 控制台 · "),
             Span::styled("r", theme::key_hint()),
             Span::raw(" 刷新 · "),
-            Span::styled("/", theme::key_hint()),
-            Span::raw(" 命令"),
+            Span::styled("d", theme::key_hint()),
+            Span::raw(" 主页 · "),
+            Span::styled("?", theme::key_hint()),
+            Span::raw(" 帮助"),
         ])
     }
 }
@@ -263,9 +322,11 @@ fn navigation_help_line(editing_console: bool) -> Line<'static> {
     } else {
         Line::from(vec![
             Span::styled("↑/↓", theme::key_hint()),
-            Span::raw(" 翻日志 · "),
-            Span::styled("Enter", theme::key_hint()),
-            Span::raw(" 留在此页 · "),
+            Span::raw(" 滚动日志 · "),
+            Span::styled("PgUp/PgDn", theme::key_hint()),
+            Span::raw(" 翻页 · "),
+            Span::styled("Home/End", theme::key_hint()),
+            Span::raw(" 顶部/最新 · "),
             Span::styled("Esc", theme::key_hint()),
             Span::raw(" 返回"),
         ])

@@ -1,6 +1,8 @@
 use mc_core::{JavaRuntime, ServerVersion};
 use ratatui::{backend::TestBackend, Terminal};
 
+use crate::hit::HitMap;
+
 use crate::wizard::{CreateOptions, CreateWizard, WizardAction, WizardStep};
 
 use super::render;
@@ -76,7 +78,7 @@ fn render_to_text(wizard: &CreateWizard, width: u16, height: u16) -> String {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
-        .draw(|frame| render(frame, wizard, 0))
+        .draw(|frame| render(frame, wizard, 0, &mut HitMap::default()))
         .expect("render");
     terminal
         .backend()

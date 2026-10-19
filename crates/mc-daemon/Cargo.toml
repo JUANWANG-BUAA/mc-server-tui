@@ -10,7 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-directories.workspace = true
+mc-config.workspace = true
 mc-backup = { path = "../mc-backup" }
 mc-core = { path = "../mc-core" }
 mc-download = { path = "../mc-download" }

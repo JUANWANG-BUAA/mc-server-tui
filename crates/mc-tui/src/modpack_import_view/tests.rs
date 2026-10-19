@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use mc_core::{ModpackAnalysisReport, ModpackIssue, ModpackSeverity, ModpackStatus};
 use ratatui::{backend::TestBackend, Terminal};
 
+use crate::hit::HitMap;
+
 use crate::modpack_import::ModpackImportState;
 
 use super::render;
@@ -70,7 +72,7 @@ fn render_to_text(state: &ModpackImportState, width: u16, height: u16) -> String
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
-        .draw(|frame| render(frame, state, 0))
+        .draw(|frame| render(frame, state, 0, &mut HitMap::default()))
         .expect("render");
     terminal
         .backend()

@@ -4,6 +4,8 @@ use mc_core::{
     TaskSnapshot, TaskStatus,
 };
 use ratatui::{backend::TestBackend, Terminal};
+
+use crate::hit::HitMap;
 use uuid::Uuid;
 
 use super::render;
@@ -155,7 +157,7 @@ fn render_to_text(
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
-        .draw(|frame| render(frame, state, animation_frame))
+        .draw(|frame| render(frame, state, animation_frame, &mut HitMap::default()))
         .expect("render backup manager");
     terminal
         .backend()

@@ -7,6 +7,7 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum UiMode {
+    Help,
     CommandPalette,
     ModpackImport {
         report: bool,
@@ -22,10 +23,13 @@ pub(super) enum UiMode {
     InstanceDetail {
         editing_console: bool,
     },
+    Shell,
 }
 
 pub(super) fn mode_for_state(state: &AppState) -> UiMode {
-    if state.command_palette.is_some() {
+    if state.help_visible {
+        UiMode::Help
+    } else if state.command_palette.is_some() {
         UiMode::CommandPalette
     } else if state.modpack_import_visible {
         let import = state.modpack_import.as_ref();
@@ -50,6 +54,8 @@ pub(super) fn mode_for_state(state: &AppState) -> UiMode {
                 .as_ref()
                 .is_some_and(|detail| detail.editing_console),
         }
+    } else if state.shell_visible {
+        UiMode::Shell
     } else {
         UiMode::Dashboard(state.focused_panel)
     }
@@ -59,18 +65,74 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
     if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
         return Action::Quit;
     }
+    if code == KeyCode::F(2) {
+        return Action::CycleTheme;
+    }
+    if code == KeyCode::F(1) {
+        return if mode == UiMode::Help {
+            Action::CloseHelp
+        } else {
+            Action::ToggleHelp
+        };
+    }
     if code == KeyCode::Char('k') && modifiers.contains(KeyModifiers::CONTROL) {
-        return Action::OpenCommandPalette;
+        return if mode == UiMode::CommandPalette {
+            Action::Ignore
+        } else {
+            Action::OpenCommandPalette
+        };
+    }
+    if code == KeyCode::Char('l') && modifiers.contains(KeyModifiers::CONTROL) {
+        return Action::ShellClear;
     }
     match mode {
+        UiMode::Shell => match code {
+            KeyCode::Esc => Action::ShellEscape,
+            KeyCode::Enter => Action::ShellSubmit,
+            KeyCode::Tab => Action::ShellComplete,
+            KeyCode::Up => Action::ShellUp,
+            KeyCode::Down => Action::ShellDown,
+            KeyCode::Backspace => Action::ShellBackspace,
+            KeyCode::Delete => Action::ShellDelete,
+            KeyCode::Left => Action::ShellCursorLeft,
+            KeyCode::Right => Action::ShellCursorRight,
+            KeyCode::Home if modifiers.contains(KeyModifiers::CONTROL) => Action::First,
+            KeyCode::End if modifiers.contains(KeyModifiers::CONTROL) => Action::Last,
+            KeyCode::Home => Action::ShellCursorHome,
+            KeyCode::End => Action::ShellCursorEnd,
+            KeyCode::Char('a') if modifiers.contains(KeyModifiers::CONTROL) => {
+                Action::ShellCursorHome
+            }
+            KeyCode::Char('e') if modifiers.contains(KeyModifiers::CONTROL) => {
+                Action::ShellCursorEnd
+            }
+            KeyCode::PageUp => Action::PagePrevious,
+            KeyCode::PageDown => Action::PageNext,
+            KeyCode::Char(character) => Action::ShellInsert(character),
+            _ => Action::Ignore,
+        },
+        UiMode::Help => match code {
+            KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q') => Action::CloseHelp,
+            KeyCode::Up | KeyCode::Char('k') => Action::ScrollUp,
+            KeyCode::Down | KeyCode::Char('j') => Action::ScrollDown,
+            KeyCode::PageUp => Action::PagePrevious,
+            KeyCode::PageDown => Action::PageNext,
+            KeyCode::Home | KeyCode::Char('g') => Action::First,
+            KeyCode::End | KeyCode::Char('G') => Action::Last,
+            _ => Action::Ignore,
+        },
         UiMode::ModpackImport { report: true, .. } => match code {
             KeyCode::Char('q') => Action::Quit,
             KeyCode::Esc | KeyCode::Backspace => Action::BackFromModpack,
-            KeyCode::Char('r') => Action::OpenModpackImport,
+            KeyCode::Char('r') => Action::RefreshModpack,
+            KeyCode::Char('d') => Action::GoDashboard,
+            KeyCode::Char('/') => Action::OpenCommandPalette,
+            KeyCode::Char('?') => Action::ToggleHelp,
             _ => Action::Ignore,
         },
         UiMode::ModpackImport { loading: true, .. } => match code {
             KeyCode::Char('q') => Action::Quit,
+            KeyCode::Char('?') => Action::ToggleHelp,
             _ => Action::Ignore,
         },
         UiMode::ModpackImport { .. } => match code {
@@ -78,14 +140,25 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             KeyCode::Esc | KeyCode::Backspace => Action::BackFromModpack,
             KeyCode::Up | KeyCode::Char('k') => Action::Previous,
             KeyCode::Down | KeyCode::Char('j') => Action::Next,
+            KeyCode::PageUp => Action::PagePrevious,
+            KeyCode::PageDown => Action::PageNext,
+            KeyCode::Home => Action::First,
+            KeyCode::End => Action::Last,
             KeyCode::Enter => Action::AnalyzeModpack,
             KeyCode::Char('r') => Action::RefreshModpack,
+            KeyCode::Char('d') => Action::GoDashboard,
+            KeyCode::Char('/') => Action::OpenCommandPalette,
+            KeyCode::Char('?') => Action::ToggleHelp,
             _ => Action::Ignore,
         },
         UiMode::CommandPalette => match code {
             KeyCode::Esc => Action::BackFromCommandPalette,
             KeyCode::Up | KeyCode::Char('k') => Action::PalettePrevious,
             KeyCode::Down | KeyCode::Char('j') => Action::PaletteNext,
+            KeyCode::PageUp => Action::PagePrevious,
+            KeyCode::PageDown => Action::PageNext,
+            KeyCode::Home => Action::First,
+            KeyCode::End => Action::Last,
             KeyCode::Enter => Action::PaletteSubmit,
             KeyCode::Backspace => Action::PaletteBackspace,
             KeyCode::Char(character) => Action::PaletteInsert(character),
@@ -94,8 +167,14 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
         UiMode::Wizard(step) => Action::Wizard(match code {
             KeyCode::Esc => WizardAction::Back,
             KeyCode::Enter => WizardAction::Advance,
-            KeyCode::Tab | KeyCode::Down => WizardAction::FocusNext,
-            KeyCode::BackTab | KeyCode::Up => WizardAction::FocusPrevious,
+            KeyCode::Tab => WizardAction::FocusNext,
+            KeyCode::BackTab => WizardAction::FocusPrevious,
+            KeyCode::Up => WizardAction::Up,
+            KeyCode::Down => WizardAction::Down,
+            KeyCode::PageUp => WizardAction::PagePrevious,
+            KeyCode::PageDown => WizardAction::PageNext,
+            KeyCode::Home => WizardAction::FirstChoice,
+            KeyCode::End => WizardAction::LastChoice,
             KeyCode::Left => WizardAction::PreviousChoice,
             KeyCode::Right => WizardAction::NextChoice,
             KeyCode::Backspace => WizardAction::Backspace,
@@ -122,7 +201,9 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             KeyCode::Char('q') => Action::Quit,
             KeyCode::Esc | KeyCode::Backspace => Action::BackFromBackups,
             KeyCode::Char('c') => Action::BeginRestoreConfirmation,
+            KeyCode::Char('d') => Action::GoDashboard,
             KeyCode::Char('/') => Action::OpenCommandPalette,
+            KeyCode::Char('?') => Action::ToggleHelp,
             _ => Action::Ignore,
         },
         UiMode::BackupManager { .. } => match code {
@@ -130,12 +211,18 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             KeyCode::Esc | KeyCode::Backspace => Action::BackFromBackups,
             KeyCode::Up | KeyCode::Char('k') => Action::Previous,
             KeyCode::Down | KeyCode::Char('j') => Action::Next,
+            KeyCode::PageUp => Action::PagePrevious,
+            KeyCode::PageDown => Action::PageNext,
+            KeyCode::Home => Action::First,
+            KeyCode::End => Action::Last,
             KeyCode::Char('r') => Action::RefreshBackups,
             KeyCode::Char('v') => Action::VerifyBackup,
             KeyCode::Char('p') | KeyCode::Enter => Action::PreviewRestore,
             KeyCode::Char('m') => Action::LoadMoreBackups,
             KeyCode::Char('b') => Action::CreateBackup,
+            KeyCode::Char('d') => Action::GoDashboard,
             KeyCode::Char('/') => Action::OpenCommandPalette,
+            KeyCode::Char('?') => Action::ToggleHelp,
             _ => Action::Ignore,
         },
         UiMode::TaskDetail => match code {
@@ -143,9 +230,15 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             KeyCode::Esc | KeyCode::Backspace => Action::BackFromTaskDetail,
             KeyCode::Up | KeyCode::Char('k') => Action::Previous,
             KeyCode::Down | KeyCode::Char('j') => Action::Next,
+            KeyCode::PageUp => Action::PagePrevious,
+            KeyCode::PageDown => Action::PageNext,
+            KeyCode::Home => Action::First,
+            KeyCode::End => Action::Last,
             KeyCode::Char('r') => Action::RefreshTaskDetail,
             KeyCode::Char('x') => Action::CancelTask,
+            KeyCode::Char('d') => Action::GoDashboard,
             KeyCode::Char('/') => Action::OpenCommandPalette,
+            KeyCode::Char('?') => Action::ToggleHelp,
             _ => Action::Ignore,
         },
         UiMode::InstanceDetail { editing_console } => {
@@ -160,13 +253,21 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             } else {
                 match code {
                     KeyCode::Esc | KeyCode::Backspace => Action::BackFromInstanceDetail,
+                    KeyCode::Up | KeyCode::Char('k') => Action::ScrollUp,
+                    KeyCode::Down | KeyCode::Char('j') => Action::ScrollDown,
+                    KeyCode::PageUp => Action::PagePrevious,
+                    KeyCode::PageDown => Action::PageNext,
+                    KeyCode::Home => Action::First,
+                    KeyCode::End => Action::Last,
                     KeyCode::Char('r') => Action::RefreshInstanceDetail,
                     KeyCode::Char('s') => Action::StartServer,
                     KeyCode::Char('x') => Action::StopServer,
                     KeyCode::Char('b') => Action::CreateBackup,
                     KeyCode::Char('l') => Action::OpenBackupManager,
                     KeyCode::Char(':') => Action::BeginConsoleInput,
+                    KeyCode::Char('d') => Action::GoDashboard,
                     KeyCode::Char('/') => Action::OpenCommandPalette,
+                    KeyCode::Char('?') => Action::ToggleHelp,
                     _ => Action::Ignore,
                 }
             }
@@ -176,11 +277,20 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             KeyCode::Enter if panel == Panel::Tasks => Action::OpenTaskDetail,
             KeyCode::Enter if panel == Panel::Instances => Action::OpenInstanceDetail,
             KeyCode::Char('n') => Action::OpenCreate,
+            KeyCode::Char('i') => Action::OpenModpackImport,
             KeyCode::Up | KeyCode::Char('k') => Action::Previous,
             KeyCode::Down | KeyCode::Char('j') => Action::Next,
-            KeyCode::Tab => Action::TogglePanel,
+            KeyCode::PageUp => Action::PagePrevious,
+            KeyCode::PageDown => Action::PageNext,
+            KeyCode::Home => Action::First,
+            KeyCode::End => Action::Last,
+            KeyCode::Tab | KeyCode::BackTab => Action::TogglePanel,
+            KeyCode::Char('1') => Action::FocusInstances,
+            KeyCode::Char('2') => Action::FocusTasks,
             KeyCode::Char('r') => Action::Refresh,
+            KeyCode::Char('t') => Action::ShowShell,
             KeyCode::Char('/') => Action::OpenCommandPalette,
+            KeyCode::Char('?') => Action::ToggleHelp,
             _ => Action::Ignore,
         },
     }

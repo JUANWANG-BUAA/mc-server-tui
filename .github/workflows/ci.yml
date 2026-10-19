@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85"
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Build workspace
+        run: cargo build --workspace
+
+      - name: Launcher smoke
+        run: |
+          ./target/debug/mc version --json
+          ./target/debug/mc service install --dry-run
+
+      - name: PTY smoke
+        run: python3 scripts/tui_pty_smoke.py
+
+  release-build:
+    name: release build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85"
+          targets: ${{ matrix.target }}
+      - name: Build release binaries
+        run: cargo build --workspace --release --locked --target ${{ matrix.target }}
+
+      - name: Package release
+        run: |
+          python3 scripts/package_release.py \
+            --version 0.0.0-ci \
+            --channel stable \
+            --target "${{ matrix.target }}" \
+            --binary-dir "target/${{ matrix.target }}/release" \
+            --base-url "file://$PWD/dist/0.0.0-ci"
+
+      - name: Installer smoke
+        run: |
+          rm -rf /tmp/mcst-ci-prefix /tmp/mcst-ci-root
+          ./scripts/install.sh \
+            --manifest-url "file://$PWD/dist/0.0.0-ci/release-manifest.json" \
+            --prefix /tmp/mcst-ci-prefix \
+            --root /tmp/mcst-ci-root
+          /tmp/mcst-ci-prefix/bin/mc version --json
+          /tmp/mcst-ci-prefix/bin/mc uninstall
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mc-server-tui-${{ matrix.target }}
+          path: dist/0.0.0-ci/

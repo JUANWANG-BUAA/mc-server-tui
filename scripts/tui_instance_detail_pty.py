@@ -449,14 +449,14 @@ def main():
                 )
                 return marker in clean
 
-            if not wait_for("q退出".encode()):
+            if not wait_for("F1帮助".encode()):
                 raise AssertionError("dashboard did not render")
             if b"\x1b[?1049h" not in captured:
                 raise AssertionError("TUI did not enter the alternate screen")
-            if not re.search(rb"\x1b\[[0-9;]*38;2;45;212;191[0-9;]*m", captured):
+            if not re.search(rb"\x1b\[[0-9;]*38;2;217;119;87[0-9;]*m", captured):
                 raise AssertionError("TUI did not emit the configured brand color")
 
-            os.write(master, b"\r")
+            os.write(master, b"/open\r")
             if not wait_for("127.0.0.1:25565".encode()):
                 raise AssertionError("instance detail did not render server address")
             if not wait_for("s启动".encode()):
@@ -570,7 +570,31 @@ def main():
             os.write(master, b":")
             if not wait_for("命令>".encode()):
                 raise AssertionError("console input did not open after ':'")
-            os.write(master, b"say hi\r")
+            os.write(master, b"say hi")
+            deadline = time.monotonic() + 2
+            typed = False
+            while time.monotonic() < deadline:
+                clean = re.sub(
+                    rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured)
+                ).replace(b"\xe2\x96\x8f", b"")
+                if b"sayhi" in clean:
+                    typed = True
+                    break
+                ready, _, _ = select.select([master], [], [], 0.1)
+                if ready:
+                    try:
+                        captured.extend(os.read(master, 65536))
+                    except OSError:
+                        break
+            if not typed:
+                recent = re.sub(
+                    rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured[-4000:])
+                )
+                raise AssertionError(
+                    f"console input did not render typed text; recent={recent!r}"
+                )
+            time.sleep(0.3)
+            os.write(master, b"\r")
             deadline = time.monotonic() + 4
             while time.monotonic() < deadline:
                 with lock:
@@ -606,9 +630,9 @@ def main():
 
             dashboard_offset = len(captured)
             os.write(master, b"\x1b")
-            if not wait_for("Enter打开".encode(), start_offset=dashboard_offset):
+            if not wait_for("F1帮助".encode(), start_offset=dashboard_offset):
                 raise AssertionError("Esc did not return to the dashboard")
-            os.write(master, b"q")
+            os.write(master, b"/quit\r")
             deadline = time.monotonic() + 4
             status = None
             while time.monotonic() < deadline:

@@ -15,6 +15,17 @@ pub(crate) fn kind_label(kind: TaskKind) -> &'static str {
     }
 }
 
+pub(crate) fn kind_short(kind: TaskKind) -> &'static str {
+    match kind {
+        TaskKind::CreatePaperInstance => "建服",
+        TaskKind::CreateWorldBackup => "备份",
+        TaskKind::ListWorldBackups => "列表",
+        TaskKind::VerifyWorldBackup => "校验",
+        TaskKind::PlanWorldBackupRestore => "恢复预览",
+        TaskKind::RestoreWorldBackup => "恢复",
+    }
+}
+
 pub(crate) fn status_label(status: TaskStatus) -> &'static str {
     match status {
         TaskStatus::Queued => "排队中",
@@ -63,5 +74,53 @@ pub(crate) fn activity_symbol(status: TaskStatus, frame: u8) -> &'static str {
         TaskStatus::Failed => "×",
         TaskStatus::Interrupted => "!",
         TaskStatus::Cancelled => "−",
+    }
+}
+
+pub(crate) fn is_cancelable_download(task: &mc_core::TaskSnapshot) -> bool {
+    if task.kind != TaskKind::CreatePaperInstance {
+        return false;
+    }
+    match task.status {
+        TaskStatus::Queued => true,
+        TaskStatus::Running => {
+            task.phase == TaskPhase::DownloadingArtifact
+                || task
+                    .progress
+                    .as_ref()
+                    .is_some_and(|progress| progress.transfer.is_some())
+        }
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_download_or_queued_create_tasks_are_cancelable() {
+        let mut task = mc_core::TaskSnapshot {
+            id: uuid::Uuid::new_v4(),
+            kind: TaskKind::CreatePaperInstance,
+            instance_id: None,
+            status: TaskStatus::Running,
+            phase: TaskPhase::DownloadingArtifact,
+            message: String::new(),
+            progress: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            finished_at: None,
+            result: None,
+            error: None,
+            last_event_sequence: 0,
+        };
+        assert!(is_cancelable_download(&task));
+        task.phase = TaskPhase::InstallingInstance;
+        assert!(!is_cancelable_download(&task));
+        task.status = TaskStatus::Queued;
+        assert!(is_cancelable_download(&task));
+        task.status = TaskStatus::Succeeded;
+        assert!(!is_cancelable_download(&task));
     }
 }

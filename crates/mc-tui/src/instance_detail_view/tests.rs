@@ -1,6 +1,8 @@
 use chrono::Utc;
 use mc_core::{InstanceDetail, InstanceSummary, ServerSnapshot, ServerState};
 use ratatui::{backend::TestBackend, Terminal};
+
+use crate::hit::HitMap;
 use uuid::Uuid;
 
 use crate::instance_detail::InstanceDetailState;
@@ -55,7 +57,7 @@ fn render_to_text(state: &InstanceDetailState, width: u16, height: u16) -> Strin
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
-        .draw(|frame| render(frame, state, 0))
+        .draw(|frame| render(frame, state, 0, &mut HitMap::default()))
         .expect("render instance detail");
     terminal
         .backend()

@@ -1,6 +1,6 @@
 use std::{io, sync::Arc, time::Duration};
 
-use crossterm::event::{Event, EventStream, KeyEventKind};
+use crossterm::event::{Event, EventStream, KeyEventKind, MouseButton, MouseEventKind};
 use futures_util::StreamExt;
 use mc_core::AppError;
 use ratatui::{backend::CrosstermBackend, Terminal};
@@ -50,6 +50,11 @@ pub(crate) async fn run_app(
         BACKUP_TASK_POLL_INTERVAL,
     );
     task_detail_poll_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut shell_detail_timer = tokio::time::interval_at(
+        tokio::time::Instant::now() + REFRESH_INTERVAL,
+        REFRESH_INTERVAL,
+    );
+    shell_detail_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut animation_frame = 0u8;
     let (refresh_tx, mut refresh_rx) = mpsc::channel::<Result<DashboardData, AppError>>(1);
     let (create_tx, mut create_rx) = mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
@@ -94,6 +99,16 @@ pub(crate) async fn run_app(
                     );
                     state.update(action);
                 }
+                Some(Ok(Event::Mouse(mouse))) => match mouse.kind {
+                    MouseEventKind::ScrollUp => state.update(Action::ScrollUp),
+                    MouseEventKind::ScrollDown => state.update(Action::ScrollDown),
+                    MouseEventKind::Down(MouseButton::Left) => {
+                        if let Some(target) = state.hit_target_at(mouse.column, mouse.row) {
+                            state.apply_click(target);
+                        }
+                    }
+                    _ => {}
+                },
                 Some(Ok(Event::Resize(_, _))) => {}
                 Some(Ok(_)) => {}
                 Some(Err(error)) => state.apply_refresh(Err(AppError::new(
@@ -114,7 +129,7 @@ pub(crate) async fn run_app(
                     state.update(Action::Refresh);
                 }
             }
-            _ = animation_timer.tick(), if state.has_animated_work() => {
+            _ = animation_timer.tick(), if state.has_animated_work() || state.shell_animation_active() => {
                 animation_frame = animation_frame.wrapping_add(1);
             }
             _ = backup_poll_timer.tick(), if !backup_task_in_flight && state.backup_task_to_poll().is_some() => {
@@ -125,6 +140,12 @@ pub(crate) async fn run_app(
             }
             _ = task_detail_poll_timer.tick(), if !detail_in_flight && state.task_detail_should_poll_fast() => {
                 state.update(Action::RefreshTaskDetail);
+            }
+            _ = shell_detail_timer.tick(), if state.shell_visible
+                && !state.instance_detail_visible
+                && !instance_detail_in_flight
+                && state.instance_detail_id.is_some() => {
+                state.update(Action::RefreshInstanceDetail);
             }
             result = refresh_rx.recv(), if refresh_in_flight => {
                 refresh_in_flight = false;
@@ -192,7 +213,7 @@ pub(crate) async fn run_app(
         if !state.task_detail_visible {
             detail_pending = false;
         }
-        if !state.instance_detail_visible {
+        if !state.instance_detail_visible && !state.shell_visible {
             instance_detail_pending = false;
         }
 
@@ -271,7 +292,10 @@ pub(crate) async fn run_app(
             detail_pending = false;
             state.update(Action::RefreshTaskDetail);
         }
-        if instance_detail_pending && !instance_detail_in_flight && state.instance_detail_visible {
+        if instance_detail_pending
+            && !instance_detail_in_flight
+            && (state.instance_detail_visible || state.shell_visible)
+        {
             instance_detail_pending = false;
             state.update(Action::RefreshInstanceDetail);
         }

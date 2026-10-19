@@ -4,16 +4,31 @@ use crate::app::{AppState, Panel};
 pub(crate) enum CommandId {
     OpenCreate,
     ImportModpack,
+    OpenSelectedInstance,
+    OpenSelectedTask,
+    FocusInstances,
+    FocusTasks,
     Refresh,
     TogglePanel,
     OpenBackupManager,
     StartServer,
     StopServer,
+    BeginConsoleInput,
     CreateBackup,
     VerifyBackup,
     PreviewRestore,
     LoadMoreBackups,
     CancelTask,
+    AnalyzeModpack,
+    RefreshModpack,
+    WizardAdvance,
+    WizardBack,
+    CancelWizard,
+    GoDashboard,
+    ShowShell,
+    ShowClassic,
+    Theme,
+    Help,
     Back,
     Quit,
 }
@@ -66,19 +81,122 @@ pub(crate) struct CommandPaletteState {
 
 impl CommandPaletteState {
     pub fn for_state(state: &AppState) -> Self {
-        let context = if state.backup_manager_visible {
+        let context = if state.wizard.is_some() {
+            "新建服务器向导"
+        } else if state.modpack_import_visible {
+            "整合包导入"
+        } else if state.backup_manager_visible {
             "世界与备份"
         } else if state.task_detail_visible {
             "任务详情"
         } else if state.instance_detail_visible {
             "实例详情"
+        } else if state.shell_visible {
+            "会话终端"
         } else if state.focused_panel == Panel::Tasks {
             "后台任务"
         } else {
             "实例列表"
         };
         let mut entries = Vec::new();
-        if state.backup_manager_visible {
+        if state.shell_visible
+            && state.wizard.is_none()
+            && !state.modpack_import_visible
+            && !state.backup_manager_visible
+            && !state.task_detail_visible
+            && !state.instance_detail_visible
+        {
+            entries.push(CommandEntry::new(
+                CommandId::OpenCreate,
+                "创建",
+                "新建 Paper 服务器",
+                "打开结构化向导；版本与 Java 自动发现",
+                Some("/create"),
+                &["new", "create", "paper", "新建", "创建"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::ImportModpack,
+                "创建",
+                "导入整合包",
+                "扫描 .mrpack 并执行只读兼容性检查",
+                Some("/import"),
+                &["import", "modpack", "mrpack", "整合包"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::OpenSelectedInstance,
+                "导航",
+                "打开所选实例",
+                "进入实例详情：日志、启停、备份和命令输入",
+                Some("/open"),
+                &["open", "instance", "打开", "实例"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::OpenSelectedTask,
+                "导航",
+                "打开所选后台任务",
+                "查看字节进度、事件游标和取消入口",
+                Some("/task"),
+                &["open", "task", "任务"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::Refresh,
+                "实例",
+                "刷新实例与任务",
+                "立即重新读取仪表盘和选中实例状态",
+                Some("/refresh"),
+                &["refresh", "刷新"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::ShowClassic,
+                "导航",
+                "切换到经典双面板",
+                "保留会话记录，切回实例/任务双面板布局",
+                Some("/classic"),
+                &["classic", "dashboard", "经典", "面板"],
+            ));
+        } else if state.wizard.is_some() {
+            entries.push(CommandEntry::new(
+                CommandId::WizardAdvance,
+                "向导",
+                "下一步",
+                "校验当前字段并进入下一个安装步骤",
+                Some("Enter"),
+                &["next", "advance", "下一步"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::WizardBack,
+                "向导",
+                "返回上一步",
+                "保留已填写内容回到上一个安装步骤",
+                Some("Esc"),
+                &["back", "previous", "上一步", "返回"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::CancelWizard,
+                "向导",
+                "取消创建向导",
+                "不创建实例，立即回到仪表盘",
+                None,
+                &["cancel", "close", "取消", "关闭"],
+            ));
+        } else if state.modpack_import_visible {
+            entries.push(CommandEntry::new(
+                CommandId::AnalyzeModpack,
+                "整合包",
+                "检查所选整合包",
+                "只读分析 .mrpack 的版本、加载器、Mod 与文件风险",
+                Some("Enter"),
+                &["analyze", "inspect", "分析", "检查"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::RefreshModpack,
+                "整合包",
+                "重新扫描本地整合包",
+                "刷新 Downloads、桌面和当前目录中的候选文件",
+                Some("r"),
+                &["scan", "refresh", "扫描", "刷新"],
+            ));
+        } else if state.backup_manager_visible {
             entries.push(CommandEntry::new(
                 CommandId::Refresh,
                 "世界与备份",
@@ -125,14 +243,6 @@ impl CommandPaletteState {
                     &["more", "next", "更多"],
                 ));
             }
-            entries.push(CommandEntry::new(
-                CommandId::Back,
-                "导航",
-                "返回实例详情",
-                "保留后台任务并回到服务器状态页",
-                Some("Esc"),
-                &["back", "返回"],
-            ));
         } else if state.task_detail_visible {
             entries.push(CommandEntry::new(
                 CommandId::Refresh,
@@ -156,14 +266,6 @@ impl CommandPaletteState {
                     &["cancel", "pause", "取消", "暂停"],
                 ));
             }
-            entries.push(CommandEntry::new(
-                CommandId::Back,
-                "导航",
-                "返回后台任务列表",
-                "关闭任务详情并保留持久任务",
-                Some("Esc"),
-                &["back", "返回"],
-            ));
         } else if state.instance_detail_visible {
             entries.push(CommandEntry::new(
                 CommandId::StartServer,
@@ -180,6 +282,14 @@ impl CommandPaletteState {
                 "发送 stop 并等待进程确认退出",
                 Some("x"),
                 &["stop", "shutdown", "停止"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::BeginConsoleInput,
+                "控制台",
+                "发送控制台命令",
+                "打开命令输入行，向运行中的服务端发送指令",
+                Some(":"),
+                &["console", "command", "控制台", "命令"],
             ));
             entries.push(CommandEntry::new(
                 CommandId::CreateBackup,
@@ -205,14 +315,6 @@ impl CommandPaletteState {
                 Some("r"),
                 &["refresh", "logs", "刷新"],
             ));
-            entries.push(CommandEntry::new(
-                CommandId::Back,
-                "导航",
-                "返回实例列表",
-                "离开当前实例详情",
-                Some("Esc"),
-                &["back", "返回"],
-            ));
         } else {
             entries.push(CommandEntry::new(
                 CommandId::OpenCreate,
@@ -227,16 +329,40 @@ impl CommandPaletteState {
                 "创建",
                 "导入整合包",
                 "选择 .mrpack 并静态检查版本、加载器、Mod 和文件分流",
-                None,
+                Some("i"),
                 &["import", "modpack", "mrpack", "整合包", "导入"],
             ));
             entries.push(CommandEntry::new(
-                CommandId::Refresh,
-                "实例",
-                "刷新仪表盘",
-                "重新读取实例和后台任务",
-                Some("r"),
-                &["refresh", "刷新"],
+                CommandId::OpenSelectedInstance,
+                "导航",
+                "打开所选实例",
+                "进入实例详情，查看状态、日志和生命周期操作",
+                Some("Enter"),
+                &["open", "instance", "打开", "实例"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::OpenSelectedTask,
+                "导航",
+                "打开所选后台任务",
+                "查看字节进度、事件游标和取消入口",
+                Some("Enter"),
+                &["open", "task", "打开", "任务"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::FocusInstances,
+                "导航",
+                "聚焦实例面板",
+                "把选择和回车操作切换到实例列表",
+                Some("1"),
+                &["focus", "instance", "聚焦", "实例"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::FocusTasks,
+                "导航",
+                "聚焦后台任务面板",
+                "把选择和回车操作切换到任务列表",
+                Some("2"),
+                &["focus", "task", "聚焦", "任务"],
             ));
             entries.push(CommandEntry::new(
                 CommandId::TogglePanel,
@@ -246,7 +372,111 @@ impl CommandPaletteState {
                 Some("Tab"),
                 &["panel", "switch", "面板"],
             ));
+            entries.push(CommandEntry::new(
+                CommandId::ShowShell,
+                "导航",
+                "切换到会话终端",
+                "打开 Claude Code 风格的会话日志与命令输入框",
+                Some("t"),
+                &["shell", "session", "terminal", "会话", "终端"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::Refresh,
+                "实例",
+                "刷新仪表盘",
+                "重新读取实例和后台任务",
+                Some("r"),
+                &["refresh", "刷新"],
+            ));
         }
+
+        if state.wizard.is_some() {
+            entries.push(CommandEntry::new(
+                CommandId::CancelWizard,
+                "导航",
+                "回到仪表盘",
+                "取消当前向导并返回仪表盘",
+                None,
+                &["dashboard", "home", "仪表盘", "首页"],
+            ));
+        } else if state.modpack_import_visible {
+            entries.push(CommandEntry::new(
+                CommandId::Back,
+                "导航",
+                "返回仪表盘",
+                "关闭整合包检查页并回到实例列表",
+                Some("Esc"),
+                &["back", "dashboard", "返回"],
+            ));
+        } else if state.backup_manager_visible {
+            entries.push(CommandEntry::new(
+                CommandId::Back,
+                "导航",
+                "返回实例详情",
+                "保留后台任务并回到服务器状态页",
+                Some("Esc"),
+                &["back", "返回"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::GoDashboard,
+                "导航",
+                "回到仪表盘",
+                "关闭备份管理器并回到实例列表",
+                Some("d"),
+                &["dashboard", "home", "仪表盘"],
+            ));
+        } else if state.task_detail_visible {
+            entries.push(CommandEntry::new(
+                CommandId::Back,
+                "导航",
+                "返回后台任务列表",
+                "关闭任务详情并保留持久任务",
+                Some("Esc"),
+                &["back", "返回"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::GoDashboard,
+                "导航",
+                "回到仪表盘",
+                "关闭任务详情并回到实例列表",
+                Some("d"),
+                &["dashboard", "home", "仪表盘"],
+            ));
+        } else if state.instance_detail_visible {
+            entries.push(CommandEntry::new(
+                CommandId::Back,
+                "导航",
+                "返回实例列表",
+                "离开当前实例详情",
+                Some("Esc"),
+                &["back", "返回"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::GoDashboard,
+                "导航",
+                "回到仪表盘",
+                "关闭实例详情并回到实例列表",
+                Some("d"),
+                &["dashboard", "home", "仪表盘"],
+            ));
+        }
+
+        entries.push(CommandEntry::new(
+            CommandId::Theme,
+            "外观",
+            format!("主题：{}", crate::theme::current_theme().name()),
+            "在 7 套主题之间循环切换；/theme 可列出全部主题",
+            Some("F2"),
+            &["theme", "color", "主题", "外观", "配色"],
+        ));
+        entries.push(CommandEntry::new(
+            CommandId::Help,
+            "帮助",
+            "键盘快捷键与鼠标操作",
+            "查看当前所有页面可用的按键、滚动和点击方式",
+            Some("?"),
+            &["help", "keys", "shortcut", "帮助", "快捷键"],
+        ));
         entries.push(CommandEntry::new(
             CommandId::Quit,
             "应用",
@@ -289,6 +519,18 @@ impl CommandPaletteState {
 
     pub fn select_previous(&mut self) {
         self.selected = self.selected.saturating_sub(1);
+    }
+
+    pub fn select_edge(&mut self, last: bool) {
+        self.selected = if last {
+            self.filtered.len().saturating_sub(1)
+        } else {
+            0
+        };
+    }
+
+    pub fn filtered_len(&self) -> usize {
+        self.filtered.len()
     }
 
     pub fn selected_entry(&self) -> Option<&CommandEntry> {

@@ -13,10 +13,18 @@ pub(crate) enum WizardStep {
 pub(crate) enum WizardAction {
     Advance,
     Back,
+    Up,
+    Down,
     FocusNext,
     FocusPrevious,
+    FocusField(usize),
     PreviousChoice,
     NextChoice,
+    PagePrevious,
+    PageNext,
+    FirstChoice,
+    LastChoice,
+    SelectChoice(usize),
     Insert(char),
     Backspace,
     ToggleAcceptance,
@@ -48,6 +56,7 @@ pub(crate) struct CreateOptions {
 }
 
 const MEMORY_PROFILES: [(u32, u32); 4] = [(512, 1024), (1024, 2048), (2048, 4096), (4096, 8192)];
+const CHOICE_PAGE_STEP: isize = 5;
 
 #[derive(Debug)]
 pub(crate) struct CreateWizard {
@@ -162,6 +171,22 @@ impl CreateWizard {
         match action {
             WizardAction::Advance => self.advance(),
             WizardAction::Back => self.back(),
+            WizardAction::Up => {
+                if self.focus_is_choice() {
+                    self.adjust_choice(-1);
+                    WizardOutcome::None
+                } else {
+                    self.handle(WizardAction::FocusPrevious)
+                }
+            }
+            WizardAction::Down => {
+                if self.focus_is_choice() {
+                    self.adjust_choice(1);
+                    WizardOutcome::None
+                } else {
+                    self.handle(WizardAction::FocusNext)
+                }
+            }
             WizardAction::FocusNext => {
                 self.focused_field = (self.focused_field + 1) % self.field_count();
                 self.error = None;
@@ -175,12 +200,40 @@ impl CreateWizard {
                 self.error = None;
                 WizardOutcome::None
             }
+            WizardAction::FocusField(index) => {
+                if index < self.field_count() {
+                    self.focused_field = index;
+                    self.error = None;
+                }
+                WizardOutcome::None
+            }
             WizardAction::PreviousChoice => {
                 self.adjust_choice(-1);
                 WizardOutcome::None
             }
             WizardAction::NextChoice => {
                 self.adjust_choice(1);
+                WizardOutcome::None
+            }
+            WizardAction::PagePrevious => {
+                self.adjust_choice(-CHOICE_PAGE_STEP);
+                WizardOutcome::None
+            }
+            WizardAction::PageNext => {
+                self.adjust_choice(CHOICE_PAGE_STEP);
+                WizardOutcome::None
+            }
+            WizardAction::FirstChoice => {
+                self.select_choice(0);
+                WizardOutcome::None
+            }
+            WizardAction::LastChoice => {
+                let last = self.choice_count().saturating_sub(1);
+                self.select_choice(last);
+                WizardOutcome::None
+            }
+            WizardAction::SelectChoice(index) => {
+                self.select_choice(index);
                 WizardOutcome::None
             }
             WizardAction::Insert(character) => {
@@ -203,6 +256,38 @@ impl CreateWizard {
     pub fn set_submit_error(&mut self, error: String) {
         self.submitting = false;
         self.error = Some(error);
+    }
+
+    fn focus_is_choice(&self) -> bool {
+        matches!(
+            (self.step, self.focused_field),
+            (WizardStep::Server, 1) | (WizardStep::Runtime, 0) | (WizardStep::Runtime, 1)
+        )
+    }
+
+    fn choice_count(&self) -> usize {
+        match (self.step, self.focused_field) {
+            (WizardStep::Server, 1) => self.versions.len(),
+            (WizardStep::Runtime, 0) => self.java_runtimes.len(),
+            (WizardStep::Runtime, 1) => MEMORY_PROFILES.len(),
+            _ => 0,
+        }
+    }
+
+    fn select_choice(&mut self, index: usize) {
+        self.error = None;
+        match (self.step, self.focused_field) {
+            (WizardStep::Server, 1) if index < self.versions.len() => {
+                self.selected_version = index;
+            }
+            (WizardStep::Runtime, 0) if index < self.java_runtimes.len() => {
+                self.selected_java = index;
+            }
+            (WizardStep::Runtime, 1) if index < MEMORY_PROFILES.len() => {
+                self.memory_profile = index;
+            }
+            _ => {}
+        }
     }
 
     fn adjust_choice(&mut self, delta: isize) {

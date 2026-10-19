@@ -9,9 +9,8 @@ use std::{io, os::unix::fs::PermissionsExt, sync::Arc};
 
 use clap::Parser;
 use config::Args;
-use directories::ProjectDirs;
 use mc_backup::BackupService;
-use mc_core::{AppError, ErrorCode, ServerProvider};
+use mc_core::ServerProvider;
 use mc_download::{DownloadConfig, DownloadManager};
 use mc_instance::InstanceService;
 use mc_supervisor::ProcessSupervisor;
@@ -25,40 +24,44 @@ const MAX_CONNECTIONS: usize = 64;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    let config = mc_config::Config::load()?;
+    let filter = std::env::var("RUST_LOG")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| config.daemon.log_level.clone());
+    let filter = tracing_subscriber::EnvFilter::try_new(filter)
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(filter)
         .with_target(false)
         .init();
 
-    let args = Args::parse();
-    let project_dirs = ProjectDirs::from("org", "mc-server-tui", "mc-server-tui")
-        .ok_or("could not determine application directories")?;
-    let state_dir = args.state_dir.unwrap_or_else(|| {
-        project_dirs
-            .state_dir()
-            .unwrap_or(project_dirs.data_local_dir())
-            .to_path_buf()
-    });
+    let state_dir = args
+        .state_dir
+        .clone()
+        .unwrap_or(config.resolved_state_dir()?);
     if let Some(instance_id) = args.internal_runner {
         let instances = InstanceService::open(&state_dir).await?;
         mc_supervisor::run_instance_runner(instances, instance_id).await?;
         return Ok(());
     }
 
-    let user_agent = std::env::var("MC_SERVER_TUI_USER_AGENT").map_err(|_| {
-        AppError::new(
-            ErrorCode::UserAgentRequired,
-            "Paper User-Agent is required.",
-        )
-    })?;
+    config.ensure_directories()?;
+    let user_agent = config.resolved_user_agent();
     let provider: Arc<dyn ServerProvider> = Arc::new(PaperProvider::new(Some(user_agent.clone()))?);
     let cache_dir = args
         .cache_dir
-        .unwrap_or_else(|| project_dirs.cache_dir().to_path_buf());
+        .clone()
+        .unwrap_or(config.resolved_cache_dir()?);
     let private_parent = args.socket.is_none();
-    let socket_path = args
-        .socket
-        .unwrap_or_else(|| state_dir.join("run").join("daemon.sock"));
+    let socket_path = match args.socket.clone() {
+        Some(path) => path,
+        None => match config.daemon.socket.as_ref() {
+            Some(path) if !path.as_os_str().is_empty() => config.resolved_socket()?,
+            _ => state_dir.join("run").join("daemon.sock"),
+        },
+    };
     let downloader = DownloadManager::new(DownloadConfig::paper(cache_dir, user_agent))?;
     let instances = InstanceService::open(&state_dir).await?;
     let supervisor = ProcessSupervisor::new(instances.clone());

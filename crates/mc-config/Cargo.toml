@@ -1,0 +1,11 @@
+[package]
+name = "mc-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+directories.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+toml.workspace = true

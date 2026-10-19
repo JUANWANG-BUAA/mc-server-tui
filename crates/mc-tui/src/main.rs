@@ -3,17 +3,23 @@ mod backup_manager;
 mod backup_manager_view;
 mod command_palette;
 mod command_palette_view;
+mod help_view;
+mod hit;
 mod instance_detail;
 mod instance_detail_view;
 mod modpack_import;
 mod modpack_import_view;
 mod runtime;
+mod shell;
+mod shell_view;
 mod source;
 mod task_detail;
 mod task_detail_view;
 mod task_presentation;
 mod terminal;
 mod theme;
+mod transcript;
+mod ui;
 mod view;
 mod wizard;
 mod wizard_view;
@@ -21,7 +27,7 @@ mod wizard_view;
 use std::{path::PathBuf, sync::Arc};
 
 use clap::Parser;
-use mc_client::{default_socket_path, DaemonClient};
+use mc_client::DaemonClient;
 use source::DaemonDashboardSource;
 use terminal::TerminalSession;
 
@@ -42,9 +48,11 @@ async fn main() {
 }
 
 async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
+    theme::init();
+    let config = mc_config::Config::load()?;
     let socket = match args.socket {
         Some(path) => path,
-        None => default_socket_path()?,
+        None => config.resolved_socket()?,
     };
     let source = Arc::new(DaemonDashboardSource::new(DaemonClient::new(socket)));
     let mut terminal = TerminalSession::enter()?;

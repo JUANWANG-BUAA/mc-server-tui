@@ -1,0 +1,145 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release tag
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "release tag must look like v1.2.3 or v1.2.3-beta.1, got: $tag" >&2
+            exit 1
+          fi
+          version="${tag#v}"
+          crate_version="$(awk -F'"' '/^version = /{print $2; exit}' Cargo.toml)"
+          if [[ "$version" != "$crate_version" ]]; then
+            echo "tag version $version does not match workspace version $crate_version" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: package ${{ matrix.target }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: macos-14
+            target: x86_64-apple-darwin
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.85"
+          targets: ${{ matrix.target }}
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Build release
+        run: cargo build --workspace --release --locked --target "${{ matrix.target }}"
+      - name: Package
+        run: |
+          python3 scripts/package_release.py \
+            --version "${{ needs.prepare.outputs.version }}" \
+            --channel stable \
+            --target "${{ matrix.target }}" \
+            --binary-dir "target/${{ matrix.target }}/release" \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare.outputs.tag }}"
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.target }}
+          path: dist/${{ needs.prepare.outputs.version }}/
+          if-no-files-found: error
+
+  publish:
+    name: draft GitHub Release
+    needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          path: artifacts
+      - name: Assemble release directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.sha256' \) -exec cp {} dist/ \;
+          mapfile -t manifests < <(find artifacts -name release-manifest.json -print)
+          python3 scripts/merge_release_manifests.py "${manifests[@]}" --output dist/release-manifest.json
+          python3 scripts/render_homebrew.py dist/release-manifest.json \
+            --template packaging/homebrew/mc-server-tui.rb \
+            --output dist/mc-server-tui.rb
+          manifest_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ needs.prepare.outputs.tag }}/release-manifest.json"
+          sed "s#https://github.com/JUANWANG-BUAA/mc-server-tui/releases/latest/download/release-manifest.json#${manifest_url}#" \
+            scripts/install.sh > dist/install.sh
+          grep -q "$manifest_url" dist/install.sh
+          chmod +x dist/install.sh
+          cat > release-notes.md <<EOF
+          ## mc-server-tui ${{ needs.prepare.outputs.version }}
+
+          This is an unsigned alpha build. The installer verifies the release
+          manifest's SHA-256 and size, but no code signature or macOS
+          notarization is present yet.
+
+          ### Install
+
+          \`\`\`sh
+          curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ needs.prepare.outputs.tag }}/install.sh | sh
+          mc setup
+          \`\`\`
+
+          Review the manifest, checksums, and release notes before running a
+          downloaded installer. Phase 2 will add signing and notarization.
+          EOF
+          ls -lh dist
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ needs.prepare.outputs.tag }}"
+          mapfile -t files < <(find dist -maxdepth 1 -type f | sort)
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+          else
+            gh release create "$tag" "${files[@]}" \
+              --draft \
+              --title "mc-server-tui ${{ needs.prepare.outputs.version }}" \
+              --notes-file release-notes.md
+          fi
