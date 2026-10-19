@@ -7,10 +7,10 @@ fn dashboard_palette_supports_search_and_guidance_commands() {
     let mut palette = CommandPaletteState::for_state(&state);
     assert!(palette
         .filtered_entries()
-        .any(|entry| entry.id == CommandId::OpenCreate));
+        .any(|entry| entry.id == CommandId::Shell("create")));
     assert!(palette
         .filtered_entries()
-        .any(|entry| entry.id == CommandId::ImportModpack));
+        .any(|entry| entry.id == CommandId::Shell("import")));
     assert!(palette
         .filtered_entries()
         .any(|entry| entry.id == CommandId::Quit));
@@ -19,7 +19,7 @@ fn dashboard_palette_supports_search_and_guidance_commands() {
     }
     assert_eq!(
         palette.selected_entry().map(|entry| entry.id),
-        Some(CommandId::OpenCreate),
+        Some(CommandId::Shell("create")),
     );
 }
 
@@ -61,7 +61,7 @@ fn english_import_query_reaches_the_modpack_flow() {
     }
     assert_eq!(
         palette.selected_entry().map(|entry| entry.id),
-        Some(CommandId::ImportModpack),
+        Some(CommandId::Shell("import")),
     );
 }
 
@@ -70,8 +70,21 @@ fn shell_palette_exposes_session_navigation_and_classic_switch() {
     let state = AppState::default();
     let palette = CommandPaletteState::for_state(&state);
     let ids: Vec<_> = palette.filtered_entries().map(|entry| entry.id).collect();
-    assert!(ids.contains(&CommandId::OpenCreate));
-    assert!(ids.contains(&CommandId::OpenSelectedInstance));
-    assert!(ids.contains(&CommandId::ShowClassic));
+    assert!(ids.contains(&CommandId::Shell("create")));
+    assert!(ids.contains(&CommandId::Shell("open")));
+    assert!(ids.contains(&CommandId::Shell("classic")));
     assert!(ids.contains(&CommandId::Theme));
+}
+
+#[test]
+fn shell_search_finds_stop_and_player_management() {
+    for (query, expected) in [("stop", "stop"), ("封禁", "players"), ("日志", "rg")] {
+        let mut palette = CommandPaletteState::for_state(&AppState::default());
+        for c in query.chars() {
+            palette.insert(c);
+        }
+        assert!(palette
+            .filtered_entries()
+            .any(|entry| entry.id == CommandId::Shell(expected)));
+    }
 }

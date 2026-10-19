@@ -1,7 +1,24 @@
 use ratatui::layout::{Position, Rect};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ScrollView {
+    Shell,
+    Logs,
+    Events,
+    Help,
+    Versions,
+    Java,
+    Instances,
+    Tasks,
+    Backups,
+    Modpacks,
+    Palette,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum HitTarget {
+    Page(u32),
+    Scrollbar(ScrollView, usize, usize, usize),
     Instance(usize),
     Task(usize),
     Version(usize),

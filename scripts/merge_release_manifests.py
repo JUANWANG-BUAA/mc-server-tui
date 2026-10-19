@@ -30,6 +30,7 @@ def main() -> None:
                 "min_supported_version",
                 "api_protocol",
                 "state_schema",
+                "runner_protocol",
             ):
                 if data.get(field) != merged.get(field):
                     raise SystemExit(

@@ -88,6 +88,18 @@ def response_for(request, state):
     payload = request["payload"]
     operation = payload["operation"]
     arguments = payload.get("arguments") or {}
+    if operation == "server_info":
+        return {
+            "result": "server_info",
+            "data": {
+                "product": "mc-server-tui",
+                "version": "0.1.0",
+                "api_protocol_min": 8,
+                "api_protocol_max": 9,
+                "state_schema": 1,
+                "runner_protocol": 1,
+            },
+        }
     if operation == "list_instances":
         return {"result": "instances", "data": []}
     if operation == "list_tasks":
@@ -165,7 +177,10 @@ def main():
                     response = response_for(request, state)
                 connection.sendall(
                     json.dumps(
-                        {"protocol_version": 8, "payload": response},
+                        {
+                            "protocol_version": request.get("protocol_version", 9),
+                            "payload": response,
+                        },
                         ensure_ascii=False,
                     ).encode()
                     + b"\n"

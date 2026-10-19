@@ -1,5 +1,5 @@
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
@@ -8,11 +8,15 @@ use ratatui::{
 
 use crate::{hit::HitMap, instance_detail::InstanceDetailState, theme, ui};
 
-pub(crate) fn render_loading(frame: &mut Frame<'_>, instance_id: uuid::Uuid, _hits: &mut HitMap) {
-    let area = frame.area();
+pub(crate) fn render_loading(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    instance_id: uuid::Uuid,
+    _hits: &mut HitMap,
+) {
     frame.render_widget(
         Paragraph::new(vec![
-            Line::from(Span::styled("◆ MC SERVER TUI   实例详情", theme::brand())),
+            Line::from(Span::styled("实例详情", theme::accent())),
             Line::from(format!("正在读取实例 {instance_id}…")),
             Line::from("Esc 返回"),
         ])
@@ -28,13 +32,14 @@ pub(crate) fn render_loading(frame: &mut Frame<'_>, instance_id: uuid::Uuid, _hi
 
 pub(crate) fn render(
     frame: &mut Frame<'_>,
+    area: Rect,
     detail: &InstanceDetailState,
     animation_frame: u8,
-    _hits: &mut HitMap,
+    hits: &mut HitMap,
 ) {
-    let compact = frame.area().width < 80 || frame.area().height < 18;
+    let compact = area.width < 80 || area.height < 17;
     let (header_height, summary_height, footer_height) =
-        if compact { (2, 4, 3) } else { (3, 7, 4) };
+        if compact { (2, 4, 3) } else { (2, 9, 4) };
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -43,13 +48,19 @@ pub(crate) fn render(
             Constraint::Min(1),
             Constraint::Length(footer_height),
         ])
-        .split(frame.area());
+        .split(area);
 
-    let (name, status) = detail
+    let (name, status, status_style) = detail
         .detail
         .as_ref()
-        .map(|data| (data.instance.name.as_str(), state_label(data.server.state)))
-        .unwrap_or(("实例详情", "读取中"));
+        .map(|data| {
+            (
+                data.instance.name.as_str(),
+                ui::server_state_label(data.server.state),
+                ui::server_state_style(data.server.state),
+            )
+        })
+        .unwrap_or(("实例详情", "读取中", theme::muted()));
     let server_state = detail
         .detail
         .as_ref()
@@ -57,15 +68,14 @@ pub(crate) fn render(
         .unwrap_or(mc_core::ServerState::Unknown);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-            Span::styled("实例 · ", theme::dim()),
+            Span::styled(" 实例 · ", theme::dim()),
             Span::styled(name, theme::text().add_modifier(Modifier::BOLD)),
             Span::raw("  ·  "),
             Span::styled(
                 format!("{} ", theme::server_marker(server_state, animation_frame)),
-                state_style(status),
+                status_style,
             ),
-            Span::styled(status, state_style(status)),
+            Span::styled(status, status_style),
         ]))
         .block(
             Block::default()
@@ -81,22 +91,22 @@ pub(crate) fn render(
             vec![
                 Line::from(vec![
                     Span::styled(
-                        state_label(server.state),
-                        state_style(state_label(server.state)),
+                        ui::server_state_label(server.state),
+                        ui::server_state_style(server.state),
                     ),
                     Span::styled(format!(" · {}", server.address), theme::accent()),
                 ]),
                 Line::from(Span::styled(
-                    server.message.clone(),
-                    state_style(state_label(server.state)),
+                    ui::server_message(&server.message),
+                    ui::server_state_style(server.state),
                 )),
             ]
         } else {
             vec![Line::from(vec![
                 Span::styled("状态  ", label_style()),
                 Span::styled(
-                    state_label(server.state),
-                    state_style(state_label(server.state)),
+                    ui::server_state_label(server.state),
+                    ui::server_state_style(server.state),
                 ),
                 Span::styled("   地址 ", label_style()),
                 Span::styled(server.address.clone(), theme::accent()),
@@ -105,15 +115,19 @@ pub(crate) fn render(
         if !compact {
             lines.push(Line::from(vec![
                 Span::styled("版本  ", label_style()),
-                Span::styled(data.instance.game_version.clone(), theme::accent()),
                 Span::styled(
-                    format!(" · build {} · Java ", data.instance.build_id),
-                    theme::muted(),
-                ),
-                Span::styled(
-                    data.instance.java_path.display().to_string(),
+                    format!("{} {}", data.instance.provider, data.instance.game_version),
                     theme::accent(),
                 ),
+                Span::styled(
+                    if data.instance.provider == "fabric" {
+                        " · 稳定 Loader · Java ".to_owned()
+                    } else {
+                        format!(" · build {} · Java ", data.instance.build_id)
+                    },
+                    theme::muted(),
+                ),
+                Span::styled(ui::java_label(&data.instance.java_path), theme::accent()),
             ]));
             lines.push(Line::from(vec![
                 Span::styled("资源  ", label_style()),
@@ -136,7 +150,11 @@ pub(crate) fn render(
                 Span::styled(
                     server
                         .started_at
-                        .map(|time| time.format("%H:%M:%S UTC").to_string())
+                        .map(|time| {
+                            time.with_timezone(&chrono::Local)
+                                .format("%H:%M:%S")
+                                .to_string()
+                        })
                         .unwrap_or_else(|| "—".to_owned()),
                     theme::muted(),
                 ),
@@ -149,9 +167,44 @@ pub(crate) fn render(
                     Span::styled(ui::format_bytes(stats.rss_bytes), theme::accent()),
                 ]));
             }
+            if detail.stats.is_some() {
+                let width = (area.width as usize / 3).clamp(8, 24);
+                lines.push(Line::from(vec![
+                    Span::styled("CPU ", theme::muted()),
+                    Span::styled(
+                        ui::history_plot(&detail.cpu_history, width, 100),
+                        theme::accent(),
+                    ),
+                    Span::styled("  内存 ", theme::muted()),
+                    Span::styled(
+                        ui::history_plot(
+                            &detail.rss_history,
+                            width,
+                            u64::from(data.instance.max_memory_mb),
+                        ),
+                        theme::success(),
+                    ),
+                    Span::styled(" · 最近 60 次采样", theme::muted()),
+                ]));
+            }
+            if server.state == mc_core::ServerState::Starting {
+                let mut spans = vec![Span::styled("启动 ", theme::warning())];
+                spans.extend(ui::animated_progress(0.0, 16, animation_frame, true));
+                spans.push(Span::styled(
+                    " · 首次可能下载游戏文件；等待实际就绪日志",
+                    theme::muted(),
+                ));
+                lines.push(Line::from(spans));
+            }
+            if let Some(alert) = detail.alerts().first() {
+                lines.push(Line::from(Span::styled(
+                    format!("! {}", alert),
+                    theme::warning(),
+                )));
+            }
             lines.push(Line::from(Span::styled(
-                server.message.clone(),
-                state_style(state_label(server.state)),
+                "/connect 加入方式 · /monitor 在线人数 · /players 权限 · f 搜索日志",
+                theme::muted(),
             )));
             if let Some(code) = server.last_exit_code {
                 lines.push(Line::from(format!("最后退出码  {code}")));
@@ -174,8 +227,19 @@ pub(crate) fn render(
     );
 
     let visible_rows = areas[2].height.saturating_sub(2) as usize;
-    let log_lines: Vec<&str> = detail.logs.lines().collect();
+    let needle = detail.log_filter.to_lowercase();
+    let log_lines: Vec<&str> = detail
+        .logs
+        .lines()
+        .filter(|line| {
+            needle.is_empty()
+                || ui::clean_terminal_text(line)
+                    .to_lowercase()
+                    .contains(&needle)
+        })
+        .collect();
     let max_scroll = log_lines.len().saturating_sub(visible_rows.max(1));
+    detail.log_max_scroll.set(max_scroll);
     let scroll = detail.log_scroll.min(max_scroll);
     let end = log_lines.len().saturating_sub(scroll);
     let start = end.saturating_sub(visible_rows.max(1));
@@ -184,7 +248,15 @@ pub(crate) fn render(
     } else {
         log_lines[start..end]
             .iter()
-            .map(|line| Line::from(*line))
+            .map(|line| {
+                ui::log_line(
+                    &ui::clean_terminal_text(line)
+                        .chars()
+                        .skip(detail.log_horizontal)
+                        .collect::<String>(),
+                    &detail.log_filter,
+                )
+            })
             .collect()
     };
     frame.render_widget(
@@ -193,7 +265,16 @@ pub(crate) fn render(
                 .borders(Borders::ALL)
                 .border_style(theme::border(false))
                 .title(if scroll == 0 {
-                    format!("控制台日志 · byte {} · 跟随最新", detail.log_offset)
+                    format!(
+                        "控制台日志 · {} 行 · {} · 横移 {}",
+                        log_lines.len(),
+                        if detail.log_filter.is_empty() {
+                            "全部"
+                        } else {
+                            &detail.log_filter
+                        },
+                        detail.log_horizontal
+                    )
                 } else {
                     format!(
                         "控制台日志 · byte {} · 已上滚 {} 行",
@@ -205,15 +286,21 @@ pub(crate) fn render(
         ),
         areas[2],
     );
-    ui::scrollbar(
-        frame,
+    ui::scrollbar(frame, areas[2], log_lines.len(), start, visible_rows.max(1));
+    ui::scrollbar_hits(
         areas[2],
         log_lines.len(),
-        log_lines.len().saturating_sub(end),
         visible_rows.max(1),
+        hits,
+        crate::hit::ScrollView::Logs,
     );
 
-    let status_line = if detail.editing_console {
+    let status_line = if detail.editing_filter {
+        Line::from(Span::styled(
+            format!("搜索> {}▏ · Enter 保留过滤 · Esc 清除", detail.log_filter),
+            theme::accent(),
+        ))
+    } else if detail.editing_console {
         Line::from(Span::styled(
             format!("命令> {}▏", detail.console_input),
             theme::accent(),
@@ -322,7 +409,7 @@ fn navigation_help_line(editing_console: bool) -> Line<'static> {
     } else {
         Line::from(vec![
             Span::styled("↑/↓", theme::key_hint()),
-            Span::raw(" 滚动日志 · "),
+            Span::raw(" 滚动 · f 搜索 · ←/→ 横移 · "),
             Span::styled("PgUp/PgDn", theme::key_hint()),
             Span::raw(" 翻页 · "),
             Span::styled("Home/End", theme::key_hint()),
@@ -330,27 +417,6 @@ fn navigation_help_line(editing_console: bool) -> Line<'static> {
             Span::styled("Esc", theme::key_hint()),
             Span::raw(" 返回"),
         ])
-    }
-}
-
-fn state_label(state: mc_core::ServerState) -> &'static str {
-    match state {
-        mc_core::ServerState::Installed => "已安装",
-        mc_core::ServerState::Starting => "启动中",
-        mc_core::ServerState::Running => "运行中",
-        mc_core::ServerState::Stopping => "停止中",
-        mc_core::ServerState::Stopped => "已停止",
-        mc_core::ServerState::Failed => "启动失败",
-        mc_core::ServerState::Unknown => "状态未知",
-    }
-}
-
-fn state_style(state: &str) -> Style {
-    match state {
-        "运行中" => theme::success().add_modifier(Modifier::BOLD),
-        "启动中" | "停止中" => theme::warning(),
-        "启动失败" | "状态未知" => theme::danger(),
-        _ => theme::muted(),
     }
 }
 

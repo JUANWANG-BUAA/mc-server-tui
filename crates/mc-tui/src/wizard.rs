@@ -108,10 +108,14 @@ impl CreateWizard {
             self.options_error = Some("Paper 没有返回可用稳定版本，请稍后重试。".to_owned());
             return;
         }
+        options
+            .versions
+            .sort_by_key(|v| std::cmp::Reverse(mc_core::minecraft_version_key(&v.id)));
         self.versions = options.versions;
         self.selected_version = 0;
         self.java_runtimes = options.java_runtimes;
-        self.selected_java = preferred_java_index(&self.java_runtimes).unwrap_or(0);
+        self.selected_java =
+            preferred_java_index(&self.java_runtimes, self.required_java()).unwrap_or(0);
         self.port = options.suggested_port.to_string();
         self.options_error = if self.java_runtimes.is_empty() {
             Some("未检测到可用 Java。请先安装 Java 21 或更高版本，再重新打开创建向导。".to_owned())
@@ -124,6 +128,12 @@ impl CreateWizard {
     pub fn set_options_error(&mut self, error: String) {
         self.options_loading = false;
         self.options_error = Some(error);
+    }
+
+    pub fn required_java(&self) -> u16 {
+        self.selected_version()
+            .map(|v| mc_core::minecraft_java_requirement(&v.id))
+            .unwrap_or(21)
     }
 
     pub fn selected_version(&self) -> Option<&ServerVersion> {
@@ -161,7 +171,7 @@ impl CreateWizard {
     }
 
     pub fn java_is_recommended(&self, index: usize) -> bool {
-        preferred_java_index(&self.java_runtimes) == Some(index)
+        preferred_java_index(&self.java_runtimes, self.required_java()) == Some(index)
     }
 
     pub fn handle(&mut self, action: WizardAction) -> WizardOutcome {
@@ -402,7 +412,10 @@ impl CreateWizard {
         }
         let name = self.name.trim();
         if name.is_empty() || name.len() > 128 || name.chars().any(char::is_control) {
-            return Err((0, "实例名称需为 1–128 个 UTF-8 字节。".to_owned()));
+            return Err((
+                0,
+                "请输入实例名称（最多 128 字节，中文约 42 字）。".to_owned(),
+            ));
         }
         if self.selected_version().is_none() {
             return Err((1, "请选择一个 Paper 稳定版本。".to_owned()));
@@ -415,6 +428,19 @@ impl CreateWizard {
             return Err((
                 0,
                 "没有可用的 Java 运行时，请先安装 Java 21 或更高版本。".to_owned(),
+            ));
+        }
+        if !self.selected_java().is_some_and(|java| {
+            java.major_version
+                .is_some_and(|v| v >= self.required_java())
+        }) {
+            return Err((
+                0,
+                format!(
+                    "Minecraft {} 至少需要 Java {}，请选择兼容的运行时。",
+                    self.selected_version().map(|v| v.id.as_str()).unwrap_or(""),
+                    self.required_java()
+                ),
             ));
         }
         let port = self
@@ -464,20 +490,20 @@ fn adjusted_index(current: usize, length: usize, delta: isize) -> usize {
     next.rem_euclid(length as isize) as usize
 }
 
-fn preferred_java_index(runtimes: &[JavaRuntime]) -> Option<usize> {
+fn preferred_java_index(runtimes: &[JavaRuntime], required: u16) -> Option<usize> {
     if runtimes.is_empty() {
         return None;
     }
     if let Some(index) = runtimes
         .iter()
-        .position(|runtime| runtime.major_version == Some(21))
+        .position(|runtime| runtime.major_version == Some(required))
     {
         return Some(index);
     }
     if let Some((index, _)) = runtimes
         .iter()
         .enumerate()
-        .filter(|(_, runtime)| runtime.major_version.is_some_and(|major| major >= 21))
+        .filter(|(_, runtime)| runtime.major_version.is_some_and(|major| major >= required))
         .min_by_key(|(_, runtime)| runtime.major_version.unwrap_or(u16::MAX))
     {
         return Some(index);

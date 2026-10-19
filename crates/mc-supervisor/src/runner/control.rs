@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use mc_core::{AppError, ErrorCode};
+use mc_core::{AppError, ErrorCode, RUNNER_PROTOCOL_VERSION};
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
@@ -21,15 +21,25 @@ use crate::MAX_CONSOLE_COMMAND_BYTES;
 const CONTROL_IO_TIMEOUT: Duration = Duration::from_secs(3);
 const CONTROL_FRAME_LIMIT: usize = 2048;
 
+/// `protocol` is additive so a daemon and runner from adjacent releases can
+/// still exchange the commands both understand. Missing means v1.
 #[derive(Debug, Serialize, Deserialize)]
 struct ConsoleRequest {
+    #[serde(default = "runner_protocol_default")]
+    protocol: u16,
     command: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ConsoleResponse {
+    #[serde(default = "runner_protocol_default")]
+    protocol: u16,
     accepted: bool,
     message: Option<String>,
+}
+
+fn runner_protocol_default() -> u16 {
+    RUNNER_PROTOCOL_VERSION
 }
 
 pub(crate) fn control_socket_path(instance_id: Uuid) -> std::path::PathBuf {
@@ -112,6 +122,7 @@ pub(crate) async fn send_console_command(instance_id: Uuid, command: &str) -> Re
             .await
             .map_err(|error| io_error("Could not connect to the instance runner.", error))?;
         let request = serde_json::to_vec(&ConsoleRequest {
+            protocol: RUNNER_PROTOCOL_VERSION,
             command: command.to_owned(),
         })
         .map_err(|error| {
@@ -181,6 +192,16 @@ pub(crate) async fn serve_console_request(
             AppError::new(ErrorCode::InvalidInput, "Console request was invalid.")
                 .with_evidence(error.to_string())
         })?;
+        if request.protocol > RUNNER_PROTOCOL_VERSION {
+            return Err(AppError::new(
+                ErrorCode::ProtocolInvalid,
+                "The management daemon speaks a newer runner protocol than this runner.",
+            )
+            .with_evidence(format!(
+                "request protocol: {}; runner protocol: {RUNNER_PROTOCOL_VERSION}",
+                request.protocol
+            )));
+        }
         validate_command(&request.command)?;
         let mut stdin = stdin.lock().await;
         stdin
@@ -199,14 +220,17 @@ pub(crate) async fn serve_console_request(
     .await;
     let response = match result {
         Ok(Ok(())) => ConsoleResponse {
+            protocol: RUNNER_PROTOCOL_VERSION,
             accepted: true,
             message: None,
         },
         Ok(Err(error)) => ConsoleResponse {
+            protocol: RUNNER_PROTOCOL_VERSION,
             accepted: false,
             message: Some(error.reason),
         },
         Err(_) => ConsoleResponse {
+            protocol: RUNNER_PROTOCOL_VERSION,
             accepted: false,
             message: Some("Console input timed out.".to_owned()),
         },
@@ -237,4 +261,30 @@ fn validate_command(command: &str) -> Result<(), AppError> {
 
 fn io_error(reason: &str, error: io::Error) -> AppError {
     AppError::new(ErrorCode::Internal, reason).with_evidence(error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn runner_control_accepts_legacy_frames_without_a_protocol_field() {
+        let request: ConsoleRequest =
+            serde_json::from_str(r#"{"command":"list"}"#).expect("decode legacy request");
+        assert_eq!(request.protocol, RUNNER_PROTOCOL_VERSION);
+        assert_eq!(request.command, "list");
+    }
+
+    #[test]
+    fn runner_responses_carry_the_protocol_version() {
+        let response = ConsoleResponse {
+            protocol: RUNNER_PROTOCOL_VERSION,
+            accepted: true,
+            message: None,
+        };
+        let encoded = serde_json::to_string(&response).expect("encode response");
+        assert!(encoded.contains("\"protocol\":1"));
+        let decoded: ConsoleResponse = serde_json::from_str(&encoded).expect("decode response");
+        assert_eq!(decoded.protocol, RUNNER_PROTOCOL_VERSION);
+    }
 }

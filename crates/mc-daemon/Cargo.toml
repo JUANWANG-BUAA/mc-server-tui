@@ -29,5 +29,15 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 
+reqwest.workspace = true
+serde.workspace = true
+sha2.workspace = true
+zip.workspace = true
+chrono.workspace = true
+url.workspace = true
+regex = "1"
+if-addrs = "0.13"
+tempfile = "3"
+
 [dev-dependencies]
 tempfile = "3"

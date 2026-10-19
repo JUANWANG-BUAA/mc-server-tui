@@ -78,7 +78,7 @@ fn render_to_text(wizard: &CreateWizard, width: u16, height: u16) -> String {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
-        .draw(|frame| render(frame, wizard, 0, &mut HitMap::default()))
+        .draw(|frame| render(frame, frame.area(), wizard, 0, &mut HitMap::default()))
         .expect("render");
     terminal
         .backend()

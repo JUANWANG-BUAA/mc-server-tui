@@ -2,15 +2,15 @@
 
 > 核对日期：2026-10-19  
 > 代码版本：workspace `0.1.0`  
-> 协议版本：`API_PROTOCOL_VERSION = 8`  
+> 协议版本：`API_PROTOCOL_MIN..=API_PROTOCOL_MAX = 8..=9`（runner 协议 v1）
 > 核对方式：逐份阅读 `PRODUCT_DESIGN.md`、`BASE_IMPLEMENTATION_PLAN.md`、`MIRROR_ACCELERATION_DESIGN.md`、`UPSTREAM_DOWNLOAD_DESIGN.md` 和 `docs/` 契约，再对照 `crates/*` 的实际命令、API、测试和脚本。本文只记录可证实的状态；未来规划不当作已实现。
 
 ## 结论
 
 1. **基础闭环是真实的**：Paper 创建、下载校验、断点续传缓存、持久任务、常驻 runner、启停、控制台、日志、停机世界备份/恢复、TUI 会话 shell 和 CLI 查询都已经有代码和测试。
-2. **离文档定义的“第一个稳定版本”还有明显差距**：Vanilla、接管现有目录、`server.properties` 编辑、玩家管理、在线/定时备份、故障规则仍未实现；用户级服务安装完成了 Phase 0，但 Linux 实机验证和更新保护仍待补。其中 Vanilla 和接管目录属于首版承诺，不是可选项。
+2. **离文档定义的“第一个稳定版本”还有明显差距**：Vanilla、接管现有目录、`server.properties` 编辑、在线/定时备份、故障规则仍未实现；玩家管理、日志搜索、Fabric 建服和整合包导入本轮已落地。用户级服务安装完成了 Phase 0，但 Linux 实机验证和更新保护仍待补。其中 Vanilla 和接管目录属于首版承诺，不是可选项。
 3. **发布与分发仍处于起步**：已有基础 CI、Phase 0 的 `mc`/配置/服务安装，以及 Phase 1 的版本化安装器/manifest；但没有公开且签名的发布产物、Homebrew tap/apt/dnf 渠道、公证和更新器，当前仍是源码构建加本机打包。
-4. **热更新的关键底座已经具备，但还缺协议兼容和更新保护**：per-instance runner 会独立于 daemon 存活，daemon 重启后可重连，这是最难得的一半。缺的是 daemon/runner/状态 schema 的版本握手、更新前排空任务、原子版本目录和回滚。
+4. **热更新的关键底座已经具备，但仍缺状态迁移和更新保护**：per-instance runner 会独立于 daemon 存活，daemon 重启后可重连；本轮补上了 API N/N-1、runner 控制协议 v1 和 `mc update rollback`。仍缺状态 schema 迁移快照、更新前排空任务、签名自动更新器和健康检查式自动回退。
 5. **建议先做发布工程，而不是继续堆功能**：服务安装只到 Phase 0，更新保护还没有；功能越多，真实用户升级和排障成本越高。功能线可以并行补 Vanilla、接管目录和 `server.properties`。
 6. **Phase 0 与 Phase 1 发布工具已落地**（2026-10-19）：`mc` 启动器、`config.toml`、默认 User-Agent、`version --json`、`ServerInfo` 探针、launchd/systemd 用户服务管理；以及 tar.gz + SHA-256 + release manifest、版本化 `install.sh`、Homebrew formula 渲染、`mc uninstall`。macOS launchd 已做真实安装/重启/停止/卸载闭环；Linux systemd 有 `systemd-analyze` 测试和 CI 交叉编译，但还没有真实 Linux 主机安装证据。
 
@@ -43,25 +43,26 @@
 | Java 兼容规则按服务端与 MC 版本维护 | 🟡 | 向导优先 Java 21，其余只做“≥21”兜底；没有规则表、插件/mod 需求预检 |
 | 主机内存预算与多实例资源预测 | 🟡 | 单个实例有内存档位和端口检查；状态坞显示 CPU/RSS；没有“主机总量→系统预留→所有实例 Xmx→剩余预算” |
 | 基础故障规则与可复制诊断报告 | 🟡 | `doctor` 覆盖 Java、数据目录、磁盘、默认端口；没有日志规则、崩溃归因、脱敏报告导出 |
-| 日志暂停、搜索、等级过滤、复制行、跳转错误上下文 | ❌ | 只有跟随/滚动、增量读取和原始日志；没有搜索/过滤/复制 |
+| 多页面工作区、稳定编号、日志过滤/位置保留 | ✅ | 顶栏页面列表、Ctrl-B 导航、`/pages`/`/page`/`/close`；关闭页面不停止服务端；实例日志过滤和读取位置随页面保留 |
+| 日志暂停、搜索、等级过滤、复制行、跳转错误上下文 | 🟡 | 已实现级别着色、实时 `f` 过滤、横向滚动、滚动条跳转和 `/rg`（当前/上一份轮转日志，`-i`/`-e`）；仍缺暂停缓冲、复制行和错误上下文跳转 |
 | 在线备份（`save-off`/`save-all`/一致性标记） | ❌ | 当前契约明确是 stopped-world v1；在线备份没有实现 |
 | 简单定时备份 | ❌ | 没有 scheduler；任务只能手动提交 |
-| 在线玩家、白名单、封禁、OP 管理 | ❌ | 没有玩家模型或命令菜单 |
+| 在线玩家、白名单、封禁、OP 管理 | 🟡 | `/players` 通过类型化控制台命令完成 list/op/deop/ban/pardon/kick/whitelist/LuckPerms；在线模式按玩家名操作依赖 Mojang 档案查询，国内网络下可能慢或失败；CLI 尚未暴露这些操作 |
 | 用户级监督服务安装/卸载/开机启动 | 🟡 | Phase 0 已实现 `mc service install/start/stop/restart/status/uninstall`；launchd 在本机做过真实闭环，systemd 生成/单测/systemd-analyze 覆盖、尚无 Linux 主机安装证据；登录启动由 RunAtLoad/enable 提供，开机前启动仍需 linger/LaunchDaemon |
 | 配置文件（User-Agent、数据目录、更新通道等） | ✅ | `mc-config` 提供 `config.toml`、默认 UA、state/socket/cache 解析；env/flag 可覆盖；服务单元注入配置路径。发布前仍需把默认项目 URL 换成真实联系方式 |
-| 版本化安装、卸载、发布清单 | 🟡 | `scripts/package_release.py`、`scripts/install.sh`、`mc uninstall`、Homebrew formula 模板/渲染脚本已实现；未发布 tap/签名/公证/CI 多目标合并 manifest |
-| CLI 的 start/stop/logs 等日常命令 | 🟡 | CLI 有 doctor/status/paper/instance/backup/task/modpack；`status` 仍是 Ping，没有 start/stop/log/console；`mc status` 已能读取 ServerInfo |
+| 版本化安装、卸载、发布清单 | 🟡 | `scripts/package_release.py`、`scripts/install.sh`、`mc uninstall`、Homebrew formula 模板/渲染脚本已实现；本轮新增 `mc update status/rollback`，切换 `current`/`previous` 并重启服务；仍缺签名/公证、tap、CI 多目标合并 manifest 和更新前排空任务 |
+| CLI 的 start/stop/logs 等日常命令 | 🟡 | CLI 有 doctor/status/paper/instance/backup/task/modpack；`status` 仍是 Ping，没有 start/stop/log/console；本轮新增的玩家/日志/扩展/整合包操作只走 TUI 的 `ManageInstance`，CLI 尚未接入 |
 | 关闭终端后仍可管理 | ✅ | runner 不依赖终端；安装用户服务后 daemon 由 launchd/systemd 托管，未安装时仍需手工启动 |
 
 ## 2. P1：服务端专用优势
 
 | 文档要求 | 状态 | 证据与差距 |
 | --- | --- | --- |
-| Fabric 服务端与 `.mrpack` 物化导入 | ❌ | `mc-modpack` 只读分析；没有文件下载、解压、loader 安装、首启验证 |
-| 显式服务端包、普通 ZIP 导入 | ❌ | 没有本地包导入/安装路径 |
-| 多实例调度、端口分配、内存预算、批量维护窗口 | ❌ | 实例可独立启动，但没有调度器/主机预算/批量窗口 |
-| 运行观测历史（CPU、RSS、磁盘、网络、玩家、TPS/MSPT、堆/GC） | 🟡 | 状态坞每 2 秒读一次 CPU/RSS；没有采样历史、磁盘/网络、TPS/MSPT、JVM 指标 |
-| 告警（内存、磁盘、频繁重启、启动超时、卡顿） | ❌ | 没有阈值/持续时间/冷却/告警模型 |
+| Fabric 服务端与 `.mrpack` 物化导入 | 🟡 | `/fabric` 命令建服、Modrinth 扩展下载与必需依赖、MRPACK/ZIP 预览和停服导入已实现；Forge/NeoForge、CurseForge 文件 ID 授权下载和任意第三方依赖仍未实现 |
+| 显式服务端包、普通 ZIP 导入 | ✅ | `/import` 支持 ZIP/MRPACK 预览与 `--apply`，限制 10000 项/512 MiB/单文件 256 MiB，拒绝越界路径和符号链接，不覆盖世界与身份数据 |
+| 多实例调度、端口分配、内存预算、批量维护窗口 | ❌ | 实例可独立启动，创建时会跳过已占用端口；没有调度器/主机预算/批量窗口 |
+| 运行观测历史（CPU、RSS、磁盘、网络、玩家、TPS/MSPT、堆/GC） | 🟡 | 状态坞每 2 秒读一次 CPU/RSS，保留最近 60 次采样趋势；没有磁盘/网络、TPS/MSPT、JVM 指标 |
+| 告警（内存、磁盘、频繁重启、启动超时、卡顿） | 🟡 | 已实现异常退出、新 ERROR/Exception、单核 90% 持续 6 次采样、RSS 连续 3 次超过 Xmx；不会自动重启或杀进程；仍缺磁盘、启动超时、卡顿和冷却模型 |
 | 服务端构建更新与回滚预览 | ❌ | 只有创建时锁定 build；没有更新计划、快照、兼容性提示 |
 | 镜像源 Base 1（官方 CDN、缓存、代理、有限重试、同源续传） | 🟡 | 官方 CDN、缓存、续传、来源 UI 有；transport 明确 `.no_proxy()`；没有自动重试；元数据无缓存 |
 | 镜像源 Base 2（用户自定义镜像、手动切换、哈希验收隔离） | ❌ | 只有 `fill-data.papermc.io` 精确白名单 |
@@ -73,7 +74,7 @@
 | 文档要求 | 状态 | 差距 |
 | --- | --- | --- |
 | SSH 远程主机与本地一致视图 | ❌ | 只有 Unix socket 本机 |
-| NeoForge/Forge/Quilt、插件/mod 依赖图 | ❌ | 只有只读 `.mrpack` 分析 |
+| NeoForge/Forge/Quilt、插件/mod 依赖图 | 🟡 | Fabric 已解析目录中的必需依赖并识别 JAR 内的 Fabric API 模块；Forge/NeoForge/Quilt 和任意第三方依赖图未实现 |
 | 代理服/子服编排、模板共享 | ❌ | 无 |
 | 玩家行为审计、细粒度权限 | ❌ | 无 |
 | 外部通知、指标输出、计划任务、远端备份 | ❌ | 无 |
@@ -86,9 +87,9 @@
 - ✅ Paper Fill v3 元数据、稳定构建选择、Paper 产物下载。
 - ✅ 统一请求/下载契约：HTTPS、精确 host、DNS 公网校验、重定向限制、Range 续传、长度/哈希、缓存、原子提交。
 - ❌ Vanilla manifest/version JSON 与历史版本无服务端产物处理。
-- ❌ 托管 JDK、Fabric、`.mrpack` 同契约扩展。
+- 🟡 Fabric 元数据、Modrinth 版本/依赖和 `.mrpack` 下载已复用 HTTPS、精确 host、大小与 SHA-512 校验；托管 JDK 仍未实现。
 - 🟡 真实 macOS/Linux 网络环境核对、来源变更台账、逐来源联系/核对日期未形成。
-- ❌ 自动重试/退避；当前失败返回可重试错误，由用户重试。
+- ❌ 自动重试/退避；当前失败返回可重试错误，由用户重试。国内网络下 Modrinth/Fabric 没有镜像或代理回退。
 - ❌ 系统代理/显式代理；`transport.rs` 使用 `.no_proxy()`。
 
 ### `MIRROR_ACCELERATION_DESIGN.md`
@@ -100,9 +101,10 @@
 
 ### `docs/MODPACK_IMPORT.md`
 
-- ✅ `.mrpack` 只读分析：MC 版本、loader、`env.server`、路径穿越、哈希、下载域名、server-overrides。
+- ✅ `.mrpack` 分析：MC 版本、loader、`env.server`、路径穿越、哈希、下载域名、server-overrides。
 - ✅ daemon API `AnalyzeModpack`、CLI `modpack inspect`、TUI 选择/报告。
-- ❌ 物化导入任务、依赖下载、无符号链接/穿越解压、loader 安装、回滚边界、首启验证。
+- ✅ ZIP/MRPACK 停服导入：暂存、校验、相同内容跳过、冲突拒绝、不覆盖世界/身份数据/server.jar/server.properties、不执行包内脚本；支持 `overrides`/`server-overrides` 优先级。
+- ❌ 非 Fabric loader 安装（Forge/NeoForge）、CurseForge 文件 ID 下载、导入后首启验证和自动回滚。
 
 ### `docs/BACKUP_RESTORE_DESIGN.md`
 
@@ -116,8 +118,9 @@
 - 🟡 Linux `/proc` 分支已实现，但文档要求 CI/主机验证；当前 CI 还没有 Linux 矩阵。
 - ✅ launchd/systemd 用户级服务安装、状态、启停、重启、卸载（`mc service`）；macOS 已真实验证，Linux 待主机/CI 安装验证。
 - 🟡 登录启动：launchd RunAtLoad、systemd `enable` 已生成；Linux 开机前启动需要 `loginctl enable-linger`，当前未自动开启。
-- ❌ runner 控制协议版本握手（当前只是无版本的 JSON line；热更新需要）。
-- ❌ 更新期间的任务排空/守护进程优雅交接流程。
+- ✅ runner 控制协议 v1：请求/响应携带 `protocol`，缺失字段按 v1 处理；新 daemon 拒绝高于自身版本的请求。
+- ✅ API N/N-1：daemon 接受协议 8–9，回包使用请求版本；v9 独有的管理任务不会出现在 v8 的 `ListTasks` 中。
+- ❌ 更新期间的任务排空/守护进程优雅交接流程；状态 schema 迁移仍无快照。
 
 ### `docs/INSTANCE_SCHEMA.md`
 
@@ -152,17 +155,18 @@
 | `docs/ASYNC_CONCURRENCY.md` | 进度只有阶段、下载无法报告字节 | `TaskProgress.transfer` 已有下载字节/总大小/速度/来源；TUI 显示真实进度 |
 | `docs/ASYNC_CONCURRENCY.md` | 取消未暴露 | `CancelTask`、`mc-task` 协作取消、TUI 两次 `x`、CLI/TUI 已有 |
 | `docs/INSTANCE_SCHEMA.md` | 进度只有阶段、无取消 | 同上 |
-| `docs/SUPERVISION.md` | API protocol 6 | 当前协议 8 |
-| `docs/TUI_TESTING.md` | 旧测试总数 | 已更新为 workspace 164（Linux 165）/ `mc-tui` 74（2026-10-19，Phase 0/1 新增 11 项测试；Linux 的 systemd-analyze 额外 1 项） |
+| `docs/SUPERVISION.md` | API protocol 6 | 当前协议范围 8–9，runner 协议 v1 |
+| `docs/TUI_TESTING.md` | 旧测试总数 | 已更新为 workspace 200（Linux 201）/ `mc-tui` 84（2026-10-19；Linux 的 systemd-analyze 额外 1 项） |
+| `README*`、`docs/TUI_TESTING.md` | `.mrpack` 只读、没有玩家管理 | 已实现 ZIP/MRPACK 停服导入、`/players` 类型化操作、Fabric 建服和 Modrinth 扩展安装 |
 
 ## 6. 发布与分发阻塞项（按严重度）
 
 1. **服务安装只完成了 Phase 0**：`mc service` 已有 launchd/systemd 实现，但 Linux 真实安装、登录/开机启动、更新时“不杀 runner”的服务级验证还没完成。
 2. **发布产物已有，但签名/渠道仍未完成**：`v0.1.0` 已作为 unsigned alpha pre-release 发布四个平台的 tar.gz、SHA-256、manifest、install.sh 和 Homebrew formula；仍没有签名/公证、实际 tap/apt/dnf 仓库、SBOM、changelog。
-3. **没有协议兼容窗口**：TUI/CLI 与 daemon 仍精确匹配 API v8；`ServerInfo` 已能报告范围，但 daemon 不接受 N/N-1。daemon 热更新会瞬间让旧 TUI 报协议错误。
+3. ~~没有协议兼容窗口~~：已实现 API 8–9 协商、按请求版本回包和 v8 任务过滤；runner 控制协议为 v1。仍需自动更新器在切换前后做协议/状态检查。
 4. **没有状态迁移/降级保护**：实例 schema 仅 v1；更新后无法安全回退，缺少迁移前快照。
 5. **没有更新保护**：下载/备份/恢复任务运行时重启 daemon 会把这些任务标记为 interrupted；没有“排空/拒绝/等待”策略。
-6. **没有 runner 协议版本**：新 daemon 管理旧 runner 只能靠当前无版本 JSON 协议；不能承诺跨版本兼容。
+6. ~~没有 runner 协议版本~~：runner 控制协议 v1 已落地；旧帧缺少 `protocol` 时按 v1 处理，新 runner 拒绝更高版本请求。
 7. **Linux 发布验证不足**：CI 已加 macOS/Linux 构建测试，但 `/proc` 身份核验、`ps` 依赖、musl、systemd 实际安装还没有真实主机矩阵。
 8. **文档承诺的“稳定版验收”没有真实演练**：真实 Paper/Vanilla、真实存档、真实升级/回滚、干净环境安装。
 9. **没有安装/升级/卸载/支持文档**：PRODUCT_DESIGN 已明确这是公开发布门槛。
@@ -174,16 +178,16 @@
 
 1. ~~`mc` 稳定入口 + `config.toml`~~（已完成 Phase 0）。
 2. ~~`mc service install/uninstall/status/restart`~~（launchd 已真实验证；systemd 待 Linux 主机验证）。
-3. ~~版本/协议 `mc version --json` 与 `ServerInfo`~~（已完成；N/N-1 兼容窗口仍待 Phase 3）。
+3. ~~版本/协议 `mc version --json` 与 `ServerInfo`~~（已完成；API 8–9 协商与 runner v1 握手已落地）。
 4. ~~CI 矩阵 + tarball + 校验和 + `install.sh`~~（Phase 1 已实现本机闭环；Homebrew tap 发布/多目标合并仍待完成）。
-5. 更新前任务排空、原子版本目录、服务重启、健康检查、回滚。
+5. ~~`mc update status/rollback`~~（已完成 symlink 切换 + 服务重启）；仍需更新前任务排空、状态迁移快照、签名 updater、健康检查自动回退。
 
 ### 并行补功能
 
 - Vanilla provider + 接管现有目录（首版承诺）。
 - `server.properties` 编辑 + Java 兼容规则 + 基础故障规则。
-- 玩家管理 + 在线/定时备份。
-- 镜像 Base 2、Fabric/.mrpack 物化导入。
+- 在线/定时备份；玩家操作的 CLI 接入和结构化结果。
+- 镜像 Base 2、Forge/NeoForge 与 CurseForge 导入。
 
 ### 发布门槛
 

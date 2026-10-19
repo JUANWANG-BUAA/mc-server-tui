@@ -1,6 +1,7 @@
 # Server lifecycle and process identity contract
 
-> API protocol 8 · implemented in `mc-supervisor` and wired through `mc-daemon`
+> API protocol range 8–9 (current 9) · runner protocol 1 · implemented in
+> `mc-supervisor` and wired through `mc-daemon`
 
 ## API operations
 
@@ -16,6 +17,21 @@
 | `StopServer { instance_id, timeout_seconds }` | `ServerStatus` or structured error | Sends the Minecraft `stop` command and waits up to 25 seconds. A zero timeout selects the 20-second default. |
 | `SendConsoleCommand { instance_id, command }` | `ConsoleCommandAccepted` | Sends one line to a ready, verified process. Commands are limited to 512 printable bytes. |
 | `ReadServerLogs { instance_id, after_offset, max_bytes }` | `ServerLogs` | Returns at most 64 KiB from the captured console output and the next byte offset. |
+| `ManageInstance { instance_id, action }` | Depends on action | v9-only typed operations for connection info, monitoring, log search, player actions, add-on installation, and pack import/export. No shell strings are executed. |
+
+## Protocol compatibility
+
+- Request and response envelopes carry `protocol_version`. The daemon accepts
+  every version in 8–9 and replies with the request's version, so a v8 client
+  keeps working after the daemon is upgraded.
+- `ServerInfo` reports `api_protocol_min`/`api_protocol_max`, `state_schema`,
+  and `runner_protocol`. Clients negotiate the highest common API version and
+  reject v9-only operations locally when the daemon only speaks v8.
+- v9-only task kinds, phases, and results are hidden from v8 `ListTasks`
+  responses; a direct v8 read returns an actionable protocol error.
+- Runner control frames carry `protocol: 1`. The field is additive: frames that
+  omit it are treated as v1, so a new daemon can still send console commands to
+  an old runner and vice versa. A runner rejects requests newer than itself.
 
 Start and stop responses are observations, not long-lived promises. The TUI polls the detail endpoint while a server is starting or stopping. Readiness requires Paper's `Done (` log marker; an open port alone does not mean the game is ready. Before start, the supervisor checks that the configured TCP port can be bound. If it is occupied without a verified supervisor PID, the state is `unknown` and no process is started.
 

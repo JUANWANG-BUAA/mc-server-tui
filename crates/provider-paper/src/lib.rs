@@ -49,6 +49,8 @@ impl ServerProvider for PaperProvider {
         if versions.is_empty() {
             return Err(schema_error("Paper returned no versions."));
         }
+        versions.sort_by_key(|v| std::cmp::Reverse(mc_core::minecraft_version_key(&v.id)));
+        versions.dedup_by(|a, b| a.id == b.id);
         Ok(versions)
     }
 

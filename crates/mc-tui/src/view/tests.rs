@@ -13,7 +13,7 @@ fn renders_empty_dashboard_at_reference_width() {
     state.shell_visible = false;
     let text = render_to_text(80, 24, &state, 0);
 
-    assert!(text.contains("MCSERVERTUI"));
+    assert!(text.contains("MC"));
     assert!(text.contains("还没有服务器"));
     assert!(text.contains("后台任务"));
     assert!(text.contains("q退出"));
@@ -24,6 +24,7 @@ fn renders_instance_and_task_state() {
     let mut state = AppState::default();
     state.shell_visible = false;
     state.apply_refresh(Ok(DashboardData {
+        servers: Vec::new(),
         instances: vec![InstanceSummary {
             id: Uuid::new_v4(),
             name: "生存服".to_owned(),
@@ -73,7 +74,7 @@ fn renders_instance_and_task_state() {
         .find(|(symbol, _, _)| symbol == "◆")
         .expect("colored brand mark");
     assert_eq!(brand.1, Color::Rgb(217, 119, 87));
-    assert_eq!(brand.2, Color::Rgb(10, 10, 10));
+    assert_eq!(brand.2, Color::Rgb(24, 24, 24));
 }
 
 #[test]
@@ -81,7 +82,7 @@ fn compact_terminal_render_does_not_panic() {
     let mut state = AppState::default();
     state.shell_visible = false;
     let text = render_to_text(40, 12, &state, 0);
-    assert!(text.contains("MCSERVERTUI"));
+    assert!(text.contains("MC"));
 }
 
 fn render_to_text(width: u16, height: u16, state: &AppState, animation_frame: u8) -> String {

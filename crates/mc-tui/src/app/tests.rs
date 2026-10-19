@@ -14,6 +14,7 @@ use super::{Action, AppState, DashboardData};
 fn failed_refresh_keeps_the_last_successful_frame_data() {
     let mut state = AppState::default();
     state.apply_refresh(Ok(DashboardData {
+        servers: Vec::new(),
         instances: vec![InstanceSummary {
             id: Uuid::new_v4(),
             name: "生存服".to_owned(),
@@ -919,4 +920,55 @@ fn shell_minecraft_slash_commands_get_a_console_hint() {
         .join("\n");
     assert!(text.contains("未知命令 /say"));
     assert!(text.contains("Minecraft 控制台命令不加前导 /"));
+}
+
+#[test]
+fn server_readiness_is_announced_once_with_join_guidance() {
+    let instance = InstanceSummary {
+        id: Uuid::new_v4(),
+        name: "朋友服".to_owned(),
+        provider: "paper".to_owned(),
+        game_version: "1.21.11".to_owned(),
+        build_id: 1,
+        java_path: "/usr/bin/java".into(),
+        min_memory_mb: 1024,
+        max_memory_mb: 2048,
+        port: 25601,
+        directory: "/tmp/friends".into(),
+        created_at: Utc::now(),
+    };
+    let server = |state| mc_core::ServerSnapshot {
+        instance_id: instance.id,
+        state,
+        pid: None,
+        port: 25601,
+        address: "127.0.0.1:25601".to_owned(),
+        started_at: None,
+        last_exit_code: None,
+        message: String::new(),
+    };
+    let data = |state| DashboardData {
+        servers: vec![server(state)],
+        instances: vec![instance.clone()],
+        tasks: Vec::new(),
+    };
+    let mut state = AppState::default();
+    let announced = |state: &AppState| {
+        state
+            .transcript
+            .iter()
+            .filter(|entry| entry.text.contains("已就绪"))
+            .count()
+    };
+    // Already running when the TUI attaches: nothing to announce.
+    state.apply_refresh(Ok(data(mc_core::ServerState::Running)));
+    assert_eq!(announced(&state), 0);
+    state.apply_refresh(Ok(data(mc_core::ServerState::Starting)));
+    state.apply_refresh(Ok(data(mc_core::ServerState::Running)));
+    state.apply_refresh(Ok(data(mc_core::ServerState::Running)));
+    assert_eq!(announced(&state), 1);
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("/connect") && entry.text.contains("127.0.0.1:25601")));
 }

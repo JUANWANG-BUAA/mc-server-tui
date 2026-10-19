@@ -7,7 +7,7 @@
 ## 0. 一句话结论
 
 当前代码已经具备做“无停机更新”的最关键基础：**Java 由 per-instance runner 持有，management daemon 退出后 runner 继续运行，新 daemon 可以重连**。  
-Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --json`、`ServerInfo` 探针和 launchd/systemd 用户服务管理；Phase 1 已补上 versioned tarball、SHA-256、release manifest、`install.sh`、`mc uninstall` 和 Homebrew formula 渲染。仍然缺的是：公开发布/签名/公证、Homebrew tap 实际发布、N/N-1 协议窗口、状态迁移、更新前排空任务和回滚。
+Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --json`、`ServerInfo` 探针和 launchd/systemd 用户服务管理；Phase 1 已补上 versioned tarball、SHA-256、release manifest、`install.sh`、`mc uninstall` 和 Homebrew formula 渲染。API 已支持 8–9 协议窗口，runner 控制协议为 v1，`mc update status/rollback` 已能切换 `current`/`previous` 并重启服务。仍然缺的是：公开发布/签名/公证、Homebrew tap 实际发布、状态迁移快照、更新前排空任务、签名自动更新器和健康检查式自动回退。
 
 ## 0.1 Phase 0 实装边界（2026-10-19）
 
@@ -24,8 +24,10 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 尚未落地（Phase 2+）：
 
 - 公开下载、签名/公证、实际 Homebrew tap、apt/dnf 仓库、多目标 manifest 合并、SBOM、changelog。
-- daemon 接受 N/N-1 协议；当前仍精确 v8，`ServerInfo` 只是报告范围。
-- runner 协议握手、状态 schema 迁移、更新前排空任务、自动回滚。
+- ~~daemon 接受 N/N-1 协议~~：已接受 8–9，并按请求版本回包；v8 客户端看不到 v9 管理任务。
+- ~~runner 协议握手~~：控制帧携带 `protocol: 1`，缺失字段按 v1 处理。
+- ~~手工回滚~~：`mc update status/rollback` 已切换 `current`/`previous` 并重启服务。
+- 状态 schema 迁移快照、更新前排空任务、签名自动更新器、健康检查式自动回退。
 - Linux systemd 真实安装测试（当前有生成单测、`systemd-analyze` 测试和 CI 交叉编译）；macOS 公证；开机前启动/linger。
 
 ## 1. 目标与非目标
@@ -49,7 +51,7 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 ## 2. 现有架构与热更新的关系
 
 ```text
-TUI (client) ── Unix socket ──> daemon (API v8)
+TUI (client) ── Unix socket ──> daemon (API 8–9)
                                    │
                                    ├─ task manager / SQLite
                                    ├─ backup / restore
@@ -64,12 +66,12 @@ TUI (client) ── Unix socket ──> daemon (API v8)
 
 - `mc-daemon` 以 `--internal-runner=<uuid>` 启动 runner；runner 是同一个 daemon 可执行文件的隐藏模式。因此**已有 runner 在磁盘二进制被替换后仍持有旧 inode**；更新必须使用原子版本目录/rename，不能原地覆盖正在运行的二进制。
 - runner 独立于 daemon，持有 Java stdin/stdout/stderr，绑定私有 Unix socket，写 `server/supervisor.json`。
-- daemon 重启后通过 `supervisor.json` 和 runner socket 重连；已有真实子进程测试。新 daemon 管理旧 runner 的能力需要 runner 协议握手，不能只靠“当前 JSON line 恰好兼容”。
+- daemon 重启后通过 `supervisor.json` 和 runner socket 重连；已有真实子进程测试。新 daemon 管理旧 runner 已通过 runner 协议 v1 握手表达，不再依赖“当前 JSON line 恰好兼容”。
 - TUI 只是客户端；关闭 TUI 不影响服务器。
-- daemon/TUI/CLI 目前要求 **精确相同的 API protocol**（当前 v8）；daemon 更新后旧 TUI 会被拒绝。
+- daemon/TUI/CLI 已支持 **API 8–9 协商**；daemon 更新后旧 TUI 仍可按 v8 工作，v9 管理操作会在客户端本地被拒绝。
 - 任务在 daemon 重启时从 queued/running 变成 `interrupted`，不会自动重放；下载有 `.part` 续传，但任务本身不恢复。
 - 实例数据 schema 目前只有 v1；没有 in-place migration。
-- runner 控制协议目前没有版本握手，只是 JSON line。
+- runner 控制协议为 v1：控制帧携带 `protocol: 1`，缺失字段按 v1 处理。
 
 这些事实决定了热更新策略：**daemon 可以短暂重启，runner 不动；但更新必须避开活动任务，并且 TUI/daemon 的协议兼容需要单独设计。**
 
@@ -92,12 +94,12 @@ mc service install|uninstall|status|restart
 mc cli <args>          # 等价于 mc-server-tui-cli
 mc doctor [--json]
 mc version [--json]    # 版本、target、协议、状态 schema、runner 协议
-mc update [--check|--channel stable|--rollback]   # Phase 4
+mc update status|rollback [--dry-run] [--no-restart]  # rollback implemented; update/check Phase 4
 mc logs                                          # Phase 1（或先看服务日志）
 mc uninstall
 ```
 
-Phase 0/1 实际可用的子命令是 `tui`、`daemon run`、`cli`、`version`、`status`、`doctor`、`setup`、`service`、`uninstall`；`update`/`logs` 仍是后续阶段。实现方式有两种：
+Phase 0/1 实际可用的子命令是 `tui`、`daemon run`、`cli`、`version`、`status`、`doctor`、`setup`、`service`、`uninstall`，以及 `update status/rollback`；`update` 的下载/校验/排空流程和 `logs` 仍是后续阶段。实现方式有两种：
 
 | 方案 | 优点 | 缺点 | 建议 |
 | --- | --- | --- | --- |
@@ -432,13 +434,13 @@ xcrun stapler staple package.pkg
 
 ### 8.2 前置兼容改造（必须先做）
 
-1. **`Ping` 返回 ServerInfo**：版本、target、api_protocol min/max、state_schema、runner_protocol、update_channel。
-2. **API 兼容窗口**：daemon 接受 `[min,max]` 内的客户端，至少支持 N/N-1；TUI 连接后提示“需要重启/更新”。
-3. **runner 握手**：runner 在 control socket 首帧返回 `runner_protocol`；新 daemon 对旧 runner 标记 `legacy`，仍允许 stop/log/console 等已知命令，不贸然发送新命令。
-4. **state schema 迁移**：`mc migrate --check`/`--apply`；迁移前备份 `index.sqlite3` 和所有 `instance.toml`；记录迁移版本。
-5. **更新保护**：`ListTasks` 有 queued/running 任务、或存在 restore journal/活动生命周期操作时，`mc update` 默认拒绝；`--wait` 等待完成，`--force` 显式警告。
-6. **服务管理器抽象**：`launchctl`/`systemctl` 的 `install/start/stop/restart/status`，供 updater 调用。
-7. **优雅停止 daemon**：SIGTERM 后停止接收新连接、等待在飞请求（有超时）、移除 socket、退出；不等待/不杀 runner。
+1. ✅ **`ServerInfo`**：返回版本、api_protocol min/max、state_schema、runner_protocol。协议 8 以下的 daemon 不在兼容窗口内；`Ping` 仍保留为最小存活检查。
+2. ✅ **API 兼容窗口**：daemon 接受 `[8,9]` 内的客户端并按请求版本回包；客户端协商最高共同版本，v9 操作在 v8 daemon 上本地拒绝。
+3. ✅ **runner 握手**：控制帧携带 `protocol: 1`；缺失字段按 v1 处理，新 runner 拒绝更高版本请求。
+4. ❌ **state schema 迁移**：`mc migrate --check`/`--apply`；迁移前备份 `index.sqlite3` 和所有 `instance.toml`；记录迁移版本。
+5. ❌ **更新保护**：`ListTasks` 有 queued/running 任务、或存在 restore journal/活动生命周期操作时，`mc update` 默认拒绝；`--wait` 等待完成，`--force` 显式警告。
+6. ✅ **服务管理器抽象**：`launchctl`/`systemctl` 的 `install/start/stop/restart/status`，供 updater 调用。
+7. ❌ **优雅停止 daemon**：SIGTERM 后停止接收新连接、等待在飞请求（有超时）、移除 socket、退出；不等待/不杀 runner。
 
 ### 8.3 更新流程
 
@@ -557,7 +559,8 @@ TUI 首次运行如果发现 daemon 未运行，应显示一个 setup 引导，�
 
 ## 10. 回滚与数据安全
 
-- 保留至少 2 个版本：`current`/`previous`；`mc update --rollback` 切回并重启 daemon。
+- 保留至少 2 个版本：`current`/`previous`；`mc update rollback` 已能原子切回并重启 daemon（`--dry-run` 只显示计划，`--no-restart` 只切换 symlink）。
+- 回滚前会运行目标版本的 `mc version --json`，并与运行中 daemon 的 `state_schema` 比较；目标 schema 更旧时直接拒绝。当前仍没有迁移前状态快照，因此这只是“明确拒绝”，不是降级恢复。
 - 程序回滚不等于数据回滚：
   - schema 迁移前快照 `index.sqlite3` + `instance.toml`/`lock.json`（不复制世界，避免双倍大）。
   - 记录 `state_schema`；旧程序不能读新 schema 时，回滚必须先恢复快照，或明确拒绝。

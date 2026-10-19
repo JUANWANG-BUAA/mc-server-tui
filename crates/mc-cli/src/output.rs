@@ -5,6 +5,7 @@ pub(crate) fn print_response(
     include_experimental: bool,
 ) -> Result<(), AppError> {
     match response {
+        ApiResponse::ManagementReport(report) => println!("{report}"),
         ApiResponse::Pong => println!("daemon: running"),
         ApiResponse::ServerInfo(info) => {
             println!(
@@ -169,6 +170,7 @@ fn print_task(task: &TaskSnapshot) {
     }
     if let Some(result) = &task.result {
         match result {
+            mc_core::TaskResult::ManagementCompleted { report, .. } => println!("{report}"),
             mc_core::TaskResult::InstanceCreated(instance) => print_instance(instance),
             mc_core::TaskResult::WorldBackupCreated {
                 instance_id,

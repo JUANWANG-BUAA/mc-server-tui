@@ -37,6 +37,11 @@ pub(crate) async fn write_staged_instance(
     write_synced(&staging_path.join("instance.toml"), config_text.as_bytes()).await?;
     write_synced(&staging_path.join("lock.json"), &lock_json).await?;
     write_synced(&server_path.join("eula.txt"), b"eula=true\n").await?;
+    write_synced(
+        &server_path.join("server.properties"),
+        format!("server-port={}\n", config.port).as_bytes(),
+    )
+    .await?;
 
     for directory in [
         server_path,

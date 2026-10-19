@@ -22,7 +22,14 @@ impl AppState {
         };
         let instance_id = instance.id;
         if self.instance_detail_id != Some(instance_id) {
-            self.instance_detail = Some(InstanceDetailState::loading(instance_id));
+            if let Some(previous) = self.instance_detail.take() {
+                self.instance_cache.insert(previous.instance_id, previous);
+            }
+            self.instance_detail = Some(
+                self.instance_cache
+                    .remove(&instance_id)
+                    .unwrap_or_else(|| InstanceDetailState::loading(instance_id)),
+            );
             self.instance_detail_id = Some(instance_id);
             self.backup_manager = None;
             self.backup_manager_visible = false;
@@ -99,6 +106,18 @@ impl AppState {
             self.status = "上一项实例操作仍在运行。".to_owned();
             return;
         }
+        if self.servers.get(&instance_id).is_some_and(|server| {
+            matches!(
+                server.state,
+                mc_core::ServerState::Starting
+                    | mc_core::ServerState::Running
+                    | mc_core::ServerState::Stopping
+            )
+        }) {
+            self.status = "备份需要先停服：/stop，等待已停止后再 /backup。".to_owned();
+            self.push_transcript(TranscriptEntry::warning(self.status.clone()));
+            return;
+        }
         self.instance_operation_pending = true;
         self.instance_command_requested = Some(InstanceCommand::Backup(instance_id));
         self.status = "正在提交世界备份任务…".to_owned();
@@ -134,6 +153,12 @@ impl AppState {
     }
 
     pub(super) fn submit_console_command(&mut self) {
+        if let Some(detail) = self.instance_detail.as_mut() {
+            if detail.editing_filter {
+                detail.editing_filter = false;
+                return;
+            }
+        }
         if self.instance_operation_pending {
             return;
         }
@@ -183,20 +208,56 @@ impl AppState {
         let Some(instance_id) = self.instance_detail_id else {
             return;
         };
+        if result
+            .as_ref()
+            .is_ok_and(|update| update.detail.instance.id != instance_id)
+        {
+            return;
+        }
         let detail = self
             .instance_detail
             .get_or_insert_with(|| InstanceDetailState::loading(instance_id));
+        let previous_alerts = detail.alerts();
         detail.apply_update(result);
+        let alerts = detail.alerts();
+        let new_alerts = alerts
+            .into_iter()
+            .filter(|alert| !previous_alerts.contains(alert))
+            .collect::<Vec<_>>();
         if let Some(error) = &detail.error {
             self.status = format!("实例详情刷新失败：{error}");
         } else if let Some(server) = detail.detail.as_ref().map(|detail| &detail.server) {
-            self.status = server.message.clone();
+            self.status = crate::ui::server_message(&server.message);
+        }
+        for alert in new_alerts {
+            self.push_transcript(TranscriptEntry::warning(format!("告警：{alert}")));
         }
     }
 
     pub fn apply_instance_command_result(&mut self, result: InstanceCommandResult) {
         self.instance_operation_pending = false;
         match result {
+            InstanceCommandResult::Management(result) => match result.map(|response| *response) {
+                Ok(mc_core::ApiResponse::ManagementReport(report)) => {
+                    self.push_transcript(TranscriptEntry::assistant(report));
+                    self.status = "操作完成。".to_owned();
+                }
+                Ok(mc_core::ApiResponse::TaskQueued(task)) => {
+                    self.status = "任务已排队；/tasks 查看进度，完成结果会写入会话。".to_owned();
+                    self.push_transcript(TranscriptEntry::assistant(self.status.clone()));
+                    self.tasks.insert(0, task);
+                    self.refresh_requested = true;
+                }
+                Err(error) => {
+                    self.status = format!("操作失败：{}", error.reason);
+                    self.push_transcript(TranscriptEntry::error(format!(
+                        "{}\n{}",
+                        self.status,
+                        error.next_action.unwrap_or_default()
+                    )));
+                }
+                Ok(_) => self.push_transcript(TranscriptEntry::error("后台返回了意外响应。")),
+            },
             InstanceCommandResult::Status(result) => {
                 let mut transcript = None;
                 if let Some(detail) = self.instance_detail.as_mut() {
@@ -206,12 +267,19 @@ impl AppState {
                         detail.notice = Some(error.clone());
                         transcript = Some(TranscriptEntry::error(self.status.clone()));
                     } else if let Some(server) = detail.detail.as_ref().map(|data| &data.server) {
-                        self.status = format!("{} · {}", server.address, server.message);
-                        detail.notice = Some(server.message.clone());
-                        transcript = Some(TranscriptEntry::success(format!(
-                            "服务器状态：{} · {}",
-                            server.address, server.message
-                        )));
+                        let message = crate::ui::server_message(&server.message);
+                        self.status = format!("{} · {message}", server.address);
+                        detail.notice = Some(message.clone());
+                        let text = format!("服务器状态：{} · {message}", server.address);
+                        // Only a settled state earns the success marker; a start
+                        // that is still waiting for readiness is progress, not success.
+                        transcript = Some(match server.state {
+                            mc_core::ServerState::Running | mc_core::ServerState::Stopped => {
+                                TranscriptEntry::success(text)
+                            }
+                            mc_core::ServerState::Failed => TranscriptEntry::error(text),
+                            _ => TranscriptEntry::assistant(text),
+                        });
                     }
                 }
                 if let Some(entry) = transcript {
@@ -250,7 +318,8 @@ impl AppState {
                         mc_core::TaskKind::VerifyWorldBackup => "备份校验任务已加入后台队列。",
                         mc_core::TaskKind::PlanWorldBackupRestore => "恢复预览任务已加入后台队列。",
                         mc_core::TaskKind::RestoreWorldBackup => "世界恢复任务已加入后台队列。",
-                        mc_core::TaskKind::CreatePaperInstance => "后台任务已加入队列。",
+                        mc_core::TaskKind::CreatePaperInstance
+                        | mc_core::TaskKind::ManageInstance => "后台任务已加入队列。",
                     };
                     self.tasks.insert(0, *task);
                     self.selected_task = 0;
@@ -259,7 +328,7 @@ impl AppState {
                         detail.notice = Some(self.status.clone());
                     }
                     self.refresh_requested = true;
-                    self.push_transcript(TranscriptEntry::success(message));
+                    self.push_transcript(TranscriptEntry::assistant(message));
                 }
                 Err(error) => {
                     let message = match error.next_action {

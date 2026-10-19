@@ -149,3 +149,13 @@ fn requires_project_identity_and_contact_in_user_agent() {
     .expect("valid client setup");
     assert!(provider.validated_user_agent().is_ok());
 }
+
+#[test]
+fn conventional_plus_contact_user_agent_is_accepted() {
+    let agent = "mc-server-tui/0.1.0 (+https://github.com/JUANWANG-BUAA/mc-server-tui)";
+    let provider = PaperProvider::new(Some(agent.to_owned())).expect("provider");
+    assert_eq!(
+        provider.validated_user_agent().expect("default agent"),
+        agent
+    );
+}

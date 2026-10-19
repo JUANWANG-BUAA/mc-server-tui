@@ -15,58 +15,127 @@ use crate::{
 
 pub(crate) fn render(
     frame: &mut Frame<'_>,
+    area: Rect,
     app: &AppState,
     animation_frame: u8,
     hits: &mut HitMap,
 ) {
-    let compact = frame.area().width < 80 || frame.area().height < 20;
+    let compact = area.width < 80 || area.height < 19;
     let root = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(if compact { 2 } else { 3 }),
+            Constraint::Length(2),
             Constraint::Min(1),
             Constraint::Length(3),
             Constraint::Length(if compact { 3 } else { 5 }),
             Constraint::Length(1),
         ])
-        .split(frame.area());
+        .split(area);
 
-    render_header(frame, root[0], app, compact);
-    render_transcript(frame, root[1], app);
+    render_header(frame, root[0], app);
+    let activity = app
+        .tasks
+        .iter()
+        .find(|task| {
+            matches!(
+                task.status,
+                mc_core::TaskStatus::Running | mc_core::TaskStatus::Queued
+            )
+        })
+        .or_else(|| {
+            app.tasks.iter().find(|task| {
+                !matches!(
+                    task.kind,
+                    mc_core::TaskKind::ListWorldBackups
+                        | mc_core::TaskKind::VerifyWorldBackup
+                        | mc_core::TaskKind::PlanWorldBackupRestore
+                ) && task
+                    .finished_at
+                    .is_some_and(|time| (chrono::Utc::now() - time).num_seconds() < 10)
+            })
+        });
+    if let Some(task) = activity.filter(|_| root[1].height >= 10) {
+        let body = Layout::vertical([Constraint::Length(6), Constraint::Min(1)]).split(root[1]);
+        render_activity(frame, body[0], task, animation_frame);
+        render_transcript(frame, body[1], app, hits);
+    } else {
+        render_transcript(frame, root[1], app, hits);
+    }
     render_composer(frame, root[2], app, compact);
     render_dock(frame, root[3], app, animation_frame, compact);
     render_footer(frame, root[4], app);
     render_suggestions(frame, root[2], app, hits);
 }
 
-fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState, compact: bool) {
-    let online = !app.status.contains("失败");
-    let line1 = Line::from(vec![
-        Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-        Span::styled(
-            format!("v{}", env!("CARGO_PKG_VERSION")),
-            theme::dim().add_modifier(Modifier::BOLD),
+fn render_activity(frame: &mut Frame<'_>, area: Rect, task: &mc_core::TaskSnapshot, tick: u8) {
+    let active = matches!(
+        task.status,
+        mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running
+    );
+    let mut bar = ui::animated_progress(
+        ui::task_ratio(task),
+        area.width.saturating_sub(10) as usize,
+        tick,
+        active,
+    );
+    bar.push(Span::styled(
+        if active && task.progress.as_ref().is_none_or(|p| p.transfer.is_none()) {
+            "  …".to_owned()
+        } else {
+            format!(" {:>3}%", ui::task_percent(task))
+        },
+        status_style(task.status),
+    ));
+    let detail = if task.progress.as_ref().is_some_and(|p| p.transfer.is_some()) {
+        ui::task_detail_label(task)
+    } else if task.status == mc_core::TaskStatus::Succeeded {
+        "操作已完成；结果已写入下方会话。".to_owned()
+    } else if let Some(error) = &task.error {
+        error.reason.clone()
+    } else {
+        format!("{} · 操作进行中…", task.message)
+    };
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(vec![Span::styled(
+                format!(
+                    "{} {} · {}",
+                    crate::task_presentation::activity_symbol(task.status, tick),
+                    crate::task_presentation::kind_label(task.kind),
+                    phase_label(task.phase)
+                ),
+                status_style(task.status),
+            )]),
+            Line::from(bar),
+            Line::from(Span::styled(
+                ui::truncate(&detail, area.width.saturating_sub(4) as usize),
+                theme::muted(),
+            )),
+            Line::from(Span::styled(
+                if active {
+                    "/task 查看来源与事件 · /cancel 取消下载"
+                } else {
+                    "/tasks 查看任务历史"
+                },
+                theme::muted(),
+            )),
+        ])
+        .block(
+            Block::bordered()
+                .title(" 下载与后台任务 ")
+                .border_style(status_style(task.status))
+                .style(theme::surface()),
         ),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled("会话终端", theme::accent()),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled(crate::theme::current_theme().name(), theme::muted()),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled(
-            if online {
-                "● 在线"
-            } else {
-                "× 连接异常"
-            },
-            if online {
-                theme::success()
-            } else {
-                theme::danger()
-            },
-        ),
-    ]);
-    let line2 = Line::from(vec![
-        Span::styled(" 实例 ", theme::muted()),
+        area,
+    );
+}
+
+fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
+    let (online, online_style) = app.connection_badge();
+    let line = Line::from(vec![
+        Span::styled(" ", theme::muted()),
+        Span::styled(online, online_style),
+        Span::styled("  ·  实例 ", theme::muted()),
         Span::styled(
             app.instances.len().to_string(),
             theme::accent().add_modifier(Modifier::BOLD),
@@ -78,21 +147,16 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState, compact: boo
         ),
         Span::styled("  ·  ", theme::dim()),
         Span::styled(
-            ui::truncate(&app.status, area.width.saturating_sub(34) as usize),
-            if online {
-                theme::muted()
-            } else {
+            ui::truncate(&app.status, area.width.saturating_sub(30) as usize),
+            if app.connected == Some(false) {
                 theme::danger()
+            } else {
+                theme::muted()
             },
         ),
     ]);
-    let lines = if compact {
-        vec![line1]
-    } else {
-        vec![line1, line2]
-    };
     frame.render_widget(
-        Paragraph::new(lines).block(
+        Paragraph::new(line).block(
             Block::default()
                 .borders(Borders::BOTTOM)
                 .border_type(theme::border_type())
@@ -102,11 +166,12 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState, compact: boo
     );
 }
 
-fn render_transcript(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
+fn render_transcript(frame: &mut Frame<'_>, area: Rect, app: &AppState, hits: &mut HitMap) {
     if area.height == 0 {
         return;
     }
     let text_width = area.width.saturating_sub(2) as usize;
+    app.shell_text_width.set(text_width.saturating_sub(3));
     let lines = transcript_lines(app, text_width);
     let visible = area.height as usize;
     app.shell_viewport.set(visible);
@@ -120,12 +185,13 @@ fn render_transcript(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         Paragraph::new(visible_lines).style(theme::page()),
         Rect::new(area.x, area.y, area.width.saturating_sub(1), area.height),
     );
-    ui::scrollbar(
-        frame,
+    ui::scrollbar(frame, area, lines.len(), start, visible);
+    ui::scrollbar_hits(
         area,
         lines.len(),
-        lines.len().saturating_sub(end),
         visible,
+        hits,
+        crate::hit::ScrollView::Shell,
     );
 }
 
@@ -144,7 +210,12 @@ fn transcript_lines(app: &AppState, width: usize) -> Vec<Line<'static>> {
             crate::transcript::TranscriptRole::Error => ("×", theme::danger(), theme::danger()),
             crate::transcript::TranscriptRole::Muted => (" ", theme::dim(), theme::dim()),
         };
-        for (line_index, text) in entry.text.lines().enumerate() {
+        for (line_index, text) in entry
+            .text
+            .lines()
+            .flat_map(|line| ui::wrap_text(line, width.saturating_sub(3)))
+            .enumerate()
+        {
             let prefix = if line_index == 0 {
                 Span::styled(format!(" {marker} "), marker_style)
             } else {
@@ -153,9 +224,22 @@ fn transcript_lines(app: &AppState, width: usize) -> Vec<Line<'static>> {
             let text = if text.is_empty() {
                 String::new()
             } else {
-                ui::truncate(text, width.saturating_sub(3))
+                ui::truncate(&text, width.saturating_sub(3))
             };
-            lines.push(Line::from(vec![prefix, Span::styled(text, text_style)]));
+            if text.contains("INFO")
+                || text.contains("WARN")
+                || text.contains("ERROR")
+                || text.contains("Exception")
+            {
+                let mut spans = vec![prefix];
+                spans.extend(ui::log_line(&text, "").spans);
+                lines.push(Line::from(spans));
+            } else {
+                lines.push(Line::from(vec![
+                    prefix,
+                    Span::styled(ui::clean_terminal_text(&text), text_style),
+                ]));
+            }
         }
         if entry_index + 1 < app.transcript.len() {
             lines.push(Line::from(""));
@@ -368,14 +452,25 @@ fn dock_info_lines(
                 theme::dim(),
             )));
         } else {
-            let last = app.tasks.iter().find(|task| {
-                matches!(
-                    task.status,
-                    mc_core::TaskStatus::Succeeded
-                        | mc_core::TaskStatus::Failed
-                        | mc_core::TaskStatus::Cancelled
-                )
-            });
+            let last = app
+                .tasks
+                .iter()
+                .filter(|task| {
+                    !matches!(
+                        task.kind,
+                        mc_core::TaskKind::ListWorldBackups
+                            | mc_core::TaskKind::VerifyWorldBackup
+                            | mc_core::TaskKind::PlanWorldBackupRestore
+                    )
+                })
+                .find(|task| {
+                    matches!(
+                        task.status,
+                        mc_core::TaskStatus::Succeeded
+                            | mc_core::TaskStatus::Failed
+                            | mc_core::TaskStatus::Cancelled
+                    )
+                });
             if let Some(task) = last {
                 lines.push(Line::from(vec![
                     Span::styled(" 最近任务  ", theme::dim()),
@@ -423,7 +518,12 @@ fn task_line(task: &mc_core::TaskSnapshot, width: u16, animation_frame: u8) -> L
         Span::styled(format!("{}  ", phase_label(task.phase)), theme::muted()),
     ];
     let bar_width = if width < 90 { 8 } else { 14 };
-    spans.extend(ui::progress_bar(ratio, bar_width, theme::progress()));
+    spans.extend(ui::animated_progress(
+        ratio,
+        bar_width,
+        animation_frame,
+        task.status == mc_core::TaskStatus::Running,
+    ));
     spans.push(Span::styled(
         format!("  {percent:>3}%  "),
         if percent >= 100 {
@@ -466,8 +566,30 @@ fn instance_line(app: &AppState) -> Line<'static> {
     let Some(instance) = app.instances.get(app.selected_instance) else {
         return Line::from(vec![
             Span::styled(" ▸ ", theme::accent()),
-            Span::styled("还没有服务器", theme::text().add_modifier(Modifier::BOLD)),
-            Span::styled("  ·  输入 /create 新建 Paper 服务器", theme::dim()),
+            Span::styled(
+                if app
+                    .tasks
+                    .iter()
+                    .any(crate::task_presentation::is_cancelable_download)
+                {
+                    "正在准备新服务器"
+                } else {
+                    "还没有服务器"
+                },
+                theme::text().add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                if app
+                    .tasks
+                    .iter()
+                    .any(crate::task_presentation::is_cancelable_download)
+                {
+                    "  ·  /tasks 查看进度 · /cancel 取消"
+                } else {
+                    "  ·  输入 /create 新建 Paper 服务器"
+                },
+                theme::dim(),
+            ),
         ]);
     };
     let server = app
@@ -476,7 +598,12 @@ fn instance_line(app: &AppState) -> Line<'static> {
         .and_then(|detail| detail.detail.as_ref())
         .map(|detail| &detail.server);
     let state = server
-        .map(|server| (state_label(server.state), state_style(server.state)))
+        .map(|server| {
+            (
+                ui::server_state_label(server.state),
+                ui::server_state_style(server.state),
+            )
+        })
         .unwrap_or(("未加载", theme::dim()));
     Line::from(vec![
         Span::styled(" ▸ ", theme::accent()),
@@ -586,7 +713,7 @@ fn resource_line(app: &AppState, compact: bool) -> Line<'static> {
             spans.push(Span::styled("CPU —  ·  RSS —", theme::dim()));
         }
         (Some(state), _) if state != mc_core::ServerState::Unknown => {
-            spans.push(Span::styled(state_label(state), theme::muted()));
+            spans.push(Span::styled(ui::server_state_label(state), theme::muted()));
         }
         _ => {
             spans.push(Span::styled("状态未加载", theme::dim()));
@@ -605,39 +732,43 @@ fn resource_line(app: &AppState, compact: bool) -> Line<'static> {
 }
 
 fn render_mascot(frame: &mut Frame<'_>, area: Rect, animation_frame: u8, active: bool) {
-    const HAIR: Color = Color::Rgb(64, 43, 28);
-    const SKIN: Color = Color::Rgb(198, 134, 66);
-    const EYE: Color = Color::Rgb(240, 240, 240);
-    const PUPIL: Color = Color::Rgb(58, 79, 196);
-    const MOUTH: Color = Color::Rgb(91, 58, 34);
-
-    let blink = animation_frame % 24 < 2;
-    let eyes_open = active && !blink;
-    let sparkle = if active {
-        ["✦", "✧", "·", "✧"][usize::from(animation_frame) % 4]
-    } else if animation_frame % 8 < 4 {
-        "z"
-    } else {
-        "Z"
-    };
-    let eyes = if eyes_open {
-        vec![SKIN, EYE, PUPIL, SKIN, EYE, PUPIL, SKIN]
-    } else {
-        vec![SKIN, HAIR, HAIR, SKIN, HAIR, HAIR, SKIN]
-    };
-    let rows = [
-        vec![HAIR; 7],
-        vec![HAIR, SKIN, SKIN, SKIN, SKIN, SKIN, HAIR],
-        eyes,
-        vec![SKIN, SKIN, MOUTH, MOUTH, MOUTH, SKIN, SKIN],
+    // Steve's 8×8 face, two pixel rows per terminal cell; half blocks preserve
+    // the square silhouette, brown hair/beard, blue eyes and broad nose.
+    const PIXELS: [&str; 8] = [
+        "hhhhhhhh", "hhhhhhhh", "hssssssh", "ssssssss", "swessews", "ssnnnnss", "ssdbbdss",
+        "sssbbsss",
     ];
-    let mut lines = vec![Line::from(Span::styled(sparkle, theme::accent()))];
-    for row in rows {
-        lines.push(Line::from(
-            row.into_iter()
-                .map(|color| Span::styled("█", Style::default().fg(color)))
-                .collect::<Vec<_>>(),
-        ));
+    let color = |pixel| match pixel {
+        'h' => Color::Rgb(54, 37, 25),
+        's' | ' ' => Color::Rgb(181, 136, 108),
+        'w' => Color::Rgb(237, 234, 225),
+        'e' => Color::Rgb(75, 65, 145),
+        'n' => Color::Rgb(156, 105, 78),
+        'd' => Color::Rgb(106, 69, 46),
+        _ => Color::Rgb(67, 43, 29),
+    };
+    let mut lines = vec![Line::from(Span::styled(
+        if active {
+            ["·", "•", "●", "•"][usize::from(animation_frame) % 4]
+        } else {
+            "STEVE"
+        },
+        theme::muted(),
+    ))];
+    for pair in 0..4 {
+        let top: Vec<_> = PIXELS[pair * 2].chars().take(8).collect();
+        let bottom: Vec<_> = PIXELS[pair * 2 + 1].chars().take(8).collect();
+        let spans = (0..8)
+            .map(|x| {
+                let upper = if pair == 2 && (x == 2 || x == 5) && animation_frame % 40 < 2 {
+                    's'
+                } else {
+                    top[x]
+                };
+                Span::styled("▀", Style::default().fg(color(upper)).bg(color(bottom[x])))
+            })
+            .collect::<Vec<_>>();
+        lines.push(Line::from(spans));
     }
     frame.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
 }
@@ -660,27 +791,6 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         ])
     };
     frame.render_widget(Paragraph::new(line).style(theme::dim()), area);
-}
-
-fn state_label(state: mc_core::ServerState) -> &'static str {
-    match state {
-        mc_core::ServerState::Installed => "已安装",
-        mc_core::ServerState::Starting => "启动中",
-        mc_core::ServerState::Running => "运行中",
-        mc_core::ServerState::Stopping => "停止中",
-        mc_core::ServerState::Stopped => "已停止",
-        mc_core::ServerState::Failed => "启动失败",
-        mc_core::ServerState::Unknown => "状态未知",
-    }
-}
-
-fn state_style(state: mc_core::ServerState) -> Style {
-    match state {
-        mc_core::ServerState::Running => theme::success().add_modifier(Modifier::BOLD),
-        mc_core::ServerState::Starting | mc_core::ServerState::Stopping => theme::warning(),
-        mc_core::ServerState::Failed | mc_core::ServerState::Unknown => theme::danger(),
-        _ => theme::muted(),
-    }
 }
 
 #[cfg(test)]

@@ -2,3 +2,5 @@
 .DS_Store
 .learnings/
 dist/
+.playwright-mcp/
+__pycache__/

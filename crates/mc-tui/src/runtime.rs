@@ -11,6 +11,7 @@ mod input;
 use crate::{
     app::{Action, AppState, DashboardData},
     backup_manager::BackupCommand,
+    hit::HitTarget,
     instance_detail::{
         InstanceCommand, InstanceCommandResult, InstanceDetailQuery, InstanceDetailUpdate,
     },
@@ -55,7 +56,12 @@ pub(crate) async fn run_app(
         REFRESH_INTERVAL,
     );
     shell_detail_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut activity_timer = tokio::time::interval(Duration::from_millis(200));
+    activity_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let (tasks_tx, mut tasks_rx) = mpsc::channel(1);
+    let mut tasks_in_flight = false;
     let mut animation_frame = 0u8;
+    let mut scroll_drag_column = None;
     let (refresh_tx, mut refresh_rx) = mpsc::channel::<Result<DashboardData, AppError>>(1);
     let (create_tx, mut create_rx) = mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
     let (create_options_tx, mut create_options_rx) =
@@ -88,25 +94,42 @@ pub(crate) async fn run_app(
     start_refresh(Arc::clone(&source), refresh_tx.clone());
 
     while !state.should_quit() {
+        state.sync_pages();
         terminal.draw(|frame| render(frame, &state, animation_frame))?;
         tokio::select! {
             event = events.next() => match event {
                 Some(Ok(Event::Key(key))) if key.kind != KeyEventKind::Release => {
-                    let action = input::action_for_key(
-                        key.code,
-                        key.modifiers,
-                        input::mode_for_state(&state),
-                    );
+                    let action = if state.workspace_prefix {
+                        state.workspace_prefix = false;
+                        input::workspace_key(key.code)
+                    } else {
+                        input::action_for_key(key.code, key.modifiers, input::mode_for_state(&state))
+                    };
                     state.update(action);
                 }
                 Some(Ok(Event::Mouse(mouse))) => match mouse.kind {
-                    MouseEventKind::ScrollUp => state.update(Action::ScrollUp),
-                    MouseEventKind::ScrollDown => state.update(Action::ScrollDown),
+                    MouseEventKind::ScrollUp => state.mouse_wheel(mouse.column, mouse.row, false),
+                    MouseEventKind::ScrollDown => state.mouse_wheel(mouse.column, mouse.row, true),
                     MouseEventKind::Down(MouseButton::Left) => {
                         if let Some(target) = state.hit_target_at(mouse.column, mouse.row) {
+                            if matches!(target, HitTarget::Scrollbar(..)) {
+                                scroll_drag_column = Some(mouse.column);
+                            }
                             state.apply_click(target);
                         }
                     }
+                    // Dragging follows the scrollbar column even when the pointer
+                    // drifts sideways, so the thumb keeps tracking the row.
+                    MouseEventKind::Drag(MouseButton::Left) => {
+                        if let Some(column) = scroll_drag_column {
+                            if let Some(target @ HitTarget::Scrollbar(..)) =
+                                state.hit_target_at(column, mouse.row)
+                            {
+                                state.apply_click(target);
+                            }
+                        }
+                    }
+                    MouseEventKind::Up(MouseButton::Left) => scroll_drag_column = None,
                     _ => {}
                 },
                 Some(Ok(Event::Resize(_, _))) => {}
@@ -127,6 +150,22 @@ pub(crate) async fn run_app(
                     state.update(Action::RefreshInstanceDetail);
                 } else {
                     state.update(Action::Refresh);
+                }
+            }
+            // Active tasks are polled every 200 ms so progress bars move between
+            // the two-second dashboard refreshes; one request is in flight at most.
+            _ = activity_timer.tick(), if !tasks_in_flight && state.has_active_tasks() => {
+                tasks_in_flight = true;
+                let source = Arc::clone(&source);
+                let sender = tasks_tx.clone();
+                tokio::spawn(async move {
+                    let _ = sender.send(source.load_tasks().await).await;
+                });
+            }
+            result = tasks_rx.recv(), if tasks_in_flight => {
+                tasks_in_flight = false;
+                if let Some(Ok(tasks)) = result {
+                    state.apply_task_list(tasks);
                 }
             }
             _ = animation_timer.tick(), if state.has_animated_work() || state.shell_animation_active() => {
@@ -355,6 +394,15 @@ fn start_instance_command(
 ) {
     tokio::spawn(async move {
         let result = match command {
+            InstanceCommand::Manage {
+                instance_id,
+                action,
+            } => InstanceCommandResult::Management(
+                source
+                    .manage_instance(instance_id, action)
+                    .await
+                    .map(Box::new),
+            ),
             InstanceCommand::Start(instance_id) => {
                 InstanceCommandResult::Status(source.start_server(instance_id).await)
             }

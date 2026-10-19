@@ -30,7 +30,7 @@ The `TestBackend` tests own deterministic layout and content checks. PTY tests o
 
 For a release candidate, run the TUI in a real terminal at the reference sizes, drive the fake daemon through each task state, and capture terminal screenshots. Review hierarchy, truncation, contrast, progress indication, and resize behavior against the same fixtures used by the renderer tests. A screenshot is a review artifact; the deterministic cell snapshot remains the CI regression check.
 
-The optional browser projection uses `ttyd` on localhost and a normal browser, so it can be used when host-window screenshots are unavailable. Start the protocol-v8 fake daemon and TUI from the repository root:
+The optional browser projection uses `ttyd` on localhost and a normal browser, so it can be used when host-window screenshots are unavailable. Start the protocol-v9 fake daemon and TUI from the repository root:
 
 ```sh
 python3 -u scripts/tui_visual_fake_daemon.py --socket /tmp/mc-tui-visual.sock
@@ -88,11 +88,14 @@ The screen sequence is tested independently:
 | Classic dashboard | Empty-state guidance, populated layout and grouped command palette at both sizes | Ctrl-K palette dispatch, `/new` shell wizard entry, Ctrl-C while daemon replies are stalled |
 | Guided create | Version/Java/memory pickers, review, explicit EULA and loading/error states at both sizes | palette `/new` path selection, ↑/↓ version navigation, submit, byte progress and two-press cancellation |
 | Task detail | Status, byte transfer bar, source, speed, events and cursor at both sizes | `/task 1`, events `1→2→3`, refresh cursor, close/reopen, progress polling and cancellation request |
-| Modpack import | Picker, loading, blocked/review report and compact layout | Palette entry, local `.mrpack` selection and daemon analysis response (renderer/state coverage) |
+| Modpack import | Picker, loading, blocked/review report, apply confirmation and compact layout | Palette entry, local `.mrpack` selection, analysis and apply response (renderer/state coverage) |
+| Workspace pages | Top bar page list, stable IDs, close/jump, preserved log filter and position at both sizes | Ctrl-B navigation, `/pages`, `/page`, `/close` (renderer/state coverage) |
+| Players and logs | `/players` help, online list, typed actions, `/rg` results, live filter and level colors | `/players` action dispatch and `/rg` arguments (renderer/state coverage) |
+| Add-ons and packs | `/mods` catalog/install states, `/import` preview/apply, `/export` destination | Add-on install and pack import arguments (renderer/state coverage) |
 | Instance detail | State, address, CPU/RSS, logs and controls at both sizes | `/open`, start, incremental console log, console command, graceful stop, return and restore terminal |
 | World and backups | Catalog, selected summary, plan impact, confirmation and restore result at both sizes | Enter detail, open manager, poll list task, verify selected backup, build restore plan, type RESTORE, poll restore task, return to detail |
 
-Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 scripts/tui_task_detail_pty.py && python3 scripts/tui_guided_create_pty.py && python3 scripts/tui_instance_detail_pty.py`. These PTY checks validate the terminal stream and key path against fake daemons. The integrated create flow asserts the exact submitted version, Java executable, memory, port, EULA flag, transfer content, cancel request count, and alternate-screen cleanup.
+Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 scripts/tui_task_detail_pty.py && python3 scripts/tui_guided_create_pty.py && python3 scripts/tui_instance_detail_pty.py`. For the real transport window, run `cargo build -p mc-daemon && python3 scripts/check_protocol_window.py` (no Paper or Java needed). These PTY checks validate the terminal stream and key path against fake daemons. The integrated create flow asserts the exact submitted version, Java executable, memory, port, EULA flag, transfer content, cancel request count, and alternate-screen cleanup.
 
 ## 会话 shell 与主题（2026-10-18）
 
@@ -109,13 +112,13 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 验证：
 
-- `cargo test -p mc-tui`：74 个单元/渲染测试，覆盖 shell 命令、光标编辑、Enter 执行高亮补全、列表输出定位、transcript、completion popup、内联 `/logs`/`/cancel`、主题解析/枚举、史蒂夫像素头像帧差异、版本列表滚动和 classic 回归。
+- `cargo test -p mc-tui`：84 个单元/渲染测试，覆盖 shell 命令、光标编辑、Enter 执行高亮补全、列表输出定位、transcript、completion popup、内联 `/logs`/`/cancel`、主题解析/枚举、史蒂夫像素头像帧差异、版本列表滚动和 classic 回归。
 - 四个 PTY 脚本已改为 shell 入口：smoke 用 `/new` 打开向导；guided create 用 Ctrl-K 打开命令面板、`/task 1` 打开任务；task detail 用 `/task 1` 重开并保持事件游标；instance detail 用 `/open` 打开、`/quit` 退出。四者均通过。
 - 浏览器 80×24 截图覆盖 `shell-session-claude/mono/ocean`、命令补全、`/status`、F1 帮助、向导版本列表、任务进度和经典双面板。截图是视觉审查证据，交互和动画仍由状态测试与 PTY 字节流证明。
 
 ## 历史真实终端验收记录（2026-10-17）
 
-这条历史记录最初使用协议 v5 假 daemon，在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件；之后曾升级至协议 v6 并加入分页列表。当前假 daemon 和 PTY 回归已升级到协议 v8，包含恢复计划、恢复任务、取消请求和整合包静态分析接口。
+这条历史记录最初使用协议 v5 假 daemon，在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件；之后曾升级至协议 v6 并加入分页列表。当前假 daemon 和 PTY 回归已升级到协议 v9（daemon 同时接受 v8 请求），包含恢复计划、恢复任务、取消请求、整合包分析、玩家操作和扩展管理接口。
 
 复跑时先执行 `cargo build -p mc-tui`，然后在一个终端启动 `python3 -u scripts/tui_visual_fake_daemon.py --socket /tmp/mc-tui-visual.sock`，再在另一个终端运行 `./target/debug/mc-server-tui --socket /tmp/mc-tui-visual.sock`。结束 TUI 后用 Ctrl-C 停止假 daemon。
 
@@ -190,7 +193,7 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 - 包名、版本、Minecraft 版本和唯一加载器；
 - 安装/待确认/排除/Mod/server-overrides 数量与总大小；
 - 每条问题的严重级别、证据、下一步动作；
-- “当前只读检查不会下载 Mod，也不会创建或修改实例”的边界提示。
+- “当前只读检查不会下载 Mod，也不会创建或修改实例”的边界提示（该轮为只读检查；协议 v9 已加入预览后的停服导入）。
 
 当前 TUI PTY 回归使用 fake daemon 覆盖选择与分析结果渲染；真实 `.mrpack` ZIP 解析由 `mc-modpack` 集成测试覆盖，包括 `env.server=required/optional/unsupported`、客户端资源排除、server-overrides 计数和 `../escape.jar` 路径越界阻断。
 
@@ -211,13 +214,47 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 ### 当前明确边界
 
-- 下载来源目前只展示并验证官方 Paper CDN，不提供无真实传输实现和可信域名的装饰性镜像下拉框。镜像仍受官方 hash/size 权威、候选隔离和失败回退设计约束，详见 `INTERACTION_DESIGN.md` 与 `MIRROR_ACCELERATION_DESIGN.md`。
-- `.mrpack` 当前完成只读适配分析，尚未执行文件下载、覆盖解压、加载器安装和首启验证。下一阶段必须把这些操作纳入持久任务和回滚边界。
-- 取消目前由下载传输路径实际协作检查；未来新增的长时间任务必须同样定期检查 `TaskReporter::is_cancelled()`，不能仅依赖 UI 请求。
+- Paper 使用官方 CDN；Fabric 元数据、Modrinth 扩展和 MRPACK 下载使用各自官方来源并校验 SHA-512。没有自定义镜像、自动重试或代理回退，国内网络下可能慢或失败。
+- `.mrpack` 已完成分析、预览和停服导入；Forge/NeoForge、CurseForge 文件 ID 授权下载、首启验证和自动回滚仍未实现。
+- 玩家操作通过类型化控制台命令执行。在线模式下按玩家名执行 `op`/白名单需要 Mojang 档案查询，国内网络下可能等待约 10 秒或失败；TUI 会显示服务端响应或超时说明。
+- 取消由下载传输路径实际协作检查；未来新增的长时间任务必须同样定期检查 `TaskReporter::is_cancelled()`，不能仅依赖 UI 请求。
+
+## 协议 v9、工作区与玩家/扩展闭环（2026-10-19）
+
+这一轮把日常管理从“单页仪表盘”扩展到多页面工作区，并补上玩家、日志、Fabric 和整合包操作。协议升到 v9，同时保留 v8 兼容窗口。
+
+### 协议协商
+
+- 客户端第一次请求前用 `server_info` 在协议 8 上探测 daemon；双方取最高共同版本。daemon 接受 8–9，并用请求版本回包。
+- v9 独有的 `manage_instance` 在 v8 daemon 上由客户端本地拒绝，提示升级，不会发送未知操作。
+- v9 独有的任务 kind/phase/result 不会出现在 v8 的 `list_tasks` 中；v8 直接读取时返回 `PROTOCOL_INVALID`。
+- runner 控制帧携带 `protocol: 1`，缺失字段按 v1 处理。
+- 四个 PTY 假 daemon 都实现了 `server_info` 协商探针；`scripts/check_protocol_window.py` 启动隔离的真实 daemon，验证 v8/v9 ping、v8 `manage_instance` 拒绝和越界版本错误，并已接入 CI 的 `Real daemon protocol window` 步骤。
+
+### 工作区与日志
+
+- 顶栏显示稳定页面编号、当前页和总数；Ctrl-B 后 `n`/`p` 切换、`w` 列表、`x` 关闭、`1`–`9` 跳转；`/pages`、`/page <n>`、`/close [n]` 等价。
+- 关闭页面不会停止服务端；实例页的日志过滤和读取位置保留。
+- 实例日志按级别着色，`f` 实时过滤，`←`/`→` 横向查看，右侧滚动条可拖动；`/rg [-i] [-e]` 搜索当前和上一份轮转日志并返回文件与行号。
+- `/connect` 区分本机/局域网/外网接口候选；`/monitor` 查询实际 Minecraft 状态和在线人数，`/open` 显示 CPU/RSS 最近 60 次采样。
+- 告警覆盖异常退出、新 ERROR/Exception、单核 90% 持续 6 次采样、RSS 连续 3 次超过 Xmx；不会自动重启或杀进程。
+
+### 玩家、Fabric 与扩展
+
+- `/players` 的 list/op/deop/ban/pardon/kick/allow/deny/whitelist-on/whitelist-off 都转换为类型化控制台命令；LuckPerms 组和权限节点也走同一路径。
+- `/fabric <name> <version> --accept-eula` 创建 Fabric 实例，自动选择稳定 loader、兼容 Java、未占用端口和 1–4 GiB 初始内存。
+- `/mods search|install` 从 Modrinth 目录筛选 Paper 插件/Fabric 模组，校验 SHA-512、解析必需依赖、检测 JAR 内 Fabric API 模块、拒绝客户端专用文件，并要求停服。
+- `/import` 预览 ZIP/MRPACK，`--apply` 在停服后暂存、校验并导入；同内容跳过、冲突拒绝，不覆盖世界/身份数据/server.jar/server.properties，不执行包内脚本。`/export` 生成带 SHA-256 清单的服务端扩展与配置包。
+
+### 验证
+
+- `cargo test --workspace`：200 项通过（Linux 额外 `systemd-analyze` 为 201 项），其中 `mc-tui` 84、`mc-core` 13、`mc-daemon` 17、`mc-client` 2、`mc-supervisor` 11、`mc` 10。
+- 新增协议测试覆盖：服务端报告 state/runner 版本、旧 `ServerInfo` 缺字段默认值、daemon 接受 v8/v9 并拒绝越界版本、v8 请求过滤 v9 任务、v8 客户端拒绝 v9 操作、runner 旧帧兼容、`mc update rollback` symlink 交换与目标 `state_schema` 读取。
+- 四个 PTY 回归全部通过；假 daemon 先响应 `server_info`，再继续原有的实例/任务/备份/取消断言。
 
 ## 本轮自动化回归
 
-- `cargo test --workspace`：通过，macOS 本地 164 项测试（Linux 额外运行 `systemd-analyze` 校验，为 165 项），其中 `mc-tui` 74 项、`mc-config` 4 项、`mc` 6 项（Linux 7 项）、`mc-modpack` 2 项、`mc-task` 10 项、`mc-download` 8 项、`mc-core` 8 项。
+- `cargo test --workspace`：通过，macOS 本地 200 项测试（Linux 额外运行 `systemd-analyze` 校验，为 201 项），其中 `mc-tui` 84 项、`mc-core` 13 项、`mc-daemon` 17 项、`mc-client` 2 项、`mc-supervisor` 11 项、`mc-backup` 19 项、`mc` 10 项（Linux 11 项）、`mc-config` 4 项、`mc-modpack` 2 项、`mc-task` 10 项、`mc-download` 8 项、`mc-instance` 6 项、`provider-paper` 8 项、`mc-cli` 4 项、`mc-system` 2 项。
 - `cargo clippy --workspace --all-targets -- -D warnings`：通过。
 - `./target/debug/mc version --json`、`mc service install --dry-run`、macOS launchd 临时配置安装/重启/停止/卸载：通过。
 - Phase 1 发布工具：`package_release.py` 生成 tar.gz/SHA-256/manifest，`install.sh` 安装到版本化目录，`mc uninstall` 清理服务/launcher/版本目录并保留数据；本机 file:// manifest 安装闭环、版本化 launcher + launchd `setup`/`uninstall` 已跑通。
@@ -241,7 +278,7 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 ### 引导与整合包视觉验收（2026-10-18）
 
-同一套 `ttyd` + Playwright 流程连接协议 v8 假 daemon，在实测 80×24 终端中完成命令面板、向导三阶段、下载进度及整合包检查截图。截图只证明静态视觉层级；动画、输入、取消请求和 alternate-screen 恢复仍由 PTY/状态回归证明。
+同一套 `ttyd` + Playwright 流程连接当时的协议 v8 假 daemon，在实测 80×24 终端中完成命令面板、向导三阶段、下载进度及整合包检查截图。截图只证明静态视觉层级；动画、输入、取消请求和 alternate-screen 恢复仍由 PTY/状态回归证明。
 
 ![80×24 引导式仪表盘](../output/playwright/theme-guided-dashboard-80x24.png)
 

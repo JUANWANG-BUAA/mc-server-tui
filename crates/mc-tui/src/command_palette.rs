@@ -2,6 +2,7 @@ use crate::app::{AppState, Panel};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CommandId {
+    Shell(&'static str),
     OpenCreate,
     ImportModpack,
     OpenSelectedInstance,
@@ -26,7 +27,6 @@ pub(crate) enum CommandId {
     CancelWizard,
     GoDashboard,
     ShowShell,
-    ShowClassic,
     Theme,
     Help,
     Back,
@@ -106,54 +106,18 @@ impl CommandPaletteState {
             && !state.task_detail_visible
             && !state.instance_detail_visible
         {
-            entries.push(CommandEntry::new(
-                CommandId::OpenCreate,
-                "创建",
-                "新建 Paper 服务器",
-                "打开结构化向导；版本与 Java 自动发现",
-                Some("/create"),
-                &["new", "create", "paper", "新建", "创建"],
-            ));
-            entries.push(CommandEntry::new(
-                CommandId::ImportModpack,
-                "创建",
-                "导入整合包",
-                "扫描 .mrpack 并执行只读兼容性检查",
-                Some("/import"),
-                &["import", "modpack", "mrpack", "整合包"],
-            ));
-            entries.push(CommandEntry::new(
-                CommandId::OpenSelectedInstance,
-                "导航",
-                "打开所选实例",
-                "进入实例详情：日志、启停、备份和命令输入",
-                Some("/open"),
-                &["open", "instance", "打开", "实例"],
-            ));
-            entries.push(CommandEntry::new(
-                CommandId::OpenSelectedTask,
-                "导航",
-                "打开所选后台任务",
-                "查看字节进度、事件游标和取消入口",
-                Some("/task"),
-                &["open", "task", "任务"],
-            ));
-            entries.push(CommandEntry::new(
-                CommandId::Refresh,
-                "实例",
-                "刷新实例与任务",
-                "立即重新读取仪表盘和选中实例状态",
-                Some("/refresh"),
-                &["refresh", "刷新"],
-            ));
-            entries.push(CommandEntry::new(
-                CommandId::ShowClassic,
-                "导航",
-                "切换到经典双面板",
-                "保留会话记录，切回实例/任务双面板布局",
-                Some("/classic"),
-                &["classic", "dashboard", "经典", "面板"],
-            ));
+            for command in crate::shell::SHELL_COMMANDS {
+                let mut aliases = command.aliases.to_vec();
+                aliases.push(command.name);
+                entries.push(CommandEntry::new(
+                    CommandId::Shell(command.name),
+                    "命令",
+                    format!("/{} {}", command.name, command.args),
+                    command.summary,
+                    None,
+                    &aliases,
+                ));
+            }
         } else if state.wizard.is_some() {
             entries.push(CommandEntry::new(
                 CommandId::WizardAdvance,
@@ -388,6 +352,27 @@ impl CommandPaletteState {
                 Some("r"),
                 &["refresh", "刷新"],
             ));
+        }
+
+        for name in [
+            "pages", "page", "close", "connect", "monitor", "players", "mods", "rg", "export",
+            "fabric",
+        ] {
+            if !entries
+                .iter()
+                .any(|entry| entry.id == CommandId::Shell(name))
+            {
+                if let Some(command) = crate::shell::find(name) {
+                    entries.push(CommandEntry::new(
+                        CommandId::Shell(name),
+                        "工作区与管理",
+                        format!("/{} {}", command.name, command.args),
+                        command.summary,
+                        None,
+                        &[command.name],
+                    ));
+                }
+            }
         }
 
         if state.wizard.is_some() {

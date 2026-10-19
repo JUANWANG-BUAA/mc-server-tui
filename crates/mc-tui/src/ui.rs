@@ -1,5 +1,3 @@
-use std::fmt::Write as _;
-
 use unicode_width::UnicodeWidthChar;
 
 use mc_core::TaskSnapshot;
@@ -47,6 +45,41 @@ pub(crate) fn progress_bar(ratio: f64, width: usize, fill: Style) -> Vec<Span<'s
         spans.push(Span::styled("░".repeat(width - used), theme::track()));
     }
     spans
+}
+
+/// Moving highlights indicate activity without inventing download progress.
+pub(crate) fn animated_progress(
+    ratio: f64,
+    width: usize,
+    frame: u8,
+    active: bool,
+) -> Vec<Span<'static>> {
+    if !active || ratio >= 1.0 {
+        return progress_bar(ratio, width, theme::progress());
+    }
+    let filled = (ratio.clamp(0.0, 1.0) * width as f64).floor() as usize;
+    let phase = usize::from(frame) % width.max(1);
+    (0..width)
+        .map(|i| {
+            if i < filled {
+                Span::styled(
+                    if i == phase { "▓" } else { "█" },
+                    if i == phase {
+                        theme::success()
+                    } else {
+                        theme::progress()
+                    },
+                )
+            } else if i == filled || (filled == 0 && i == phase) {
+                Span::styled(
+                    ["▏", "▎", "▍", "▌", "▋", "▊", "▉", "█"][usize::from(frame) % 8],
+                    theme::accent(),
+                )
+            } else {
+                Span::styled("░", theme::track())
+            }
+        })
+        .collect()
 }
 
 pub(crate) fn task_ratio(task: &TaskSnapshot) -> f64 {
@@ -159,7 +192,7 @@ pub(crate) fn scrollbar(
         panel.height.saturating_sub(2),
     );
     let mut state = ScrollbarState::new(content_length)
-        .position(position.min(content_length.saturating_sub(1)))
+        .position(position.min(content_length.saturating_sub(viewport_content_length.max(1))))
         .viewport_content_length(viewport_content_length.max(1));
     let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
         .begin_symbol(Some("↑"))
@@ -205,18 +238,40 @@ pub(crate) fn truncate(text: &str, max_columns: usize) -> String {
     if max_columns == 0 {
         return String::new();
     }
-    let mut output = String::new();
+    if display_width(text) <= max_columns {
+        return text.to_owned();
+    }
+    let mut out = String::new();
     let mut width = 0;
-    for character in text.chars() {
-        let character_width = character.width().unwrap_or(0);
-        if width + character_width > max_columns {
-            let _ = write!(output, "…");
+    for c in text.chars() {
+        let size = c.width().unwrap_or(0);
+        if width + size > max_columns - 1 {
             break;
         }
-        output.push(character);
-        width += character_width;
+        out.push(c);
+        width += size;
     }
-    output
+    out.push('…');
+    out
+}
+
+pub(crate) fn wrap_text(text: &str, width: usize) -> Vec<String> {
+    let width = width.max(2);
+    let text = clean_terminal_text(text);
+    let mut lines = Vec::new();
+    let mut line = String::new();
+    let mut used = 0;
+    for c in text.chars() {
+        let size = c.width().unwrap_or(0);
+        if used + size > width {
+            lines.push(std::mem::take(&mut line));
+            used = 0;
+        }
+        line.push(c);
+        used += size;
+    }
+    lines.push(line);
+    lines
 }
 
 /// Trim a styled line without splitting wide characters; style survives per span.
@@ -233,4 +288,261 @@ pub(crate) fn clamp_line(line: Line<'static>, max_columns: usize) -> Line<'stati
         spans.push(Span::styled(text, span.style));
     }
     Line::from(spans)
+}
+
+/// Semantic coloring is applied after removing terminal control sequences.
+pub(crate) fn clean_terminal_text(input: &str) -> String {
+    let mut out = String::new();
+    let mut chars = input.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            match chars.next() {
+                Some('[') => {
+                    for c in chars.by_ref() {
+                        if ('@'..='~').contains(&c) {
+                            break;
+                        }
+                    }
+                }
+                Some(']') => {
+                    while let Some(c) = chars.next() {
+                        if c == '\x07' {
+                            break;
+                        }
+                        if c == '\x1b' && chars.peek() == Some(&'\\') {
+                            chars.next();
+                            break;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        } else if c == '\t' {
+            out.push_str("    ");
+        } else if !c.is_control() {
+            out.push(c);
+        }
+    }
+    out
+}
+pub(crate) fn log_line(input: &str, query: &str) -> Line<'static> {
+    let text = clean_terminal_text(input);
+    let upper = text.to_ascii_uppercase();
+    let style = if upper.contains("ERROR") || upper.contains("FATAL") || upper.contains("EXCEPTION")
+    {
+        theme::danger()
+    } else if upper.contains("WARN") {
+        theme::warning()
+    } else if text.contains("Done (") || text.contains("joined the game") || text.contains("Saved")
+    {
+        theme::success()
+    } else if upper.contains("CHAT") || text.contains("<") {
+        ratatui::style::Style::default().fg(ratatui::style::Color::Cyan)
+    } else {
+        theme::text()
+    };
+    let query = clean_terminal_text(query);
+    if query.is_empty() {
+        let mut spans = Vec::new();
+        let mut offset = 0;
+        if text.starts_with('[') {
+            if let Some(end) = text.find(']').filter(|end| *end < 64) {
+                let level = if text[..=end].contains("INFO") {
+                    ratatui::style::Style::default().fg(ratatui::style::Color::Cyan)
+                } else {
+                    theme::muted()
+                };
+                spans.push(Span::styled(text[..=end].to_owned(), level));
+                offset = end + 1;
+                let rest = &text[offset..];
+                if let Some(begin) = rest.find('[').filter(|begin| *begin <= 2) {
+                    if let Some(end) = rest.find(']').filter(|end| *end < 80) {
+                        let tag = &rest[begin..=end];
+                        let level = if tag.contains("ERROR") {
+                            theme::danger()
+                        } else if tag.contains("WARN") {
+                            theme::warning()
+                        } else if tag.contains("INFO") {
+                            ratatui::style::Style::default().fg(ratatui::style::Color::Cyan)
+                        } else {
+                            theme::muted()
+                        };
+                        spans.push(Span::styled(rest[..=end].to_owned(), level));
+                        offset += end + 1;
+                    }
+                }
+            }
+        }
+        spans.push(Span::styled(text[offset..].to_owned(), style));
+        return Line::from(spans);
+    }
+    // Case-sensitive byte matching keeps Unicode boundaries intact. Filtering
+    // is case-insensitive; ASCII case-folding is used only when lengths agree.
+    let haystack = text.to_ascii_lowercase();
+    let needle = query.to_ascii_lowercase();
+    let mut spans = Vec::new();
+    let mut from = 0;
+    for (start, _) in haystack.match_indices(&needle) {
+        if start < from {
+            continue;
+        }
+        let end = start + needle.len();
+        spans.push(Span::styled(text[from..start].to_owned(), style));
+        spans.push(Span::styled(
+            text[start..end].to_owned(),
+            ratatui::style::Style::default()
+                .fg(ratatui::style::Color::Black)
+                .bg(ratatui::style::Color::Yellow)
+                .add_modifier(ratatui::style::Modifier::BOLD),
+        ));
+        from = end;
+    }
+    spans.push(Span::styled(text[from..].to_owned(), style));
+    Line::from(spans)
+}
+/// Single source of truth for the short server-state label used by the
+/// instance detail, session dock, and status transcript.
+pub(crate) fn server_state_label(state: mc_core::ServerState) -> &'static str {
+    match state {
+        mc_core::ServerState::Installed => "已安装",
+        mc_core::ServerState::Starting => "启动中",
+        mc_core::ServerState::Running => "运行中",
+        mc_core::ServerState::Stopping => "停止中",
+        mc_core::ServerState::Stopped => "已停止",
+        mc_core::ServerState::Failed => "启动失败",
+        mc_core::ServerState::Unknown => "状态未知",
+    }
+}
+
+pub(crate) fn server_state_style(state: mc_core::ServerState) -> Style {
+    match state {
+        mc_core::ServerState::Running => {
+            theme::success().add_modifier(ratatui::style::Modifier::BOLD)
+        }
+        mc_core::ServerState::Starting | mc_core::ServerState::Stopping => theme::warning(),
+        mc_core::ServerState::Failed | mc_core::ServerState::Unknown => theme::danger(),
+        mc_core::ServerState::Installed | mc_core::ServerState::Stopped => theme::muted(),
+    }
+}
+
+/// Chinese text for the supervisor's fixed server status messages. Anything
+/// else, such as error evidence, is shown verbatim rather than guessed at.
+pub(crate) fn server_message(message: &str) -> String {
+    let translated = match message {
+        "Installed and stopped." => "已安装，尚未启动。",
+        "Waiting for the server readiness message." => "Java 已启动，正在等待服务器就绪…",
+        "Server is ready." => "服务器已就绪。",
+        "Graceful stop requested." => "已请求优雅停服，正在保存世界…",
+        "Server stopped successfully." => "服务器已正常停止。",
+        "Server stopped." => "服务器已停止。",
+        "Server exited with an error." => "服务器异常退出；请查看日志。",
+        "Server failed to start; inspect the instance logs." => "服务器启动失败；请查看实例日志。",
+        "Server process is no longer running." => "服务器进程已不在运行。",
+        "This instance has not been started by the supervisor." => "此实例尚未由本工具启动。",
+        "The configured port is occupied; process ownership is unknown." => {
+            "配置的端口已被其他进程占用。"
+        }
+        "The server did not exit before the graceful stop timeout." => "服务器未在超时前退出。",
+        _ => return message.to_owned(),
+    };
+    translated.to_owned()
+}
+
+/// Short, recognizable label for a Java executable: the full path when short,
+/// otherwise the distribution directory (`openjdk@21`, `temurin-21.jdk`).
+pub(crate) fn java_label(path: &std::path::Path) -> String {
+    let full = path.display().to_string();
+    if display_width(&full) <= 28 {
+        return full;
+    }
+    path.iter()
+        .rev()
+        .filter_map(|part| part.to_str())
+        .find(|part| !matches!(*part, "java" | "bin" | "Home" | "Contents" | "jre" | "/"))
+        .map(str::to_owned)
+        .unwrap_or(full)
+}
+
+pub(crate) fn history_plot(
+    values: &std::collections::VecDeque<u64>,
+    width: usize,
+    ceiling: u64,
+) -> String {
+    const BARS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+    let max = ceiling
+        .max(values.iter().copied().max().unwrap_or(1))
+        .max(1);
+    values
+        .iter()
+        .skip(values.len().saturating_sub(width))
+        .map(|v| BARS[((v.saturating_mul(7) / max) as usize).min(7)])
+        .collect()
+}
+
+/// Scrollbar coordinates use a viewport's top offset, never distance from tail.
+pub(crate) fn scrollbar_hits(
+    panel: Rect,
+    total: usize,
+    viewport: usize,
+    hits: &mut crate::hit::HitMap,
+    view: crate::hit::ScrollView,
+) {
+    if total <= viewport.max(1) || panel.width < 3 || panel.height < 4 {
+        return;
+    }
+    let max = total.saturating_sub(viewport.max(1));
+    let height = panel.height.saturating_sub(2);
+    for row in 0..height {
+        let position = (usize::from(row) * max) / usize::from(height.saturating_sub(1).max(1));
+        hits.push(
+            Rect::new(panel.right() - 1, panel.y + 1 + row, 1, 1),
+            crate::hit::HitTarget::Scrollbar(view, position, max, viewport),
+        );
+    }
+}
+
+#[cfg(test)]
+mod display_tests {
+    use super::*;
+    #[test]
+    fn unsafe_escape_sequences_are_removed_but_log_text_survives() {
+        assert_eq!(
+            clean_terminal_text("\x1b[31mERROR\x1b[0m\x1b]52;c;secret\x07 hello"),
+            "ERROR hello"
+        );
+    }
+    #[test]
+    fn animation_changes_without_claiming_extra_bytes() {
+        let a = animated_progress(0.4, 12, 1, true);
+        let b = animated_progress(0.4, 12, 4, true);
+        assert_ne!(a, b);
+        assert_eq!(
+            a.iter().map(|s| display_width(&s.content)).sum::<usize>(),
+            12
+        );
+        assert_eq!(
+            animated_progress(1.0, 12, 1, true),
+            animated_progress(1.0, 12, 4, true)
+        );
+    }
+    #[test]
+    fn java_label_keeps_the_distribution_name() {
+        use std::path::Path;
+        assert_eq!(java_label(Path::new("/usr/bin/java")), "/usr/bin/java");
+        assert_eq!(
+            java_label(Path::new("/opt/homebrew/opt/openjdk@21/bin/java")),
+            "openjdk@21"
+        );
+        assert_eq!(
+            java_label(Path::new(
+                "/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home/bin/java"
+            )),
+            "temurin-21.jdk"
+        );
+    }
+    #[test]
+    fn unicode_highlight_is_safe() {
+        let line = log_line("[INFO] 玩家 Steve joined the game", "玩家");
+        assert!(line.spans.iter().any(|s| s.content == "玩家"));
+    }
 }

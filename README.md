@@ -49,7 +49,7 @@ the terminal:
 | **Resident supervision** | Per-instance runner, process identity markers, daemon restarts reattach without killing Java |
 | **Durable tasks** | SQLite-backed queue, byte progress, speed/source, event cursors, cooperative cancellation |
 | **World backups** | Stopped-world discovery, preflight, staging copy, SHA-256 manifest, paged listing, verification, restore plan/token, rollback journal |
-| **Modpacks** | Read-only `.mrpack` analysis for MC version, loader, `env.server`, path traversal, hashes, and download hosts |
+| **Modpacks** | ZIP/MRPACK preview and stopped-instance import, verified export; compatible Paper/Fabric add-on downloads and required dependencies |
 | **Distribution** | `mc` launcher, `config.toml`, launchd/systemd user service, versioned installer, release manifest, Homebrew formula template |
 
 ## Screenshots
@@ -68,7 +68,7 @@ lives in [`output/playwright/`](output/playwright/).
 ### Requirements
 
 - macOS 13+ or Linux (x86_64 or arm64)
-- Java 21+ on `PATH` (current Paper versions)
+- Java 21 for 1.21.x; Java 25+ for 26.x (selected per Minecraft version)
 - A terminal at least **80×24**; 40×12 layouts render with reduced chrome
 - Network access for the first Paper download
 
@@ -146,6 +146,55 @@ mc service restart
 mc uninstall          # preserves instance data/config/cache
 ```
 
+
+## Workspaces and server operations
+
+The top bar shows open pages and stable page IDs. Click a page or press **Ctrl-B**, then
+`n`/`p` to cycle, `w` to list, `x` to close, or `1`–`9` to jump. `/pages`, `/page <id>`,
+and `/close [id]` are also available. Closing a page leaves its server running. Instance
+pages retain log filters and reading positions.
+
+- `/connect`: distinguish local, LAN and internet joining; addresses are interface candidates, not proof of reachability.
+- `/monitor`: query the actual Minecraft status and player count; `/open` shows CPU/RSS history.
+- `/rg [-i] [-e] <pattern>`: search current and rotated logs with file/line references; `-e` enables regex.
+- In instance logs, `f` filters live output, arrows pan horizontally, and the right scrollbar supports dragging.
+- `/players`: inspect OP/whitelist/bans; `list`, `op`, `deop`, `ban`, `pardon`, `kick`, `allow`, `deny`, `whitelist-on`, `whitelist-off` perform typed console actions.
+- With LuckPerms installed: `/players group <name> <group>` or `/players grant|revoke <name> <permission-node>`.
+
+Warnings cover abnormal exits, newly observed ERROR/Exception logs, sustained process CPU
+(90% of one core for six samples), and RSS above configured Xmx for three samples.
+**RSS includes off-heap memory and is not Java heap usage.** Alerts never automatically
+restart or kill a process; graphs retain the latest 60 samples.
+
+## Fabric, add-ons and portable server packs
+
+```text
+/fabric mod-friends 1.21.11 --accept-eula
+/mods search luckperms
+/mods install luckperms
+/import /absolute/path/server-pack.zip
+/import /absolute/path/server-pack.zip --apply
+/import /absolute/path/example.mrpack --apply
+/export /absolute/path/shared-server-pack.zip
+```
+
+Read https://www.minecraft.net/eula before explicitly accepting. Fabric selects a stable
+loader, compatible Java and an unreserved available port, initially using 1–4 GiB.
+Add-ons require a stopped instance, match the Minecraft version and loader, verify
+SHA-512, resolve required catalog dependencies and detect common Fabric API module
+requirements in JAR metadata. Paper accepts plugins; Fabric accepts mods. Client-only
+artifacts are rejected. Start the server to load installed add-ons.
+
+Imports preview before applying, stage and validate files, skip identical content and
+reject conflicting existing files. They accept mods/plugins/config, never replace worlds,
+identity lists, server.jar or server.properties, and never execute archive scripts.
+Limits: 10,000 entries, 512 MiB expanded total, 256 MiB per file; traversal and symlinks
+are rejected. MRPACK downloads use the official Modrinth CDN and SHA-512 checksums.
+Exports are **server add-on/config bundles**, with loader/game metadata and SHA-256;
+they are not client-launcher packs. Inspect deployment-specific config before sharing.
+Forge/NeoForge provisioning, authorized CurseForge file-ID downloads and arbitrary
+third-party dependency solving remain unsupported with explicit diagnostics.
+
 ## Architecture
 
 ```mermaid
@@ -167,17 +216,21 @@ for future hot updates. See [Supervision](docs/SUPERVISION.md).
 
 ## Status
 
-`v0.1.0` is an alpha. The current vertical slice is intentionally narrow:
+`v0.1.0` is an alpha. The current vertical slice:
 
 | Implemented | Next |
 | --- | --- |
-| Paper install/start/stop/console/logs | Vanilla provider |
+| Paper and Fabric install/start/stop/console/logs | Vanilla provider |
 | Resident runner + daemon reattachment | Takeover of existing server directories |
 | Stopped-world backup/verify/restore | Online/scheduled backups |
-| Durable tasks, byte progress, cancellation | Player management |
-| Session TUI, seven themes, Steve | `server.properties` editor |
-| User service + versioned release installer | Signing/notarization, Homebrew tap, deb/rpm |
-| Read-only `.mrpack` analysis | Actual Fabric/modpack materialization |
+| Durable tasks, byte progress, cancellation | `server.properties` editor |
+| Player actions (OP/whitelist/ban/kick) over typed console commands | Structured management results and CLI lifecycle commands |
+| Log search (`/rg`), live filtering, CPU/RSS trends and alerts | TPS/MSPT and JVM metrics |
+| Workspace pages with stable IDs and preserved log state | Multi-instance scheduling and host memory budget |
+| Modrinth add-on install, MRPACK/ZIP server-pack preview/import/export | Forge/NeoForge and authorized CurseForge file-ID downloads |
+| Session TUI, seven themes, Steve | Signing/notarization, Homebrew tap, deb/rpm |
+| API protocol 8–9 negotiation + runner protocol handshake | State schema migration and update task draining |
+| Versioned `mc update status/rollback` | Signed self-updater with health checks |
 
 The full documented-vs-implemented audit is in
 [Implementation gaps](docs/IMPLEMENTATION_GAPS.md). The next milestone is a
@@ -253,7 +306,7 @@ release checklist.
 | `mc-instance` | instance config/lock files, staging, SQLite index, recovery |
 | `mc-task` | durable task/event storage, bounded workers, cancellation |
 | `mc-backup` | stopped-world backup, checksums, restore transaction |
-| `mc-modpack` | read-only `.mrpack` analysis |
+| `mc-modpack` | `.mrpack` analysis and server-pack planning |
 | `provider-paper` | Paper Fill v3 metadata resolution |
 | `mc-download` | verified HTTPS downloads, resume, cache, hash checks |
 | `mc-system` | Java discovery, doctor, disk/port checks |
@@ -269,8 +322,9 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. The most useful
 contributions right now are:
 
 - Vanilla provider and existing-directory takeover;
-- `server.properties` editing and player management;
+- `server.properties` editing and structured player management results;
 - online/scheduled backup design and a real-world restore drill;
+- state migration, update draining, and isolated real-daemon E2E in CI;
 - Linux host validation and packaging;
 - focused TUI interaction fixes with before/after screenshots.
 

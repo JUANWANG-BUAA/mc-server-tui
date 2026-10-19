@@ -2,6 +2,7 @@ mod backup;
 mod backup_restore;
 mod config;
 mod dispatch;
+mod management;
 mod state;
 mod transport;
 
@@ -62,7 +63,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => state_dir.join("run").join("daemon.sock"),
         },
     };
-    let downloader = DownloadManager::new(DownloadConfig::paper(cache_dir, user_agent))?;
+    let downloader =
+        DownloadManager::new(DownloadConfig::paper(cache_dir.clone(), user_agent.clone()))?;
     let instances = InstanceService::open(&state_dir).await?;
     let supervisor = ProcessSupervisor::new(instances.clone());
     let tasks = TaskManager::open(state_dir.join("index.sqlite3")).await?;
@@ -73,6 +75,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         supervisor,
         backups: BackupService,
         tasks,
+        user_agent,
+        cache_dir,
     });
 
     transport::prepare_parent(&socket_path, private_parent).await?;

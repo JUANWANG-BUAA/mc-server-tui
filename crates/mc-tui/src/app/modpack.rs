@@ -10,7 +10,7 @@ impl AppState {
     pub(super) fn open_modpack_import(&mut self) {
         self.modpack_import = Some(ModpackImportState::discover());
         self.modpack_import_visible = true;
-        self.status = "已扫描 Downloads、桌面和当前目录中的 .mrpack 文件。".to_owned();
+        self.status = "已扫描 Downloads、桌面和当前目录中的 .mrpack / .zip 文件。".to_owned();
     }
 
     pub(super) fn close_modpack_import(&mut self) {
@@ -32,6 +32,20 @@ impl AppState {
     }
 
     pub(super) fn analyze_selected_modpack(&mut self) {
+        if let Some(path) = self
+            .modpack_import
+            .as_ref()
+            .and_then(|state| state.selected_path())
+            .filter(|p| {
+                p.extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+            })
+        {
+            self.modpack_import_visible = false;
+            self.shell_visible = true;
+            self.manage(mc_core::InstanceOperation::ImportPack { path, apply: false });
+            return;
+        }
         let Some(import) = self.modpack_import.as_mut() else {
             return;
         };
@@ -43,7 +57,7 @@ impl AppState {
         } else if import.report.is_some() {
             self.status = "按 Esc 返回文件列表后可选择其他整合包。".to_owned();
         } else {
-            self.status = "没有可分析的 .mrpack 文件；按 r 重新扫描。".to_owned();
+            self.status = "没有可分析的 .mrpack / .zip 文件；按 r 重新扫描。".to_owned();
         }
     }
 

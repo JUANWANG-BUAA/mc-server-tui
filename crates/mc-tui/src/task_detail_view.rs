@@ -15,23 +15,23 @@ use crate::{
 
 pub(crate) fn render(
     frame: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
     detail: &TaskDetailState,
     animation_frame: u8,
-    _hits: &mut HitMap,
+    hits: &mut HitMap,
 ) {
+    let compact = area.width < 80 || area.height < 17;
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
+            Constraint::Length(if compact { 2 } else { 3 }),
             Constraint::Min(1),
             Constraint::Length(3),
         ])
-        .split(frame.area());
-    let compact = frame.area().width < 80 || frame.area().height < 18;
+        .split(area);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-            Span::styled("任务 · ", theme::dim()),
+            Span::styled(" 任务 · ", theme::dim()),
             Span::styled(
                 kind_label(detail.task.kind),
                 theme::text().add_modifier(Modifier::BOLD),
@@ -60,6 +60,11 @@ pub(crate) fn render(
         } else {
             3
         }
+    } else if matches!(
+        detail.task.result,
+        Some(mc_core::TaskResult::ManagementCompleted { .. })
+    ) {
+        12
     } else if has_transfer {
         10
     } else if has_backup_page {
@@ -72,7 +77,7 @@ pub(crate) fn render(
         .constraints([Constraint::Length(summary_height), Constraint::Min(1)])
         .split(areas[1]);
     render_summary(frame, body[0], detail, compact, animation_frame);
-    render_events(frame, body[1], detail);
+    render_events(frame, body[1], detail, hits);
 
     let status = detail
         .error
@@ -167,7 +172,7 @@ fn render_summary(
         .as_ref()
         .and_then(|progress| progress.transfer.as_ref());
     if let Some(transfer) = transfer {
-        lines.push(transfer_progress_line(transfer, compact));
+        lines.push(transfer_progress_line(transfer, compact, animation_frame));
         if !compact {
             lines.push(Line::from(vec![
                 Span::styled("来源  ", theme::muted()),
@@ -225,6 +230,11 @@ fn render_summary(
         } else if let Some(result) = &task.result {
             lines.push(Line::from(task.message.clone()));
             match result {
+                mc_core::TaskResult::ManagementCompleted { report, .. } => {
+                    for line in report.lines() {
+                        lines.push(Line::from(line.to_owned()));
+                    }
+                }
                 mc_core::TaskResult::InstanceCreated(instance) => {
                     lines.push(Line::from(format!("实例：{}", instance.name)));
                 }
@@ -324,7 +334,12 @@ fn format_worlds(worlds: &[String]) -> String {
     }
 }
 
-fn render_events(frame: &mut Frame<'_>, area: ratatui::layout::Rect, detail: &TaskDetailState) {
+fn render_events(
+    frame: &mut Frame<'_>,
+    area: ratatui::layout::Rect,
+    detail: &TaskDetailState,
+    hits: &mut HitMap,
+) {
     let visible_rows = area.height.saturating_sub(2) as usize;
     let end = detail.events.len().saturating_sub(detail.scroll_offset);
     let start = end.saturating_sub(visible_rows);
@@ -366,11 +381,7 @@ fn render_events(frame: &mut Frame<'_>, area: ratatui::layout::Rect, detail: &Ta
         ),
         area,
     );
-    let position = detail
-        .events
-        .len()
-        .saturating_sub(1)
-        .saturating_sub(detail.scroll_offset);
+    let position = start;
     ui::scrollbar(
         frame,
         area,
@@ -378,12 +389,23 @@ fn render_events(frame: &mut Frame<'_>, area: ratatui::layout::Rect, detail: &Ta
         position,
         visible_rows.max(1),
     );
+    ui::scrollbar_hits(
+        area,
+        detail.events.len(),
+        visible_rows.max(1),
+        hits,
+        crate::hit::ScrollView::Events,
+    );
 }
 
 #[cfg(test)]
 mod tests;
 
-fn transfer_progress_line(progress: &mc_core::TransferProgress, compact: bool) -> Line<'static> {
+fn transfer_progress_line(
+    progress: &mc_core::TransferProgress,
+    compact: bool,
+    animation_frame: u8,
+) -> Line<'static> {
     let ratio = if progress.total_bytes == 0 {
         0.0
     } else {
@@ -420,7 +442,12 @@ fn transfer_progress_line(progress: &mc_core::TransferProgress, compact: bool) -
             })
             .unwrap_or_default();
         let mut spans = vec![Span::styled("下载  ", theme::muted())];
-        spans.extend(ui::progress_bar(ratio, width, theme::progress()));
+        spans.extend(ui::animated_progress(
+            ratio,
+            width,
+            animation_frame,
+            ratio < 1.0,
+        ));
         spans.push(Span::styled(format!(" {percent:>3}%"), theme::accent()));
         spans.push(Span::styled(
             format!(

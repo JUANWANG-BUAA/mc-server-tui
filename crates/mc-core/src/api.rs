@@ -5,21 +5,35 @@ use crate::{
     TaskEvent, TaskSnapshot,
 };
 
-pub const API_PROTOCOL_VERSION: u16 = 8;
-/// The range this build can speak. Enforcement is currently exact, but the
-/// range is carried in ServerInfo so the updater/launcher can reason about
-/// compatibility before a rollout.
+/// Highest protocol version this build speaks. An N/N-1 daemon accepts every
+/// version in `API_PROTOCOL_MIN..=API_PROTOCOL_MAX`, and clients negotiate down
+/// to the highest version the daemon advertises.
+pub const API_PROTOCOL_VERSION: u16 = 9;
 pub const API_PROTOCOL_MIN: u16 = 8;
-pub const API_PROTOCOL_MAX: u16 = 8;
+pub const API_PROTOCOL_MAX: u16 = 9;
+
+/// Control protocol spoken with a per-instance runner over its private socket.
+/// The field is additive: a peer that predates versioning is treated as v1.
+pub const RUNNER_PROTOCOL_VERSION: u16 = 1;
+/// Version of the on-disk instance/task/index state layout. Carried in
+/// `ServerInfo` so an updater can reason about downgrade safety.
+pub const STATE_SCHEMA_VERSION: u32 = 1;
 
 /// Additive capability probe. `Ping` remains the minimal liveness check so a
 /// newer launcher can still talk to a daemon that predates this operation.
+///
+/// The state and runner fields default when decoding a daemon that predates
+/// them, so a v9 client can still read a v8 daemon's probe response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ServerInfo {
     pub product: String,
     pub version: String,
     pub api_protocol_min: u16,
     pub api_protocol_max: u16,
+    #[serde(default = "default_state_schema")]
+    pub state_schema: u32,
+    #[serde(default = "default_runner_protocol")]
+    pub runner_protocol: u16,
 }
 
 impl ServerInfo {
@@ -29,8 +43,25 @@ impl ServerInfo {
             version: env!("CARGO_PKG_VERSION").to_owned(),
             api_protocol_min: API_PROTOCOL_MIN,
             api_protocol_max: API_PROTOCOL_MAX,
+            state_schema: STATE_SCHEMA_VERSION,
+            runner_protocol: RUNNER_PROTOCOL_VERSION,
         }
     }
+
+    /// Highest protocol both this daemon and a client can speak, if any.
+    pub fn negotiated_version(&self, client_min: u16, client_max: u16) -> Option<u16> {
+        let low = self.api_protocol_min.max(client_min);
+        let high = self.api_protocol_max.min(client_max);
+        (low <= high).then_some(high)
+    }
+}
+
+fn default_state_schema() -> u32 {
+    STATE_SCHEMA_VERSION
+}
+
+fn default_runner_protocol() -> u16 {
+    RUNNER_PROTOCOL_VERSION
 }
 
 /// Versioned request envelope shared by CLI, TUI, and the local daemon.
@@ -45,6 +76,46 @@ impl ApiRequestEnvelope {
         Self {
             protocol_version: API_PROTOCOL_VERSION,
             payload,
+        }
+    }
+
+    pub fn with_protocol(protocol_version: u16, payload: ApiRequest) -> Self {
+        Self {
+            protocol_version,
+            payload,
+        }
+    }
+}
+
+impl ApiRequest {
+    /// Oldest protocol version that can carry this request. A daemon rejects a
+    /// newer operation sent in an older envelope instead of guessing.
+    pub fn minimum_protocol_version(&self) -> u16 {
+        match self {
+            Self::ManageInstance { .. } => 9,
+            Self::Ping
+            | Self::ServerInfo
+            | Self::Doctor
+            | Self::PaperVersions
+            | Self::PaperBuilds { .. }
+            | Self::PaperPlan { .. }
+            | Self::ListInstances
+            | Self::GetInstanceDetail { .. }
+            | Self::CreatePaperInstance { .. }
+            | Self::CreateWorldBackup { .. }
+            | Self::ListWorldBackups { .. }
+            | Self::VerifyWorldBackup { .. }
+            | Self::PlanWorldBackupRestore { .. }
+            | Self::RestoreWorldBackup { .. }
+            | Self::StartServer { .. }
+            | Self::StopServer { .. }
+            | Self::SendConsoleCommand { .. }
+            | Self::ReadServerLogs { .. }
+            | Self::ListTasks { .. }
+            | Self::GetTask { .. }
+            | Self::ListTaskEvents { .. }
+            | Self::CancelTask { .. }
+            | Self::AnalyzeModpack { .. } => 8,
         }
     }
 }
@@ -62,12 +133,25 @@ impl ApiResponseEnvelope {
             payload,
         }
     }
+
+    /// Echo the request's protocol so a v8 client never receives a v9
+    /// envelope it cannot decode.
+    pub fn with_protocol(protocol_version: u16, payload: ApiResponse) -> Self {
+        Self {
+            protocol_version,
+            payload,
+        }
+    }
 }
 
 /// Transport-neutral operation payload.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "operation", content = "arguments", rename_all = "snake_case")]
 pub enum ApiRequest {
+    ManageInstance {
+        instance_id: uuid::Uuid,
+        action: crate::InstanceOperation,
+    },
     Ping,
     ServerInfo,
     Doctor,
@@ -151,6 +235,7 @@ pub enum ApiRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "result", content = "data", rename_all = "snake_case")]
 pub enum ApiResponse {
+    ManagementReport(String),
     Pong,
     ServerInfo(ServerInfo),
     Doctor(DoctorReport),
@@ -303,6 +388,52 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn server_info_reports_update_relevant_versions() {
+        let info = ServerInfo::current();
+        assert_eq!(info.state_schema, STATE_SCHEMA_VERSION);
+        assert_eq!(info.runner_protocol, RUNNER_PROTOCOL_VERSION);
+        assert_eq!(info.negotiated_version(8, 9), Some(9));
+        assert_eq!(info.negotiated_version(10, 12), None);
+        assert_eq!(info.negotiated_version(7, 8), Some(8));
+    }
+
+    #[test]
+    fn older_server_info_decodes_with_default_state_versions() {
+        let encoded = r#"{
+            "product": "mc-server-tui",
+            "version": "0.1.0",
+            "api_protocol_min": 8,
+            "api_protocol_max": 8
+        }"#;
+        let info: ServerInfo = serde_json::from_str(encoded).expect("decode v8 server info");
+        assert_eq!(info.state_schema, STATE_SCHEMA_VERSION);
+        assert_eq!(info.runner_protocol, RUNNER_PROTOCOL_VERSION);
+        assert_eq!(info.api_protocol_max, 8);
+    }
+
+    #[test]
+    fn only_management_requests_require_protocol_nine() {
+        assert_eq!(ApiRequest::Ping.minimum_protocol_version(), 8);
+        assert_eq!(ApiRequest::ListInstances.minimum_protocol_version(), 8);
+        assert_eq!(
+            ApiRequest::ManageInstance {
+                instance_id: uuid::Uuid::nil(),
+                action: crate::InstanceOperation::ListAddons,
+            }
+            .minimum_protocol_version(),
+            9
+        );
+    }
+
+    #[test]
+    fn envelope_builders_can_target_an_older_protocol() {
+        let request = ApiRequestEnvelope::with_protocol(8, ApiRequest::Ping);
+        assert_eq!(request.protocol_version, 8);
+        let response = ApiResponseEnvelope::with_protocol(8, ApiResponse::Pong);
+        assert_eq!(response.protocol_version, 8);
+    }
+
     #[test]
     fn protocol_v8_cancel_and_modpack_requests_round_trip() {
         let task_id = uuid::Uuid::new_v4();

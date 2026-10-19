@@ -6,13 +6,15 @@ mod doctor;
 mod domain;
 mod error;
 mod lifecycle;
+mod management;
+pub use management::InstanceOperation;
 mod modpack;
 mod provider;
 mod task;
 
 pub use api::{
     ApiRequest, ApiRequestEnvelope, ApiResponse, ApiResponseEnvelope, ServerInfo, API_PROTOCOL_MAX,
-    API_PROTOCOL_MIN, API_PROTOCOL_VERSION,
+    API_PROTOCOL_MIN, API_PROTOCOL_VERSION, RUNNER_PROTOCOL_VERSION, STATE_SCHEMA_VERSION,
 };
 pub use backup::{
     BackupConsistency, BackupCursor, BackupPage, BackupRestorePlan, BackupSummary,
@@ -20,8 +22,9 @@ pub use backup::{
 };
 pub use doctor::{DoctorCheck, DoctorCheckStatus, DoctorReport, JavaRuntime};
 pub use domain::{
-    ArtifactPlan, BuildInfo, Checksum, ChecksumAlgorithm, InstanceDetail, InstanceSummary,
-    ReleaseChannel, ServerLogChunk, ServerSnapshot, ServerState, ServerVersion,
+    minecraft_java_requirement, minecraft_version_key, ArtifactPlan, BuildInfo, Checksum,
+    ChecksumAlgorithm, InstanceDetail, InstanceSummary, ReleaseChannel, ServerLogChunk,
+    ServerSnapshot, ServerState, ServerVersion,
 };
 pub use error::{AppError, ErrorCode};
 pub use lifecycle::StoppedInstanceLease;

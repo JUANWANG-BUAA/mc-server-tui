@@ -6,6 +6,7 @@ use crate::theme;
 
 pub(crate) fn kind_label(kind: TaskKind) -> &'static str {
     match kind {
+        TaskKind::ManageInstance => "整合包 / 扩展管理",
         TaskKind::CreatePaperInstance => "创建 Paper 实例",
         TaskKind::CreateWorldBackup => "备份世界",
         TaskKind::ListWorldBackups => "列出世界备份",
@@ -17,6 +18,7 @@ pub(crate) fn kind_label(kind: TaskKind) -> &'static str {
 
 pub(crate) fn kind_short(kind: TaskKind) -> &'static str {
     match kind {
+        TaskKind::ManageInstance => "扩展",
         TaskKind::CreatePaperInstance => "建服",
         TaskKind::CreateWorldBackup => "备份",
         TaskKind::ListWorldBackups => "列表",
@@ -39,6 +41,7 @@ pub(crate) fn status_label(status: TaskStatus) -> &'static str {
 
 pub(crate) fn phase_label(phase: TaskPhase) -> &'static str {
     match phase {
+        TaskPhase::ManagingInstance => "处理扩展与文件",
         TaskPhase::Queued => "等待执行",
         TaskPhase::WaitingForInstance => "等待实例锁",
         TaskPhase::ResolvingArtifact => "解析版本",
@@ -78,7 +81,10 @@ pub(crate) fn activity_symbol(status: TaskStatus, frame: u8) -> &'static str {
 }
 
 pub(crate) fn is_cancelable_download(task: &mc_core::TaskSnapshot) -> bool {
-    if task.kind != TaskKind::CreatePaperInstance {
+    if !matches!(
+        task.kind,
+        TaskKind::CreatePaperInstance | TaskKind::ManageInstance
+    ) {
         return false;
     }
     match task.status {

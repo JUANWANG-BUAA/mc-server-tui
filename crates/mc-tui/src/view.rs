@@ -18,7 +18,12 @@ use crate::{
 pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8) {
     frame.render_widget(Block::default().style(theme::page()), frame.area());
     let mut hits = HitMap::default();
-    render_primary(frame, app, animation_frame, &mut hits);
+    // Row 0 is the app bar (brand and page tabs); screens own everything below
+    // it, so no screen paints content that the bar would hide.
+    let [bar, body] =
+        Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(frame.area());
+    render_workspace(frame, bar, app, &mut hits);
+    render_primary(frame, body, app, animation_frame, &mut hits);
     if app.help_visible {
         crate::help_view::render(frame, app, &mut hits);
     } else if let Some(palette) = &app.command_palette {
@@ -27,53 +32,65 @@ pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8)
     *app.hits.borrow_mut() = hits;
 }
 
-fn render_primary(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8, hits: &mut HitMap) {
+fn render_primary(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    app: &AppState,
+    animation_frame: u8,
+    hits: &mut HitMap,
+) {
     if app.modpack_import_visible {
         if let Some(import) = &app.modpack_import {
-            crate::modpack_import_view::render(frame, import, animation_frame, hits);
+            crate::modpack_import_view::render(frame, area, import, animation_frame, hits);
         }
         return;
     }
     if let Some(wizard) = &app.wizard {
-        crate::wizard_view::render(frame, wizard, animation_frame, hits);
+        crate::wizard_view::render(frame, area, wizard, animation_frame, hits);
         return;
     }
     if app.task_detail_visible {
         if let Some(detail) = &app.task_detail {
-            crate::task_detail_view::render(frame, detail, animation_frame, hits);
+            crate::task_detail_view::render(frame, area, detail, animation_frame, hits);
             return;
         }
     }
     if app.backup_manager_visible {
         if let Some(manager) = &app.backup_manager {
-            crate::backup_manager_view::render(frame, manager, animation_frame, hits);
+            crate::backup_manager_view::render(frame, area, manager, animation_frame, hits);
         }
         return;
     }
     if app.instance_detail_visible {
         if let Some(detail) = &app.instance_detail {
-            crate::instance_detail_view::render(frame, detail, animation_frame, hits);
+            crate::instance_detail_view::render(frame, area, detail, animation_frame, hits);
         } else if let Some(instance_id) = app.instance_detail_id {
-            crate::instance_detail_view::render_loading(frame, instance_id, hits);
+            crate::instance_detail_view::render_loading(frame, area, instance_id, hits);
         }
         return;
     }
     if app.shell_visible {
-        crate::shell_view::render(frame, app, animation_frame, hits);
+        crate::shell_view::render(frame, area, app, animation_frame, hits);
         return;
     }
-    render_dashboard(frame, app, animation_frame, hits);
+    render_dashboard(frame, area, app, animation_frame, hits);
 }
 
-fn render_dashboard(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8, hits: &mut HitMap) {
+fn render_dashboard(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    app: &AppState,
+    animation_frame: u8,
+    hits: &mut HitMap,
+) {
     let root = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
+            Constraint::Length(2),
             Constraint::Min(1),
             Constraint::Length(3),
         ])
-        .split(frame.area());
+        .split(area);
 
     render_header(frame, root[0], app);
     if root[1].width >= 110 {
@@ -121,40 +138,21 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         .iter()
         .filter(|task| task.status == mc_core::TaskStatus::Succeeded)
         .count();
-    let line1 = Line::from(vec![
-        Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-        Span::styled(
-            format!("v{}", env!("CARGO_PKG_VERSION")),
-            theme::dim().add_modifier(Modifier::BOLD),
-        ),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled("本地守护进程", theme::muted()),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled(
-            if app.status.contains("失败") {
-                "连接异常"
-            } else {
-                "在线"
-            },
-            if app.status.contains("失败") {
-                theme::danger()
-            } else {
-                theme::success()
-            },
-        ),
-    ]);
-    let line2 = Line::from(vec![
-        Span::styled(" 实例 ", theme::muted()),
+    let (online, online_style) = app.connection_badge();
+    let line = Line::from(vec![
+        Span::styled(" 实例总览  ", theme::accent()),
+        Span::styled(online, online_style),
+        Span::styled("  ·  实例 ", theme::muted()),
         Span::styled(
             app.instances.len().to_string(),
             theme::accent().add_modifier(Modifier::BOLD),
         ),
-        Span::styled("   ·   任务 ", theme::muted()),
+        Span::styled("  ·  任务 ", theme::muted()),
         Span::styled(
             app.tasks.len().to_string(),
             theme::accent().add_modifier(Modifier::BOLD),
         ),
-        Span::styled("   ·   进行中 ", theme::muted()),
+        Span::styled("  ·  进行中 ", theme::muted()),
         Span::styled(
             running.to_string(),
             if running > 0 {
@@ -163,12 +161,12 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
                 theme::muted()
             },
         ),
-        Span::styled("   ·   已完成 ", theme::muted()),
+        Span::styled("  ·  已完成 ", theme::muted()),
         Span::styled(completed.to_string(), theme::success()),
-        Span::styled("      自动刷新 2s", theme::dim()),
+        Span::styled("  ·  自动刷新 2s", theme::dim()),
     ]);
     frame.render_widget(
-        Paragraph::new(vec![line1, line2]).block(
+        Paragraph::new(line).block(
             Block::default()
                 .borders(Borders::BOTTOM)
                 .border_type(theme::border_type())
@@ -222,6 +220,23 @@ fn render_instances(frame: &mut Frame<'_>, area: Rect, app: &AppState, hits: &mu
         .map(|instance| {
             let name = ui::truncate(&instance.name, 18);
             ListItem::new(Line::from(vec![
+                Span::styled(
+                    app.servers
+                        .get(&instance.id)
+                        .map(|s| match s.state {
+                            mc_core::ServerState::Running => "● 运行中 ",
+                            mc_core::ServerState::Starting => "◐ 启动中 ",
+                            mc_core::ServerState::Stopping => "◐ 停止中 ",
+                            mc_core::ServerState::Failed => "× 失败 ",
+                            _ => "○ 已停止 ",
+                        })
+                        .unwrap_or("? 未读取 "),
+                    app.servers
+                        .get(&instance.id)
+                        .filter(|s| s.state == mc_core::ServerState::Running)
+                        .map(|_| theme::success())
+                        .unwrap_or_else(theme::muted),
+                ),
                 Span::styled(name, theme::text().add_modifier(Modifier::BOLD)),
                 Span::styled(
                     format!(
@@ -265,8 +280,15 @@ fn render_instances(frame: &mut Frame<'_>, area: Rect, app: &AppState, hits: &mu
         frame,
         area,
         app.instances.len(),
-        app.selected_instance,
+        ui::window_start(app.selected_instance, app.instances.len(), visible),
         visible,
+    );
+    ui::scrollbar_hits(
+        area,
+        app.instances.len(),
+        visible,
+        hits,
+        crate::hit::ScrollView::Instances,
     );
 }
 
@@ -376,12 +398,13 @@ fn render_tasks(
             HitTarget::Task(index),
         );
     }
-    ui::scrollbar(
-        frame,
+    ui::scrollbar(frame, area, app.tasks.len(), offset, visible_items.max(1));
+    ui::scrollbar_hits(
         area,
         app.tasks.len(),
-        app.selected_task,
         visible_items.max(1),
+        hits,
+        crate::hit::ScrollView::Tasks,
     );
 }
 
@@ -419,6 +442,100 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         ]),
         area,
     );
+}
+
+fn render_workspace(frame: &mut Frame<'_>, area: Rect, app: &AppState, hits: &mut HitMap) {
+    frame.render_widget(Block::default().style(theme::elevated()), area);
+    if app.workspace_prefix {
+        frame.render_widget(
+            Paragraph::new(Span::styled(
+                ui::truncate(
+                    " 工作区 · n 下一页 · p 上一页 · w 页面列表 · x 关闭 · 1–9 跳转 · Esc 取消",
+                    usize::from(area.width),
+                ),
+                theme::selected_chip(),
+            )),
+            area,
+        );
+        return;
+    }
+    let wide = area.width >= 80;
+    let brand = if wide {
+        " ◆ MC SERVER TUI "
+    } else {
+        " ◆ MC "
+    };
+    let hint = "Ctrl-B 切换页面 ";
+    let hint_width = if wide {
+        ui::display_width(hint) as u16
+    } else {
+        0
+    };
+    let mut x = ui::display_width(brand) as u16;
+    frame.render_widget(Paragraph::new(Span::styled(brand, theme::brand())), area);
+    let room = area.width.saturating_sub(hint_width);
+
+    let label = |page: &crate::app::Page, max: usize| {
+        let marker = if page.id == app.active_page {
+            "▸"
+        } else {
+            ""
+        };
+        format!(
+            " {marker}#{} {} ",
+            page.id,
+            ui::truncate(&app.page_title(page), max)
+        )
+    };
+    let full_width = app
+        .pages
+        .iter()
+        .map(|page| ui::display_width(&label(page, usize::MAX)))
+        .sum::<usize>();
+    // When every tab cannot fit, keep the session home and the active page
+    // visible and summarize the rest instead of silently dropping them.
+    let pages: Vec<_> = if usize::from(x) + full_width <= usize::from(room) {
+        app.pages.iter().collect()
+    } else {
+        app.pages
+            .iter()
+            .filter(|page| page.id == 1 || page.id == app.active_page)
+            .collect()
+    };
+    let hidden = app.pages.len() - pages.len();
+    let summary = (hidden > 0).then(|| format!(" +{hidden} /pages "));
+    let summary_width = summary.as_deref().map(ui::display_width).unwrap_or(0) as u16;
+    for page in pages {
+        let available = room.saturating_sub(x + summary_width);
+        let text = label(page, usize::from(available.saturating_sub(6)));
+        let width = ui::display_width(&text) as u16;
+        if width > available {
+            break;
+        }
+        let item = Rect::new(area.x + x, area.y, width, 1);
+        let style = if page.id == app.active_page {
+            theme::selected_chip()
+        } else {
+            theme::muted()
+        };
+        frame.render_widget(Paragraph::new(Span::styled(text, style)), item);
+        hits.push(item, HitTarget::Page(page.id));
+        x += width;
+    }
+    if let Some(summary) = summary {
+        if x + summary_width <= room {
+            frame.render_widget(
+                Paragraph::new(Span::styled(summary, theme::dim())),
+                Rect::new(area.x + x, area.y, summary_width, 1),
+            );
+        }
+    }
+    if wide {
+        frame.render_widget(
+            Paragraph::new(Span::styled(hint, theme::dim())),
+            Rect::new(area.right() - hint_width, area.y, hint_width, 1),
+        );
+    }
 }
 
 #[cfg(test)]

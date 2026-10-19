@@ -228,3 +228,40 @@ mod tests {
         );
     }
 }
+
+/// Numeric release ordering supports both legacy 1.x and year-based 26.x releases.
+pub fn minecraft_version_key(version: &str) -> Vec<u32> {
+    version
+        .split('.')
+        .map(|part| part.parse().unwrap_or(0))
+        .collect()
+}
+
+/// Minimum supported runtime for current Paper/Fabric release families.
+pub fn minecraft_java_requirement(version: &str) -> u16 {
+    let key = minecraft_version_key(version);
+    match (
+        key.first().copied().unwrap_or(0),
+        key.get(1).copied().unwrap_or(0),
+        key.get(2).copied().unwrap_or(0),
+    ) {
+        (year, _, _) if year >= 26 => 25,
+        (1, minor, patch) if minor > 20 || (minor == 20 && patch >= 5) => 21,
+        (1, minor, _) if minor >= 18 => 17,
+        (1, 17, _) => 16,
+        _ => 8,
+    }
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::*;
+    #[test]
+    fn year_releases_sort_after_legacy_and_patches_are_numeric() {
+        let mut versions = vec!["1.21.9", "26.1", "1.21.11", "26.1.2", "1.20.1"];
+        versions.sort_by_key(|v| std::cmp::Reverse(minecraft_version_key(v)));
+        assert_eq!(versions, ["26.1.2", "26.1", "1.21.11", "1.21.9", "1.20.1"]);
+        assert_eq!(minecraft_java_requirement("26.1"), 25);
+        assert_eq!(minecraft_java_requirement("1.21.11"), 21);
+    }
+}

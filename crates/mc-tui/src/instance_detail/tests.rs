@@ -74,3 +74,32 @@ fn update(
         },
     }
 }
+
+#[test]
+fn scrolling_clamps_and_new_lines_preserve_reading_position() {
+    let id = uuid::Uuid::new_v4();
+    let mut state = InstanceDetailState::loading(id);
+    state.apply_update(Ok(update(id, 0, 4, "a\nb\n", false)));
+    state.log_max_scroll.set(10);
+    state.scroll_to_oldest();
+    assert_eq!(state.log_scroll, 10);
+    state.scroll_logs(-1);
+    assert_eq!(state.log_scroll, 9);
+    state.apply_update(Ok(update(id, 4, 6, "c\n", false)));
+    assert_eq!(state.log_scroll, 10);
+}
+#[test]
+fn alerts_require_sustained_cpu_and_surface_new_log_errors() {
+    let id = uuid::Uuid::new_v4();
+    let mut state = InstanceDetailState::loading(id);
+    for i in 0..6 {
+        let mut data = update(id, i, i + 1, "[ERROR] failed\n", false);
+        data.stats = Some(super::ProcessStats {
+            cpu_percent: 95.0,
+            rss_bytes: 32,
+        });
+        state.apply_update(Ok(data));
+    }
+    assert!(state.alerts().iter().any(|a| a.contains("CPU")));
+    assert!(state.alerts().iter().any(|a| a.contains("ERROR")));
+}

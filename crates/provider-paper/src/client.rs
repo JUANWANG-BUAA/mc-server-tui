@@ -85,7 +85,7 @@ impl PaperProvider {
 
         let contact = value
             .split_once('(')
-            .map(|(_, contact)| contact.trim_end_matches(')').trim());
+            .map(|(_, contact)| contact.trim_end_matches(')').trim().trim_start_matches('+'));
         let has_contact = contact.is_some_and(is_contact_address);
         let valid_header = header::HeaderValue::from_str(value).is_ok();
         if !value.starts_with("mc-server-tui/") || !has_contact || !valid_header {

@@ -1,5 +1,8 @@
 mod backup;
 mod instance;
+mod manage;
+mod workspace;
+pub(crate) use workspace::{Page, PageKind};
 mod modpack;
 mod shell;
 
@@ -30,6 +33,12 @@ pub(crate) enum Panel {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    WorkspacePrefix,
+    WorkspaceList,
+    WorkspaceSwitch(u32),
+    PagePreviousWorkspace,
+    PageNextWorkspace,
+    CloseWorkspacePage,
     Quit,
     Previous,
     Next,
@@ -95,6 +104,9 @@ pub(crate) enum Action {
     RestoreConfirmBackspace,
     RestoreConfirmSubmit,
     RestoreConfirmCancel,
+    BeginLogSearch,
+    LogLeft,
+    LogRight,
     BeginConsoleInput,
     ConsoleInsert(char),
     ConsoleBackspace,
@@ -108,12 +120,23 @@ pub(crate) enum Action {
 
 #[derive(Debug, Default)]
 pub(crate) struct DashboardData {
+    pub servers: Vec<mc_core::ServerSnapshot>,
     pub instances: Vec<InstanceSummary>,
     pub tasks: Vec<TaskSnapshot>,
 }
 
 #[derive(Debug)]
 pub(crate) struct AppState {
+    pub workspace_prefix: bool,
+    pub pages: Vec<Page>,
+    pub active_page: u32,
+    next_page_id: u32,
+    instance_cache: std::collections::BTreeMap<uuid::Uuid, InstanceDetailState>,
+    task_cache: std::collections::BTreeMap<uuid::Uuid, TaskDetailState>,
+    parked_wizard: Option<CreateWizard>,
+    /// `None` until the first dashboard refresh answers.
+    pub connected: Option<bool>,
+    pub servers: std::collections::BTreeMap<uuid::Uuid, mc_core::ServerSnapshot>,
     pub instances: Vec<InstanceSummary>,
     pub tasks: Vec<TaskSnapshot>,
     pub focused_panel: Panel,
@@ -138,6 +161,7 @@ pub(crate) struct AppState {
     pub shell_input: String,
     pub shell_cursor: usize,
     pub shell_viewport: Cell<usize>,
+    pub shell_text_width: Cell<usize>,
     pub shell_history: Vec<String>,
     pub shell_history_pos: Option<usize>,
     pub shell_suggestion_index: usize,
@@ -162,6 +186,18 @@ pub(crate) struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            workspace_prefix: false,
+            pages: vec![Page {
+                id: 1,
+                kind: PageKind::Session,
+            }],
+            active_page: 1,
+            next_page_id: 2,
+            instance_cache: Default::default(),
+            task_cache: Default::default(),
+            parked_wizard: None,
+            connected: None,
+            servers: Default::default(),
             instances: Vec::new(),
             tasks: Vec::new(),
             focused_panel: Panel::Instances,
@@ -185,6 +221,7 @@ impl Default for AppState {
             shell_visible: true,
             shell_input: String::new(),
             shell_cursor: 0,
+            shell_text_width: Cell::new(77),
             shell_viewport: Cell::new(0),
             shell_history: Vec::new(),
             shell_history_pos: None,
@@ -210,8 +247,26 @@ impl Default for AppState {
 }
 
 impl AppState {
+    /// Header label and style for the daemon connection.
+    pub fn connection_badge(&self) -> (&'static str, ratatui::style::Style) {
+        match self.connected {
+            Some(true) => ("● 在线", crate::theme::success()),
+            Some(false) => ("× 连接异常", crate::theme::danger()),
+            None => ("◐ 连接中", crate::theme::warning()),
+        }
+    }
+
     pub fn update(&mut self, action: Action) {
         match action {
+            Action::WorkspacePrefix => self.workspace_prefix = true,
+            Action::WorkspaceSwitch(id) => self.switch_page(id),
+            Action::WorkspaceList => {
+                self.switch_page(1);
+                self.workspace_command("pages", "");
+            }
+            Action::PagePreviousWorkspace => self.cycle_page(false),
+            Action::PageNextWorkspace => self.cycle_page(true),
+            Action::CloseWorkspacePage => self.close_page(self.active_page),
             Action::Quit => self.should_quit = true,
             Action::Previous => self.step_selection(false),
             Action::Next => self.step_selection(true),
@@ -298,6 +353,22 @@ impl AppState {
             Action::RestoreConfirmBackspace => self.backspace_restore_confirmation(),
             Action::RestoreConfirmSubmit => self.submit_restore_confirmation(),
             Action::RestoreConfirmCancel => self.cancel_restore_confirmation(),
+            Action::BeginLogSearch => {
+                if let Some(detail) = self.instance_detail.as_mut() {
+                    detail.editing_filter = true;
+                    detail.log_filter.clear();
+                }
+            }
+            Action::LogLeft => {
+                if let Some(detail) = self.instance_detail.as_mut() {
+                    detail.log_horizontal = detail.log_horizontal.saturating_sub(16);
+                }
+            }
+            Action::LogRight => {
+                if let Some(detail) = self.instance_detail.as_mut() {
+                    detail.log_horizontal = (detail.log_horizontal + 16).min(4096);
+                }
+            }
             Action::BeginConsoleInput => self.begin_console_input(),
             Action::ConsoleInsert(character) => self.insert_console_character(character),
             Action::ConsoleBackspace => self.backspace_console(),
@@ -309,6 +380,8 @@ impl AppState {
             }
             Action::CancelWizard => {
                 self.wizard = None;
+                self.pages.retain(|p| p.kind != PageKind::Create);
+                self.active_page = 1;
                 self.status = "已取消创建向导。".to_owned();
             }
             Action::Wizard(action) => {
@@ -321,6 +394,8 @@ impl AppState {
                     WizardOutcome::None => {}
                     WizardOutcome::Cancelled => {
                         self.wizard = None;
+                        self.pages.retain(|p| p.kind != PageKind::Create);
+                        self.active_page = 1;
                     }
                     WizardOutcome::Submit(input) => {
                         self.create_requested = Some(input);
@@ -362,11 +437,142 @@ impl AppState {
         }
     }
 
+    pub fn apply_task_list(&mut self, tasks: Vec<TaskSnapshot>) {
+        if let Some(detail) = self.task_detail.as_mut() {
+            if let Some(task) = tasks
+                .iter()
+                .find(|t| t.id == detail.task.id && t.updated_at >= detail.task.updated_at)
+            {
+                detail.task = task.clone();
+            }
+        }
+        self.apply_refresh(Ok(DashboardData {
+            instances: self.instances.clone(),
+            servers: self.servers.values().cloned().collect(),
+            tasks,
+        }));
+    }
+
     pub fn apply_refresh(&mut self, result: Result<DashboardData, AppError>) {
         match result {
-            Ok(data) => {
+            Ok(mut data) => {
+                for incoming in &mut data.tasks {
+                    if let Some(old) = self
+                        .tasks
+                        .iter()
+                        .find(|old| old.id == incoming.id && old.updated_at > incoming.updated_at)
+                    {
+                        *incoming = old.clone();
+                    }
+                }
+                self.connected = Some(true);
+                let previous_id = self.instances.get(self.selected_instance).map(|v| v.id);
+                let completed = data
+                    .tasks
+                    .iter()
+                    .filter(|task| {
+                        self.tasks.iter().any(|old| {
+                            old.id == task.id
+                                && matches!(
+                                    old.status,
+                                    mc_core::TaskStatus::Running | mc_core::TaskStatus::Queued
+                                )
+                        }) && !matches!(
+                            task.status,
+                            mc_core::TaskStatus::Running | mc_core::TaskStatus::Queued
+                        )
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                // A server observed starting (or stopped) on the previous refresh
+                // and running now just became joinable; say so where the user is.
+                let became_ready = data
+                    .servers
+                    .iter()
+                    .filter(|server| {
+                        server.state == mc_core::ServerState::Running
+                            && self
+                                .servers
+                                .get(&server.instance_id)
+                                .is_some_and(|old| old.state != mc_core::ServerState::Running)
+                    })
+                    .map(|server| (server.instance_id, server.address.clone()))
+                    .collect::<Vec<_>>();
+                self.servers = data
+                    .servers
+                    .into_iter()
+                    .map(|server| (server.instance_id, server))
+                    .collect();
+                for task in &data.tasks {
+                    if task
+                        .finished_at
+                        .is_some_and(|at| (chrono::Utc::now() - at).num_seconds() < 10)
+                    {
+                        if let Some(mc_core::TaskResult::InstanceCreated(instance)) = &task.result {
+                            if !data.instances.iter().any(|i| i.id == instance.id) {
+                                data.instances.push(instance.clone());
+                            }
+                        }
+                    }
+                }
                 self.instances = data.instances;
                 self.tasks = data.tasks;
+                for (instance_id, address) in became_ready {
+                    let name = self
+                        .instances
+                        .iter()
+                        .find(|instance| instance.id == instance_id)
+                        .map(|instance| instance.name.clone())
+                        .unwrap_or_else(|| "服务器".to_owned());
+                    self.push_transcript(TranscriptEntry::success(format!(
+                        "「{name}」已就绪，可以进入游戏。\n\
+                         本机 {address} · 朋友加入方式：/connect · 在线人数：/monitor"
+                    )));
+                }
+                if let Some(index) =
+                    previous_id.and_then(|id| self.instances.iter().position(|i| i.id == id))
+                {
+                    self.selected_instance = index;
+                }
+                for task in completed {
+                    let name = crate::task_presentation::kind_label(task.kind);
+                    if task.status == mc_core::TaskStatus::Succeeded {
+                        let report = match &task.result {
+                            Some(mc_core::TaskResult::InstanceCreated(instance)) => {
+                                if self.shell_visible && !self.instance_detail_visible {
+                                    if let Some(index) =
+                                        self.instances.iter().position(|i| i.id == instance.id)
+                                    {
+                                        self.selected_instance = index;
+                                    }
+                                }
+                                format!(
+                                    "{} 已准备就绪（尚未启动）。\n\
+                                     /start 启动 · /connect 查看朋友加入方式 · /mods 搜索扩展",
+                                    instance.name
+                                )
+                            }
+                            Some(mc_core::TaskResult::ManagementCompleted { report, .. }) => {
+                                report.clone()
+                            }
+                            _ => format!("{name}已完成。/backups 查看备份。"),
+                        };
+                        self.push_transcript(TranscriptEntry::success(report));
+                    } else {
+                        self.push_transcript(TranscriptEntry::error(format!(
+                            "{name}{}：{}\n{}",
+                            crate::task_presentation::status_label(task.status),
+                            task.error
+                                .as_ref()
+                                .map(|e| e.reason.as_str())
+                                .unwrap_or(&task.message),
+                            task.error
+                                .as_ref()
+                                .and_then(|e| e.next_action.as_deref())
+                                .unwrap_or("/task 查看详情。")
+                        )));
+                    }
+                }
                 self.selected_instance = self
                     .selected_instance
                     .min(self.instances.len().saturating_sub(1));
@@ -391,6 +597,7 @@ impl AppState {
                 }
             }
             Err(error) => {
+                self.connected = Some(false);
                 self.status = format!("连接失败：{}", error.reason);
             }
         }
@@ -400,6 +607,12 @@ impl AppState {
         let Some(detail) = self.task_detail.as_mut() else {
             return;
         };
+        if result
+            .as_ref()
+            .is_ok_and(|update| update.task.id != detail.task.id)
+        {
+            return;
+        }
         detail.apply_result(result);
         if let Some(error) = &detail.error {
             self.status = format!("任务详情刷新失败：{error}");
@@ -505,6 +718,58 @@ impl AppState {
         self.last_click = Some((now, target));
 
         match target {
+            HitTarget::Page(id) => self.switch_page(id),
+            HitTarget::Scrollbar(view, position, max, viewport) => {
+                use crate::hit::ScrollView;
+                let selected = position.saturating_add(viewport.saturating_sub(1));
+                match view {
+                    ScrollView::Shell => self.shell_scroll = max.saturating_sub(position),
+                    ScrollView::Logs => {
+                        if let Some(detail) = self.instance_detail.as_mut() {
+                            detail.log_scroll = max.saturating_sub(position);
+                        }
+                    }
+                    ScrollView::Events => {
+                        if let Some(detail) = self.task_detail.as_mut() {
+                            detail.scroll_offset = max.saturating_sub(position);
+                        }
+                    }
+                    ScrollView::Help => self.help_scroll = position,
+                    ScrollView::Versions | ScrollView::Java => {
+                        if let Some(wizard) = self.wizard.as_mut() {
+                            wizard.handle(WizardAction::FocusField(
+                                if view == ScrollView::Versions { 1 } else { 0 },
+                            ));
+                            wizard.handle(WizardAction::SelectChoice(selected));
+                        }
+                    }
+                    ScrollView::Instances => {
+                        self.focused_panel = Panel::Instances;
+                        self.selected_instance =
+                            selected.min(self.instances.len().saturating_sub(1));
+                    }
+                    ScrollView::Tasks => {
+                        self.focused_panel = Panel::Tasks;
+                        self.selected_task = selected.min(self.tasks.len().saturating_sub(1));
+                    }
+                    ScrollView::Backups => {
+                        if let Some(state) = self.backup_manager.as_mut() {
+                            state.selected = selected.min(state.backups.len().saturating_sub(1));
+                        }
+                    }
+                    ScrollView::Modpacks => {
+                        if let Some(state) = self.modpack_import.as_mut() {
+                            state.selected = selected.min(state.candidates.len().saturating_sub(1));
+                        }
+                    }
+                    ScrollView::Palette => {
+                        if let Some(state) = self.command_palette.as_mut() {
+                            state.selected = selected.min(state.filtered_len().saturating_sub(1));
+                        }
+                    }
+                }
+            }
+
             HitTarget::Instance(index) => {
                 self.focused_panel = Panel::Instances;
                 if index < self.instances.len() {
@@ -580,6 +845,24 @@ impl AppState {
                 self.shell_suggestion_index = index;
                 self.shell_complete();
             }
+        }
+    }
+
+    pub fn mouse_wheel(&mut self, column: u16, row: u16, forward: bool) {
+        if !self.shell_visible && !self.instance_detail_visible && self.wizard.is_none() {
+            match self.hit_target_at(column, row) {
+                Some(HitTarget::Instance(_)) => self.focused_panel = Panel::Instances,
+                Some(HitTarget::Task(_)) => self.focused_panel = Panel::Tasks,
+                _ => {}
+            }
+        }
+        if let Some(wizard) = self.wizard.as_mut() {
+            if wizard.step == crate::wizard::WizardStep::Server {
+                wizard.focused_field = 1;
+            }
+        }
+        for _ in 0..3 {
+            self.step_selection(forward);
         }
     }
 
@@ -802,6 +1085,20 @@ impl AppState {
         };
         self.command_palette = None;
         match command {
+            CommandId::Shell(command) => {
+                self.switch_page(1);
+                if self.active_page != 1 {
+                    return;
+                }
+                self.shell_visible = true;
+                self.shell_input = format!("/{command} ");
+                self.shell_cursor = self.shell_input.len();
+                if crate::shell::find(command).is_some_and(|spec| spec.args.is_empty())
+                    || matches!(command, "players" | "mods" | "rg" | "fabric")
+                {
+                    self.shell_submit();
+                }
+            }
             CommandId::OpenCreate => self.update(Action::OpenCreate),
             CommandId::ImportModpack => self.update(Action::OpenModpackImport),
             CommandId::OpenSelectedInstance => {
@@ -844,7 +1141,6 @@ impl AppState {
             CommandId::CancelWizard => self.update(Action::CancelWizard),
             CommandId::GoDashboard => self.update(Action::GoDashboard),
             CommandId::ShowShell => self.update(Action::ShowShell),
-            CommandId::ShowClassic => self.update(Action::ShowClassic),
             CommandId::Theme => self.update(Action::CycleTheme),
             CommandId::Help => self.update(Action::ToggleHelp),
             CommandId::Back => {
@@ -931,9 +1227,11 @@ impl AppState {
     pub fn task_detail_should_poll_fast(&self) -> bool {
         self.task_detail_visible
             && self.task_detail.as_ref().is_some_and(|detail| {
-                detail.task.kind == mc_core::TaskKind::CreatePaperInstance
-                    && (detail.task.status == mc_core::TaskStatus::Queued
-                        || detail.task.status == mc_core::TaskStatus::Running)
+                matches!(
+                    detail.task.kind,
+                    mc_core::TaskKind::CreatePaperInstance | mc_core::TaskKind::ManageInstance
+                ) && (detail.task.status == mc_core::TaskStatus::Queued
+                    || detail.task.status == mc_core::TaskStatus::Running)
             })
     }
 
@@ -955,6 +1253,15 @@ impl AppState {
             && !self.modpack_import_visible
     }
 
+    pub fn has_active_tasks(&self) -> bool {
+        self.tasks.iter().any(|task| {
+            matches!(
+                task.status,
+                mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running
+            )
+        })
+    }
+
     pub fn has_animated_work(&self) -> bool {
         self.instance_operation_pending
             || self
@@ -967,12 +1274,7 @@ impl AppState {
                     .as_ref()
                     .is_some_and(BackupManagerState::is_busy))
             || self.wizard.as_ref().is_some_and(|wizard| wizard.submitting)
-            || self.tasks.iter().any(|task| {
-                matches!(
-                    task.status,
-                    mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running
-                )
-            })
+            || self.has_active_tasks()
             || (self.task_detail_visible
                 && self.task_detail.as_ref().is_some_and(|detail| {
                     matches!(
@@ -1004,7 +1306,16 @@ impl AppState {
         };
         match self.task_detail.as_mut() {
             Some(detail) if detail.task.id == task.id => detail.task = task,
-            _ => self.task_detail = Some(TaskDetailState::new(task)),
+            _ => {
+                if let Some(previous) = self.task_detail.take() {
+                    self.task_cache.insert(previous.task.id, previous);
+                }
+                self.task_detail = Some(
+                    self.task_cache
+                        .remove(&task.id)
+                        .unwrap_or_else(|| TaskDetailState::new(task)),
+                );
+            }
         }
         self.task_detail_visible = true;
         self.task_detail_refresh_requested = true;

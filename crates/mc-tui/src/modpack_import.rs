@@ -21,7 +21,7 @@ impl ModpackImportState {
     pub fn discover() -> Self {
         let candidates = discover_candidates();
         let error = if candidates.is_empty() {
-            Some("Downloads、桌面和当前目录中未找到 .mrpack；按 r 重新扫描。".to_owned())
+            Some("Downloads、桌面和当前目录中未找到 .mrpack / .zip；按 r 重新扫描。".to_owned())
         } else {
             None
         };
@@ -40,7 +40,7 @@ impl ModpackImportState {
         self.report = None;
         self.loading = false;
         self.error = if self.candidates.is_empty() {
-            Some("没有找到可分析的 .mrpack 文件。".to_owned())
+            Some("没有找到可分析的 .mrpack / .zip 文件。".to_owned())
         } else {
             None
         };
@@ -145,7 +145,13 @@ fn collect_mrpack_files(directory: &Path, depth: usize, output: &mut Vec<PathBuf
             if !name.starts_with('.') {
                 collect_mrpack_files(&path, depth + 1, output);
             }
-        } else if path.extension().and_then(|value| value.to_str()) == Some("mrpack") {
+        } else if path
+            .extension()
+            .and_then(|value| value.to_str())
+            .is_some_and(|ext| {
+                ext.eq_ignore_ascii_case("mrpack") || ext.eq_ignore_ascii_case("zip")
+            })
+        {
             output.push(path);
         }
     }

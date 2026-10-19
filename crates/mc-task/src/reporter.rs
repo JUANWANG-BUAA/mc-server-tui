@@ -56,6 +56,10 @@ impl TaskReporter {
     pub(crate) async fn start(&self) -> Result<(), AppError> {
         let kind = self.snapshot.lock().await.kind;
         match kind {
+            mc_core::TaskKind::ManageInstance => {
+                self.set_phase(TaskPhase::ManagingInstance, "准备扩展或整合包操作。", None)
+                    .await
+            }
             mc_core::TaskKind::CreatePaperInstance => {
                 self.set_phase(TaskPhase::ResolvingArtifact, "Starting task.", None)
                     .await
@@ -90,11 +94,13 @@ impl TaskReporter {
                 total_steps: 3,
                 transfer: None,
             },
-            TaskResult::WorldBackupCreated { .. } => TaskProgress {
-                completed_steps: 1,
-                total_steps: 1,
-                transfer: None,
-            },
+            TaskResult::ManagementCompleted { .. } | TaskResult::WorldBackupCreated { .. } => {
+                TaskProgress {
+                    completed_steps: 1,
+                    total_steps: 1,
+                    transfer: None,
+                }
+            }
             TaskResult::WorldBackupsListed { .. }
             | TaskResult::WorldBackupVerified { .. }
             | TaskResult::WorldBackupRestorePlanned { .. }

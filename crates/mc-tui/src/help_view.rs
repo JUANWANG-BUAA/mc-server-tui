@@ -52,6 +52,13 @@ pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState, hits: &mut HitMap) {
         content,
     );
     ui::scrollbar(frame, outer, line_count, scroll, content_height);
+    ui::scrollbar_hits(
+        outer,
+        line_count,
+        content_height,
+        hits,
+        crate::hit::ScrollView::Help,
+    );
 
     let status = if max_scroll == 0 {
         Line::from(vec![

@@ -57,7 +57,11 @@ impl TranscriptEntry {
         }
     }
 
-    pub fn line_count(&self) -> usize {
-        self.text.lines().count().max(1)
+    pub fn line_count(&self, width: usize) -> usize {
+        self.text
+            .lines()
+            .map(|line| crate::ui::wrap_text(line, width).len())
+            .sum::<usize>()
+            .max(1)
     }
 }

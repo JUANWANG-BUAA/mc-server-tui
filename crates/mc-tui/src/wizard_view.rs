@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Frame,
 };
 
@@ -17,11 +17,12 @@ const MEMORY_LABELS: [&str; 4] = ["0.5-1G", "1-2G", "2-4G", "4-8G"];
 
 pub(crate) fn render(
     frame: &mut Frame<'_>,
+    area: Rect,
     wizard: &CreateWizard,
     animation_frame: u8,
     hits: &mut HitMap,
 ) {
-    let compact = frame.area().width < 80 || frame.area().height < 20;
+    let compact = area.width < 80 || area.height < 19;
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -29,13 +30,23 @@ pub(crate) fn render(
             Constraint::Min(1),
             Constraint::Length(if compact { 2 } else { 3 }),
         ])
-        .split(frame.area());
+        .split(area);
 
     render_header(frame, areas[0], wizard, compact);
+    let body = if !compact && wizard.step != WizardStep::Server {
+        Rect::new(
+            areas[1].x,
+            areas[1].y,
+            areas[1].width,
+            areas[1].height.min(22),
+        )
+    } else {
+        areas[1]
+    };
     match wizard.step {
         WizardStep::Server => render_server_step(frame, areas[1], wizard, compact, hits),
-        WizardStep::Runtime => render_runtime_step(frame, areas[1], wizard, compact, hits),
-        WizardStep::Review => render_review_step(frame, areas[1], wizard, compact, hits),
+        WizardStep::Runtime => render_runtime_step(frame, body, wizard, compact, hits),
+        WizardStep::Review => render_review_step(frame, body, wizard, compact, hits),
     }
     render_footer(frame, areas[2], wizard, animation_frame);
 }
@@ -47,8 +58,7 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, wizard: &CreateWizard, compa
         WizardStep::Review => 3,
     };
     let title = Line::from(vec![
-        Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-        Span::styled("新建 Paper 服务器", theme::accent()),
+        Span::styled(" 新建 Paper 服务器", theme::accent()),
         Span::styled(
             format!("   第 {step_number}/3 步"),
             theme::dim().add_modifier(Modifier::BOLD),
@@ -186,7 +196,7 @@ fn render_server_step(
     render_version_list(frame, inner, wizard, hits, inner.y + 4);
     frame.render_widget(
         Paragraph::new(Line::from(Span::styled(
-            "RC、pre-release 已隐藏；创建时锁定最新稳定构建和 SHA-256。",
+            "26.x 是 2026 新编号，晚于 1.21.x；请选择与朋友客户端一致的版本。",
             theme::dim(),
         ))),
         Rect::new(inner.x, inner.bottom().saturating_sub(1), inner.width, 1),
@@ -266,8 +276,19 @@ fn render_version_list(
         frame,
         panel,
         wizard.versions.len(),
-        wizard.selected_version,
+        ui::window_start(
+            wizard.selected_version,
+            wizard.versions.len(),
+            visible.max(1),
+        ),
         visible.max(1),
+    );
+    ui::scrollbar_hits(
+        panel,
+        wizard.versions.len(),
+        visible.max(1),
+        hits,
+        crate::hit::ScrollView::Versions,
     );
 }
 
@@ -374,8 +395,19 @@ fn render_runtime_step(
         frame,
         panel,
         wizard.java_runtimes.len(),
-        wizard.selected_java,
+        ui::window_start(
+            wizard.selected_java,
+            wizard.java_runtimes.len(),
+            java_area.height as usize,
+        ),
         java_area.height as usize,
+    );
+    ui::scrollbar_hits(
+        panel,
+        wizard.java_runtimes.len(),
+        java_area.height as usize,
+        hits,
+        crate::hit::ScrollView::Java,
     );
 
     let memory_y = java_area.bottom() + 1;
@@ -423,7 +455,7 @@ fn render_runtime_step(
     if !compact && inner.height > 10 {
         frame.render_widget(
             Paragraph::new(Line::from(Span::styled(
-                "Java 路径无需手填；系统会绑定可执行的运行时，启动前再次预检。",
+                "小型原版联机可选 2–4G；较多模组建议 4–8G，给系统预留内存。",
                 theme::dim(),
             ))),
             Rect::new(inner.x, inner.bottom().saturating_sub(1), inner.width, 1),
@@ -541,6 +573,12 @@ fn render_review_step(
         )));
     }
     lines.push(Line::from(""));
+    if !compact {
+        lines.push(Line::from(Span::styled(
+            "阅读条款：https://www.minecraft.net/eula",
+            theme::muted(),
+        )));
+    }
     let eula_index = lines.len();
     let eula_focused = wizard.focused_field == 0;
     let marker = if wizard.accept_eula { "✓" } else { "○" };
@@ -594,15 +632,20 @@ fn render_loading(frame: &mut Frame<'_>, inner: Rect, message: &str, danger: u8)
     frame.render_widget(
         Paragraph::new(vec![
             Line::from(vec![
-                Span::styled("◐ ", style),
+                Span::styled(if danger == 1 { "× " } else { "◐ " }, style),
                 Span::styled(message.to_owned(), style),
             ]),
             Line::from(""),
             Line::from(Span::styled(
-                "请稍候；数据来自 Paper 官方元数据和本机 doctor 预检。",
+                if danger == 1 {
+                    "读取失败；请修复上述问题，Esc 返回后重试。"
+                } else {
+                    "请稍候；数据来自 Paper 官方元数据和本机 doctor 预检。"
+                },
                 theme::dim(),
             )),
-        ]),
+        ])
+        .wrap(Wrap { trim: false }),
         inner,
     );
 }

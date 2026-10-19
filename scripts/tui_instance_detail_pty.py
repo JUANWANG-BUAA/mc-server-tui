@@ -216,6 +216,19 @@ def response_for(request, state):
     payload = request["payload"]
     operation = payload["operation"]
     arguments = payload.get("arguments") or {}
+    if operation == "server_info":
+        response = {
+            "result": "server_info",
+            "data": {
+                "product": "mc-server-tui",
+                "version": "0.1.0",
+                "api_protocol_min": 8,
+                "api_protocol_max": 9,
+                "state_schema": 1,
+                "runner_protocol": 1,
+            },
+        }
+        return {"protocol_version": request.get("protocol_version", 9), "payload": response}
     if operation == "list_instances":
         response = {"result": "instances", "data": [instance_summary()]}
     elif operation == "list_tasks":
@@ -343,7 +356,7 @@ def response_for(request, state):
                 "retryable": False,
             },
         }
-    return {"protocol_version": 8, "payload": response}
+    return {"protocol_version": request.get("protocol_version", 9), "payload": response}
 
 
 def main():
@@ -617,7 +630,7 @@ def main():
 
             stop_offset = len(captured)
             os.write(master, b"x")
-            if not wait_for(b"Serverstoppedsuccessfully", start_offset=stop_offset):
+            if not wait_for("服务器已正常停止".encode(), start_offset=stop_offset):
                 recent = re.sub(
                     rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured[-5000:])
                 )

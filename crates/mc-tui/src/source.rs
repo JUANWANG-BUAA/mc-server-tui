@@ -15,7 +15,20 @@ const BACKUP_PREVIEW_PAGE_LIMIT: u16 = 3;
 
 #[async_trait]
 pub(crate) trait ManagementSource: Send + Sync {
+    async fn manage_instance(
+        &self,
+        _instance_id: uuid::Uuid,
+        _action: mc_core::InstanceOperation,
+    ) -> Result<ApiResponse, AppError> {
+        Err(AppError::new(
+            ErrorCode::InvalidInput,
+            "此数据源不支持实例管理。",
+        ))
+    }
     async fn load(&self) -> Result<DashboardData, AppError>;
+    async fn load_tasks(&self) -> Result<Vec<mc_core::TaskSnapshot>, AppError> {
+        Ok(self.load().await?.tasks)
+    }
     async fn load_create_options(&self) -> Result<CreateOptions, AppError>;
     async fn create_instance(
         &self,
@@ -84,13 +97,56 @@ impl DaemonDashboardSource {
 
 #[async_trait]
 impl ManagementSource for DaemonDashboardSource {
+    async fn load_tasks(&self) -> Result<Vec<mc_core::TaskSnapshot>, AppError> {
+        match self
+            .client
+            .request(ApiRequest::ListTasks { limit: 32 })
+            .await?
+        {
+            ApiResponse::Tasks(tasks) => Ok(tasks),
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("tasks")),
+        }
+    }
+    async fn manage_instance(
+        &self,
+        instance_id: uuid::Uuid,
+        action: mc_core::InstanceOperation,
+    ) -> Result<ApiResponse, AppError> {
+        match self
+            .client
+            .request(ApiRequest::ManageInstance {
+                instance_id,
+                action,
+            })
+            .await?
+        {
+            ApiResponse::Error(error) => Err(error),
+            response => Ok(response),
+        }
+    }
     async fn load(&self) -> Result<DashboardData, AppError> {
         let (instances, tasks) = tokio::join!(
             self.client.request(ApiRequest::ListInstances),
-            self.client.request(ApiRequest::ListTasks { limit: 8 }),
+            self.client.request(ApiRequest::ListTasks { limit: 32 }),
         );
+        let instances = expect_instances(instances?)?;
+        let details = futures_util::future::join_all(instances.iter().map(|instance| {
+            self.client.request(ApiRequest::GetInstanceDetail {
+                instance_id: instance.id,
+            })
+        }))
+        .await;
+        let servers = details
+            .into_iter()
+            .filter_map(|result| match result {
+                Ok(ApiResponse::InstanceDetail(detail)) => Some(detail.server),
+                _ => None,
+            })
+            .collect();
         Ok(DashboardData {
-            instances: expect_instances(instances?)?,
+            servers,
+            instances,
             tasks: expect_tasks(tasks?)?,
         })
     }
@@ -98,7 +154,11 @@ impl ManagementSource for DaemonDashboardSource {
     async fn load_create_options(&self) -> Result<CreateOptions, AppError> {
         let doctor = expect_doctor(self.client.request(ApiRequest::Doctor).await?)?;
         let versions = expect_versions(self.client.request(ApiRequest::PaperVersions).await?)?;
-        let suggested_port = tokio::task::spawn_blocking(find_available_port)
+        let reserved = expect_instances(self.client.request(ApiRequest::ListInstances).await?)?
+            .into_iter()
+            .map(|v| v.port)
+            .collect::<Vec<_>>();
+        let suggested_port = tokio::task::spawn_blocking(move || find_available_port(&reserved))
             .await
             .map_err(|error| {
                 AppError::new(
@@ -449,8 +509,10 @@ fn unexpected_response(request: &str) -> AppError {
     )
 }
 
-fn find_available_port() -> u16 {
+fn find_available_port(reserved: &[u16]) -> u16 {
     (25565..=25585)
-        .find(|port| std::net::TcpListener::bind(("127.0.0.1", *port)).is_ok())
+        .find(|port| {
+            !reserved.contains(port) && std::net::TcpListener::bind(("127.0.0.1", *port)).is_ok()
+        })
         .unwrap_or(25565)
 }

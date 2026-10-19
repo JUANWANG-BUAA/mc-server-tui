@@ -14,11 +14,12 @@ use crate::{
 
 pub(crate) fn render(
     frame: &mut Frame<'_>,
+    area: Rect,
     state: &BackupManagerState,
     animation_frame: u8,
     hits: &mut HitMap,
 ) {
-    let compact = frame.area().width < 80 || frame.area().height < 18;
+    let compact = area.width < 80 || area.height < 17;
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -26,7 +27,7 @@ pub(crate) fn render(
             Constraint::Min(1),
             Constraint::Length(3),
         ])
-        .split(frame.area());
+        .split(area);
 
     render_header(frame, areas[0], state, compact);
     if state.is_restoring() {
@@ -45,8 +46,7 @@ pub(crate) fn render(
 
 fn render_header(frame: &mut Frame<'_>, area: Rect, state: &BackupManagerState, compact: bool) {
     let line = Line::from(vec![
-        Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-        Span::styled("世界与备份", theme::accent()),
+        Span::styled(" 世界与备份", theme::accent()),
         Span::raw("  ·  "),
         Span::styled(state.instance_name.clone(), theme::muted()),
     ]);
@@ -56,7 +56,7 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, state: &BackupManagerState, 
         vec![
             line,
             Line::from(vec![
-                Span::styled("停机一致性", theme::success()),
+                Span::styled(" 停机一致性", theme::success()),
                 Span::raw("  ·  "),
                 Span::styled("分页目录", theme::accent()),
                 Span::raw("  ·  "),
@@ -81,7 +81,7 @@ fn render_browser(
     animation_frame: u8,
     hits: &mut HitMap,
 ) {
-    let compact = area.width < 80 || area.height < 18;
+    let compact = area.width < 80 || area.height < 17;
     if compact {
         let rows = Layout::default()
             .direction(Direction::Vertical)
@@ -197,8 +197,15 @@ fn render_backup_list(
         frame,
         area,
         state.backups.len(),
-        state.selected,
+        ui::window_start(state.selected, state.backups.len(), inner.height as usize),
         inner.height as usize,
+    );
+    ui::scrollbar_hits(
+        area,
+        state.backups.len(),
+        inner.height as usize,
+        hits,
+        crate::hit::ScrollView::Backups,
     );
 }
 
@@ -325,31 +332,31 @@ fn render_plan(
     plan: &mc_core::BackupRestorePlan,
     compact: bool,
 ) {
+    // Impact and the confirmation prompt come first; technical evidence is
+    // last so a short terminal clips details, never the action line.
     let mut lines = vec![
         Line::from(Span::styled(
             "✓ 目标备份已再次校验；预览尚未修改任何世界文件。",
             theme::success().add_modifier(Modifier::BOLD),
         )),
         Line::from(vec![
-            Span::styled("备份  ", label_style()),
+            Span::styled("恢复到  ", label_style()),
             Span::styled(
-                format!(
-                    "{} · {}",
-                    &plan.backup_id.to_string()[..8],
-                    plan.created_at.format("%Y-%m-%d %H:%M UTC")
-                ),
+                plan.created_at
+                    .with_timezone(&chrono::Local)
+                    .format("%Y-%m-%d %H:%M")
+                    .to_string(),
                 theme::accent(),
             ),
+            Span::styled(
+                format!(" 的备份 · {}", &plan.backup_id.to_string()[..8]),
+                theme::muted(),
+            ),
         ]),
-    ];
-    if !compact {
-        lines.push(Line::from(Span::styled("影响", label_style())));
-    }
-    lines.extend([
         impact_line("替换", &plan.replaced_worlds, theme::warning()),
         impact_line("新增", &plan.added_worlds, theme::accent()),
         impact_line("移除", &plan.removed_worlds, theme::danger()),
-    ]);
+    ];
     if !compact {
         lines.push(Line::from(vec![
             Span::styled("空间  ", label_style()),
@@ -366,17 +373,23 @@ fn render_plan(
                 },
             ),
         ]));
-        lines.push(Line::from(vec![
-            Span::styled("安全  ", label_style()),
-            Span::styled("逐根目录事务、持久 journal、失败自动回滚", theme::muted()),
-        ]));
-        lines.push(Line::from(vec![
-            Span::styled("令牌  ", label_style()),
-            Span::styled(short_token(&plan.confirmation_token), theme::muted()),
-        ]));
-
+    }
+    lines.push(Line::from(vec![
+        Span::styled("下一步  ", label_style()),
+        if state.editing_confirmation {
+            Span::styled("在底部输入 RESTORE 后按 Enter", theme::warning())
+        } else {
+            Span::styled("按 c 输入 RESTORE", theme::warning())
+        },
+        Span::styled("；Esc 取消。", theme::muted()),
+    ]));
+    if !compact {
+        lines.push(Line::from(Span::styled(
+            "恢复完成后服务器保持停止，由你复查并显式启动；失败自动回滚。",
+            theme::warning(),
+        )));
         lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled("恢复事务步骤", label_style())));
+        lines.push(Line::from(Span::styled("技术细节", label_style())));
         lines.push(Line::from(Span::styled(
             "1. 停止并锁定实例，复验目标备份与当前世界现场树。",
             theme::muted(),
@@ -386,24 +399,12 @@ fn render_plan(
             theme::muted(),
         )));
         lines.push(Line::from(Span::styled(
-            "3. 扫描新树并写入 committed 记录；失败自动回滚旧世界。",
+            "3. 扫描新树并写入 committed 记录；当前世界保留为回滚目录。",
             theme::muted(),
         )));
-        lines.push(Line::from(Span::styled(
-            "4. 完成后服务器保持停止，由你复查并显式启动。",
-            theme::warning(),
-        )));
-    }
-    if state.editing_confirmation {
         lines.push(Line::from(vec![
-            Span::styled("确认> ", theme::warning().add_modifier(Modifier::BOLD)),
-            Span::styled(format!("{}▏", state.confirmation_input), theme::accent()),
-        ]));
-    } else {
-        lines.push(Line::from(vec![
-            Span::styled("下一步  ", label_style()),
-            Span::styled("按 c 输入 RESTORE", theme::warning()),
-            Span::styled("；Esc 取消预览。", theme::muted()),
+            Span::styled("令牌  ", label_style()),
+            Span::styled(short_token(&plan.confirmation_token), theme::muted()),
         ]));
     }
     frame.render_widget(
@@ -538,11 +539,13 @@ fn render_footer(
         Span::styled(message, style),
     ]);
     let (primary, secondary) = if state.editing_confirmation {
+        // The live input stays in the fixed footer so it is visible at every
+        // terminal size, like the session composer.
         (
             Line::from(vec![
-                Span::styled("确认短语  ", label_style()),
-                Span::styled("RESTORE", theme::warning().add_modifier(Modifier::BOLD)),
-                Span::styled(" 完全匹配", theme::muted()),
+                Span::styled("确认> ", theme::warning().add_modifier(Modifier::BOLD)),
+                Span::styled(format!("{}▏", state.confirmation_input), theme::accent()),
+                Span::styled("  需完整输入 RESTORE", theme::muted()),
             ]),
             help_line(
                 "Enter",

@@ -52,7 +52,7 @@ pub(super) fn mode_for_state(state: &AppState) -> UiMode {
             editing_console: state
                 .instance_detail
                 .as_ref()
-                .is_some_and(|detail| detail.editing_console),
+                .is_some_and(|detail| detail.editing_console || detail.editing_filter),
         }
     } else if state.shell_visible {
         UiMode::Shell
@@ -64,6 +64,17 @@ pub(super) fn mode_for_state(state: &AppState) -> UiMode {
 pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMode) -> Action {
     if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
         return Action::Quit;
+    }
+    if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('b') {
+        return Action::WorkspacePrefix;
+    }
+    if modifiers.contains(KeyModifiers::ALT) {
+        match code {
+            KeyCode::Left | KeyCode::Char('b') => return Action::PagePreviousWorkspace,
+            KeyCode::Right | KeyCode::Char('f') => return Action::PageNextWorkspace,
+            KeyCode::Char('w') => return Action::CloseWorkspacePage,
+            _ => return Action::Ignore,
+        }
     }
     if code == KeyCode::F(2) {
         return Action::CycleTheme;
@@ -260,6 +271,9 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
                     KeyCode::Home => Action::First,
                     KeyCode::End => Action::Last,
                     KeyCode::Char('r') => Action::RefreshInstanceDetail,
+                    KeyCode::Char('f') => Action::BeginLogSearch,
+                    KeyCode::Left => Action::LogLeft,
+                    KeyCode::Right => Action::LogRight,
                     KeyCode::Char('s') => Action::StartServer,
                     KeyCode::Char('x') => Action::StopServer,
                     KeyCode::Char('b') => Action::CreateBackup,
@@ -293,6 +307,20 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             KeyCode::Char('?') => Action::ToggleHelp,
             _ => Action::Ignore,
         },
+    }
+}
+
+pub(super) fn workspace_key(code: KeyCode) -> Action {
+    match code {
+        KeyCode::Char('n') => Action::PageNextWorkspace,
+        KeyCode::Char('p') => Action::PagePreviousWorkspace,
+        KeyCode::Char('w') => Action::WorkspaceList,
+        KeyCode::Char('x') => Action::CloseWorkspacePage,
+        KeyCode::Char('0') => Action::WorkspaceSwitch(1),
+        KeyCode::Char(c) if c.is_ascii_digit() => {
+            Action::WorkspaceSwitch(c.to_digit(10).unwrap_or(1))
+        }
+        _ => Action::Ignore,
     }
 }
 

@@ -127,7 +127,7 @@ fn render_to_text(detail: &TaskDetailState, width: u16, height: u16) -> String {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
-        .draw(|frame| render(frame, detail, 0, &mut HitMap::default()))
+        .draw(|frame| render(frame, frame.area(), detail, 0, &mut HitMap::default()))
         .expect("render");
     terminal
         .backend()

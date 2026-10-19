@@ -7,17 +7,59 @@ All notable user-facing changes are recorded here. The format is based on
 
 ### Added
 
-- Static, dependency-free GitHub Pages landing site with real TUI screenshots,
-  interactive theme switching, pixel Steve, architecture/install/roadmap
-  sections, SEO metadata, sitemap, and a custom 404 page.
+- Workspace pages with stable IDs, keyboard/mouse switching, and preserved
+  per-instance log filters and reading positions.
+- `/connect`, `/monitor`, `/rg` log search (literal/regex), live log filtering,
+  CPU/RSS history, and non-destructive alerts for crashes, ERROR logs, sustained
+  CPU, and RSS above configured Xmx.
+- Player management through typed console actions: `/players list`, `op`,
+  `deop`, `ban`, `pardon`, `kick`, whitelist add/remove/toggle, plus LuckPerms
+  group and permission helpers.
+- Fabric server creation through `/fabric`, with stable loader selection,
+  Java/port checks, and explicit EULA acceptance.
+- `/mods` catalog search and add-on installation for Paper plugins and Fabric
+  mods, including SHA-512 verification, required catalog dependencies, JAR
+  metadata checks, client-only rejection, and stopped-instance enforcement.
+- MRPACK/ZIP server-pack preview and stopped-server import, plus export of
+  server add-on/config bundles with SHA-256 manifests and archive limits.
+- API protocol 9 with N/N-1 negotiation: the daemon accepts protocols 8–9,
+  replies with the request's protocol, and hides v9-only task kinds/results from
+  v8 clients. `ServerInfo` and the release manifest now report `state_schema`
+  and `runner_protocol`. CI starts an isolated real daemon (no Paper/Java) to
+  check the window with `scripts/check_protocol_window.py`.
+- Runner control protocol v1 with additive fields; legacy frames without a
+  protocol field are treated as v1.
+- `mc update status` and `mc update rollback`, which atomically swap the
+  versioned `current`/`previous` symlinks, restart the user service, and refuse
+  a state-schema downgrade when the target binary cannot read the running
+  daemon's layout.
+- Static GitHub Pages landing site with real TUI screenshots, interactive
+  theme switching, pixel Steve, architecture/install/roadmap sections, SEO
+  metadata, sitemap, and a custom 404 page.
+
+### Fixed
+
+- `/players` read the wrong log offset after the console log exceeded 64 KiB.
+- MRPACK client-overrides were imported into servers; `server-overrides` now
+  takes precedence and same-path conflicts are resolved by the spec.
+- Fabric API could be installed twice when the catalog project ID and JAR slug
+  differed, which crashes Fabric.
+- Fabric/Modrinth downloads ignored the configured User-Agent and used the
+  system temporary directory before an instance existed.
+- The workspace bar covered each page's first row, restore confirmation was
+  clipped, and supervisor status text stayed English in the UI.
+- Port selection and `server-port`/`--port` now agree on the assigned listener.
 
 ### Planned
 
 - Vanilla provider and takeover of existing server directories.
-- `server.properties` editing, Java compatibility rules, and player management.
+- `server.properties` editing, Java compatibility rules, and structured
+  management results for the CLI.
+- State schema migration snapshots and update-time task draining.
 - Online/scheduled backups and a real Minecraft restore drill.
 - Signed/notarized releases, Homebrew tap, and Linux packages.
-- Update manifest compatibility ranges and a safe updater.
+- Signed self-updater with health checks, plus mirrors/retries for constrained
+  networks.
 
 ## [0.1.0] - 2026-10-19
 

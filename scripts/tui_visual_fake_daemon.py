@@ -266,6 +266,18 @@ def response_for(request, state):
     operation = payload["operation"]
     arguments = payload.get("arguments") or {}
 
+    if operation == "server_info":
+        return {
+            "result": "server_info",
+            "data": {
+                "product": "mc-server-tui",
+                "version": "0.1.0",
+                "api_protocol_min": 8,
+                "api_protocol_max": 9,
+                "state_schema": 1,
+                "runner_protocol": 1,
+            },
+        }
     if operation == "doctor":
         return {
             "result": "doctor",
@@ -491,7 +503,10 @@ def serve_connection(connection, state, lock):
             request = json.loads(line)
             with lock:
                 payload = response_for(request, state)
-            response = {"protocol_version": 8, "payload": payload}
+            response = {
+                "protocol_version": request.get("protocol_version", 9),
+                "payload": payload,
+            }
             connection.sendall(json.dumps(response, ensure_ascii=False).encode() + b"\n")
         except (KeyError, ValueError, OSError) as error:
             print(f"request failed: {error}", flush=True)

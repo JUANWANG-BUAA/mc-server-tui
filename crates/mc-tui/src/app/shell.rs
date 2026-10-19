@@ -196,7 +196,7 @@ impl AppState {
     }
 
     pub(crate) fn push_transcript(&mut self, entry: TranscriptEntry) {
-        let added_lines = entry.line_count() + 1;
+        let added_lines = entry.line_count(self.shell_text_width.get()) + 1;
         if self.shell_scroll > 0 {
             self.shell_scroll = self.shell_scroll.saturating_add(added_lines);
         }
@@ -210,7 +210,7 @@ impl AppState {
     fn transcript_line_count(&self) -> usize {
         self.transcript
             .iter()
-            .map(TranscriptEntry::line_count)
+            .map(|entry| entry.line_count(self.shell_text_width.get()))
             .sum::<usize>()
             + self.transcript.len().saturating_sub(1)
     }
@@ -222,7 +222,7 @@ impl AppState {
         } else {
             before_total + 1
         };
-        let added_lines = entry.line_count() + 1;
+        let added_lines = entry.line_count(self.shell_text_width.get()) + 1;
         self.transcript.push(entry);
         if self.transcript.len() > MAX_TRANSCRIPT_ENTRIES {
             let discard = self.transcript.len() - MAX_TRANSCRIPT_ENTRIES;
@@ -308,6 +308,10 @@ impl AppState {
         };
 
         match command.name {
+            "pages" | "page" | "close" => self.workspace_command(command.name, args),
+            "connect" | "monitor" | "rg" | "players" | "mods" | "export" | "fabric" => {
+                self.manage_shell(command.name, args)
+            }
             "help" => {
                 self.push_transcript_reveal_top(TranscriptEntry::assistant(shell::help_text()))
             }
@@ -333,7 +337,13 @@ impl AppState {
                 ));
                 self.update(Action::OpenInstanceDetail);
             }
-            "logs" => self.shell_tail_logs(),
+            "logs" => {
+                if args.is_empty() {
+                    self.shell_tail_logs()
+                } else {
+                    self.manage_shell("rg", args)
+                }
+            }
             "start" => self.shell_server_command(false),
             "stop" => self.shell_server_command(true),
             "console" => {
@@ -355,6 +365,7 @@ impl AppState {
                 ));
                 self.update(Action::OpenCreate);
             }
+            "import" if !args.is_empty() => self.manage_shell("import", args),
             "import" => {
                 self.push_transcript(TranscriptEntry::assistant(
                     "正在扫描 Downloads、桌面和当前目录中的 .mrpack。",
@@ -517,7 +528,14 @@ impl AppState {
     pub(crate) fn select_shell_instance(&mut self, instance_id: &Uuid) {
         if self.instance_detail_id != Some(*instance_id) {
             self.instance_detail_id = Some(*instance_id);
-            self.instance_detail = Some(InstanceDetailState::loading(*instance_id));
+            if let Some(previous) = self.instance_detail.take() {
+                self.instance_cache.insert(previous.instance_id, previous);
+            }
+            self.instance_detail = Some(
+                self.instance_cache
+                    .remove(instance_id)
+                    .unwrap_or_else(|| InstanceDetailState::loading(*instance_id)),
+            );
         }
         self.instance_detail_refresh_requested = true;
     }
@@ -597,15 +615,19 @@ impl AppState {
 
     fn shell_status_text(&self) -> String {
         let Some(instance) = self.current_instance() else {
-            return "当前没有选中的实例。输入 /create 新建，或 /instances 查看。".to_owned();
+            return "还没有实例。/create 新建 Paper；/fabric 新建模组服务器。".to_owned();
         };
+        // The open detail page may belong to another instance; prefer it only
+        // when it matches, otherwise use the dashboard's per-instance snapshot.
         let server = self
             .instance_detail
             .as_ref()
             .and_then(|detail| detail.detail.as_ref())
-            .map(|detail| &detail.server);
+            .map(|detail| &detail.server)
+            .filter(|server| server.instance_id == instance.id)
+            .or_else(|| self.servers.get(&instance.id));
         let state = server
-            .map(|server| server_state_label(server.state).to_owned())
+            .map(|server| crate::ui::server_state_label(server.state).to_owned())
             .unwrap_or_else(|| "未加载".to_owned());
         let address = server
             .map(|server| format!(" · {}", server.address))
@@ -691,16 +713,4 @@ fn task_summary_line(task: &mc_core::TaskSnapshot) -> String {
             .unwrap_or(0),
         crate::task_presentation::status_label(task.status)
     )
-}
-
-fn server_state_label(state: mc_core::ServerState) -> &'static str {
-    match state {
-        mc_core::ServerState::Installed => "已安装",
-        mc_core::ServerState::Starting => "启动中",
-        mc_core::ServerState::Running => "运行中",
-        mc_core::ServerState::Stopping => "停止中",
-        mc_core::ServerState::Stopped => "已停止",
-        mc_core::ServerState::Failed => "启动失败",
-        mc_core::ServerState::Unknown => "状态未知",
-    }
 }

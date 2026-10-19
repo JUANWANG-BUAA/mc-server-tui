@@ -110,6 +110,7 @@ impl TaskDetailState {
             self.cancel_armed = false;
             self.cancel_requested = false;
         }
+        let old_len = self.events.len();
         let mut incoming = update.events;
         incoming.sort_by_key(|event| event.sequence);
         for event in incoming {
@@ -117,6 +118,9 @@ impl TaskDetailState {
                 self.last_event_sequence = event.sequence;
                 self.events.push(event);
             }
+        }
+        if self.scroll_offset > 0 {
+            self.scroll_offset += self.events.len().saturating_sub(old_len);
         }
         self.events.sort_by_key(|event| event.sequence);
         if self.events.len() > MAX_RETAINED_EVENTS {

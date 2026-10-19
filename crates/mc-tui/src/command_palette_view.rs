@@ -142,6 +142,13 @@ pub(crate) fn render(frame: &mut Frame<'_>, palette: &CommandPaletteState, hits:
         );
     }
     ui::scrollbar(frame, area, item_count, offset, visible_height);
+    ui::scrollbar_hits(
+        area,
+        item_count,
+        visible_height,
+        hits,
+        crate::hit::ScrollView::Palette,
+    );
 
     frame.render_widget(
         Paragraph::new(Line::from(vec![

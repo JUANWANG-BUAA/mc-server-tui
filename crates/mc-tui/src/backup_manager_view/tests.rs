@@ -157,7 +157,15 @@ fn render_to_text(
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
-        .draw(|frame| render(frame, state, animation_frame, &mut HitMap::default()))
+        .draw(|frame| {
+            render(
+                frame,
+                frame.area(),
+                state,
+                animation_frame,
+                &mut HitMap::default(),
+            )
+        })
         .expect("render backup manager");
     terminal
         .backend()

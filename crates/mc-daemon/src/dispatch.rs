@@ -22,8 +22,16 @@ struct PaperCreateCommand {
     accept_eula: bool,
 }
 
-pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiResponse {
-    match request {
+pub(crate) async fn dispatch(
+    request: ApiRequest,
+    state: &DaemonState,
+    protocol_version: u16,
+) -> ApiResponse {
+    let response = match request {
+        ApiRequest::ManageInstance {
+            instance_id,
+            action,
+        } => crate::management::dispatch(state, instance_id, action).await,
         ApiRequest::Ping => ApiResponse::Pong,
         ApiRequest::ServerInfo => ApiResponse::ServerInfo(mc_core::ServerInfo::current()),
         ApiRequest::Doctor => ApiResponse::Doctor(mc_system::run_doctor().await),
@@ -240,7 +248,47 @@ pub(crate) async fn dispatch(request: ApiRequest, state: &DaemonState) -> ApiRes
                 ),
             }
         }
+    };
+    downgrade_response(response, protocol_version)
+}
+
+/// A v8 client cannot decode the task kinds, phases, and results introduced in
+/// v9. Hide those tasks from v8 list responses and reject direct reads with an
+/// actionable error instead of sending an envelope it cannot deserialize.
+fn downgrade_response(response: ApiResponse, protocol_version: u16) -> ApiResponse {
+    if protocol_version >= 9 {
+        return response;
     }
+    match response {
+        ApiResponse::Tasks(tasks) => {
+            ApiResponse::Tasks(tasks.into_iter().filter(task_is_v8_compatible).collect())
+        }
+        ApiResponse::Task(task) if !task_is_v8_compatible(&task) => newer_task_error(),
+        ApiResponse::TaskEvents(events)
+            if events
+                .iter()
+                .any(|event| event.phase == TaskPhase::ManagingInstance) =>
+        {
+            newer_task_error()
+        }
+        other => other,
+    }
+}
+
+fn task_is_v8_compatible(task: &TaskSnapshot) -> bool {
+    task.kind != TaskKind::ManageInstance
+        && task.phase != TaskPhase::ManagingInstance
+        && !matches!(task.result, Some(TaskResult::ManagementCompleted { .. }))
+}
+
+fn newer_task_error() -> ApiResponse {
+    ApiResponse::Error(
+        AppError::new(
+            ErrorCode::ProtocolInvalid,
+            "This task belongs to a newer daemon feature than the client supports.",
+        )
+        .with_action("Update the client to inspect this task."),
+    )
 }
 
 async fn start_server(
@@ -360,14 +408,14 @@ async fn create_paper_instance(
     Ok(TaskResult::InstanceCreated(summary))
 }
 
-async fn download_with_progress(
+pub(crate) async fn download_with_progress(
     downloader: &mc_download::DownloadManager,
     plan: &mc_core::ArtifactPlan,
     reporter: &TaskReporter,
 ) -> Result<mc_download::VerifiedBlob, AppError> {
     let control = mc_download::DownloadControl::new(reporter.cancellation_flag());
     let source = format!(
-        "Paper 官方 CDN · {}",
+        "校验下载 · {}",
         plan.download_url.host_str().unwrap_or("host unavailable")
     );
     let fetch = downloader.fetch_with_control(plan, &control);
@@ -428,4 +476,76 @@ fn cancelled_task_error() -> AppError {
         "The task was cancelled by user request.",
     )
     .with_action("Submit the same operation again to resume from its verified partial file.")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn snapshot(kind: TaskKind, phase: TaskPhase, result: Option<TaskResult>) -> TaskSnapshot {
+        let now = Utc::now();
+        TaskSnapshot {
+            id: uuid::Uuid::new_v4(),
+            kind,
+            instance_id: None,
+            status: mc_core::TaskStatus::Succeeded,
+            phase,
+            message: String::new(),
+            progress: None,
+            created_at: now,
+            updated_at: now,
+            finished_at: None,
+            result,
+            error: None,
+            last_event_sequence: 0,
+        }
+    }
+
+    #[test]
+    fn v8_clients_do_not_see_management_tasks() {
+        let legacy = snapshot(TaskKind::CreatePaperInstance, TaskPhase::Queued, None);
+        let management = snapshot(TaskKind::ManageInstance, TaskPhase::Queued, None);
+        let response = downgrade_response(ApiResponse::Tasks(vec![legacy.clone(), management]), 8);
+        match response {
+            ApiResponse::Tasks(tasks) => {
+                assert_eq!(tasks.len(), 1);
+                assert_eq!(tasks[0].id, legacy.id);
+            }
+            _ => panic!("expected a task list"),
+        }
+    }
+
+    #[test]
+    fn v9_clients_keep_management_tasks() {
+        let management = snapshot(
+            TaskKind::ManageInstance,
+            TaskPhase::ManagingInstance,
+            Some(TaskResult::ManagementCompleted {
+                instance_id: uuid::Uuid::new_v4(),
+                report: "ok".to_owned(),
+            }),
+        );
+        let response = downgrade_response(ApiResponse::Tasks(vec![management]), 9);
+        match response {
+            ApiResponse::Tasks(tasks) => assert_eq!(tasks.len(), 1),
+            _ => panic!("expected a task list"),
+        }
+    }
+
+    #[test]
+    fn v8_task_detail_rejects_a_management_task() {
+        let management = snapshot(
+            TaskKind::ManageInstance,
+            TaskPhase::ManagingInstance,
+            Some(TaskResult::ManagementCompleted {
+                instance_id: uuid::Uuid::new_v4(),
+                report: "ok".to_owned(),
+            }),
+        );
+        match downgrade_response(ApiResponse::Task(management), 8) {
+            ApiResponse::Error(error) => assert_eq!(error.code, ErrorCode::ProtocolInvalid),
+            _ => panic!("expected a protocol error"),
+        }
+    }
 }

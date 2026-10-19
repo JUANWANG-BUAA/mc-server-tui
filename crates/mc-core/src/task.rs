@@ -7,6 +7,7 @@ use crate::{AppError, BackupPage, BackupRestorePlan, BackupSummary, InstanceSumm
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskKind {
+    ManageInstance,
     CreatePaperInstance,
     CreateWorldBackup,
     ListWorldBackups,
@@ -29,6 +30,7 @@ pub enum TaskStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TaskPhase {
+    ManagingInstance,
     Queued,
     WaitingForInstance,
     ResolvingArtifact,
@@ -66,6 +68,10 @@ pub struct TaskProgress {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "data", rename_all = "snake_case")]
 pub enum TaskResult {
+    ManagementCompleted {
+        instance_id: Uuid,
+        report: String,
+    },
     InstanceCreated(InstanceSummary),
     WorldBackupCreated {
         instance_id: Uuid,
@@ -92,6 +98,7 @@ pub enum TaskResult {
 impl TaskResult {
     pub fn instance_id(&self) -> Uuid {
         match self {
+            Self::ManagementCompleted { instance_id, .. } => *instance_id,
             Self::InstanceCreated(instance) => instance.id,
             Self::WorldBackupCreated { instance_id, .. } => *instance_id,
             Self::WorldBackupsListed { instance_id, .. }

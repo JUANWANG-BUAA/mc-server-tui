@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use mc_backup::BackupService;
 use mc_core::ServerProvider;
@@ -14,4 +14,8 @@ pub(crate) struct DaemonState {
     pub supervisor: ProcessSupervisor,
     pub backups: BackupService,
     pub tasks: TaskManager,
+    /// Configured identity sent to every upstream (Paper, Fabric, Modrinth).
+    pub user_agent: String,
+    /// Content-addressed artifact cache shared by all providers.
+    pub cache_dir: PathBuf,
 }

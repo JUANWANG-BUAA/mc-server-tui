@@ -112,6 +112,7 @@ def package(args: argparse.Namespace) -> tuple[Path, Path]:
             "min_supported_version": args.min_supported_version or args.version,
             "api_protocol": {"min": args.api_min, "max": args.api_max},
             "state_schema": 1,
+            "runner_protocol": {"min": 1, "max": 1},
             "notes_url": args.notes_url,
             "targets": {},
         }

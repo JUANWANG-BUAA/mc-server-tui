@@ -12,17 +12,16 @@ use super::render;
 fn renders_shell_transcript_composer_and_status_dock() {
     let state = populated_state();
     let text = render_to_text(80, 24, &state, 0);
-    assert!(text.contains("会话终端"));
+    assert!(text.contains("连接中"));
     assert!(text.contains("会话输入"));
     assert!(text.contains("视觉验收服"));
     assert!(text.contains("下载校验"));
     assert!(text.contains("F1帮助"));
-    assert!(text.contains("Claude"));
     assert!(text.contains("/logs"));
     assert!(text.contains("/backups"));
 
     let compact = render_to_text(40, 12, &state, 0);
-    assert!(compact.contains("会话"));
+    assert!(compact.contains("任务"));
     assert!(compact.contains("输入"));
 }
 
@@ -31,21 +30,21 @@ fn mascot_is_pixel_steve_and_changes_between_animation_frames() {
     let state = populated_state();
     let first = render_to_text(80, 24, &state, 2);
     let later = render_to_text(80, 24, &state, 3);
-    assert!(first.contains("█"));
+    assert!(first.contains("▀"));
     assert!(first.contains("✦") || first.contains("✧") || first.contains("·"));
     assert_ne!(first, later);
 
     let styles = render_to_styles(80, 24, &state, 2);
     for expected in [
-        Color::Rgb(64, 43, 28),   // hair
-        Color::Rgb(198, 134, 66), // skin
-        Color::Rgb(58, 79, 196),  // pupil
-        Color::Rgb(91, 58, 34),   // mouth
+        Color::Rgb(54, 37, 25),    // hair
+        Color::Rgb(181, 136, 108), // skin
+        Color::Rgb(75, 65, 145),   // pupil
+        Color::Rgb(67, 43, 29),    // mouth
     ] {
         assert!(
             styles
                 .iter()
-                .any(|(symbol, fg, _)| symbol == "█" && *fg == expected),
+                .any(|(symbol, fg, bg)| symbol == "▀" && (*fg == expected || *bg == expected)),
             "missing Steve pixel color {expected:?}"
         );
     }
@@ -125,7 +124,15 @@ fn render_to_styles(
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
-        .draw(|frame| render(frame, state, animation_frame, &mut HitMap::default()))
+        .draw(|frame| {
+            render(
+                frame,
+                frame.area(),
+                state,
+                animation_frame,
+                &mut HitMap::default(),
+            )
+        })
         .expect("render shell");
     terminal
         .backend()

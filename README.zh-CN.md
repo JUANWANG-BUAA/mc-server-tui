@@ -35,12 +35,12 @@ Java 进程藏在多层封装之后。这个项目选择终端：
 | 常驻监督 | per-instance runner、进程身份、daemon 重启重连 |
 | 持久任务 | SQLite 任务、字节进度、速度/来源、事件游标、协作取消 |
 | 世界备份 | 停服备份、预检、staging、校验、恢复计划/token、恢复 journal |
-| 整合包 | `.mrpack` 只读分析：MC 版本、loader、`env.server`、路径安全、hash、下载域名 |
+| 整合包 | ZIP / MRPACK 预览与停服导入、校验导出；Paper / Fabric 兼容扩展下载及必需依赖 |
 | 分发 | `mc` 启动器、`config.toml`、launchd/systemd 用户服务、版本化安装器、release manifest、Homebrew formula 模板 |
 
 ## 快速开始
 
-要求：macOS 13+ 或 Linux x86_64/arm64；Java 21+；终端至少 80×24；首次下载
+要求：macOS 13+ 或 Linux x86_64/arm64；Java 21（1.21.x）/ Java 25+（26.x）；终端至少 80×24；首次下载
 Paper 需要网络。
 
 ```sh
@@ -108,6 +108,60 @@ mc service restart
 mc uninstall          # 保留实例数据/配置/cache
 ```
 
+
+## 工作区、日志与玩家管理
+
+页面使用稳定编号；顶部显示当前页和总数，鼠标可点击切换。按 **Ctrl-B** 后再按
+`n` / `p` 切换、`w` 列表、`x` 关闭、`1`–`9` 跳转。`/pages`、`/page <编号>`、
+`/close [编号]` 也可使用。关闭页面不会停止服务端；实例日志的过滤和滚动位置会保留。
+
+| 命令 | 用途 |
+| --- | --- |
+| `/connect` | 区分本机、局域网和外网加入方式；接口地址不代表外网已连通 |
+| `/monitor` | 实际 Minecraft 状态查询和在线人数；`/open` 查看 CPU / RSS 趋势 |
+| `/rg [-i] [-e] <模式>` | 搜索当前和上一份轮转日志；`-i` 忽略大小写，`-e` 正则；返回文件与行号 |
+| `/players` | 查看 OP、白名单、封禁名单和操作说明 |
+| `/players list` | 查询在线玩家并显示服务端反馈 |
+| `/players op\|deop\|ban\|pardon\|kick <玩家> [原因]` | 玩家管理；OP 是全面管理权限 |
+| `/players allow\|deny <玩家>` | 白名单增删；`whitelist-on` / `whitelist-off` 开关 |
+| `/players group <玩家> <组>` | LuckPerms 权限组；`grant` / `revoke <玩家> <节点>` 分配细粒度权限 |
+
+实例日志按级别着色；`f` 实时文字过滤，`←` / `→` 横向查看，拖动右侧滚动条可跳转。
+CPU 连续 6 次采样达到单核 90%、RSS 连续 3 次超过配置的 Xmx，以及异常退出、近期
+ERROR / Exception 会产生提示。**RSS 包含堆外内存，并不等于 Java 堆使用量**；这些提示
+不会自动重启或结束进程。趋势图展示最近 60 次采样。
+
+## 模组与服务端整合包
+
+```sh
+# 在 TUI 中执行；先阅读 https://www.minecraft.net/eula
+/fabric mod-friends 1.21.11 --accept-eula
+/mods search luckperms
+/mods install luckperms
+```
+
+Fabric 自动选择稳定 Loader 和兼容 Java，初始内存 1–4 GiB；在创建向导或已有实例
+占用的端口会跳过。安装扩展要求停服，按 Minecraft 版本和加载器筛选、校验 SHA-512，
+解析必需依赖，并识别 JAR 中常见的 Fabric API 模块依赖。Paper 只装插件，Fabric 只装模组；
+客户端专用文件会拒绝。安装后需要启动才能加载，不执行热加载。
+
+```sh
+/import /绝对路径/server-pack.zip            # 只预览
+/import /绝对路径/server-pack.zip --apply    # 停服后添加扩展与配置
+/import /绝对路径/example.mrpack --apply
+/export /绝对路径/shared-server-pack.zip
+```
+
+ZIP 支持 `mods/*.jar`、`plugins/*.jar`、`config/`，以及常见的单层目录封装。
+MRPACK 读取服务端环境标记，并从 Modrinth CDN 下载、校验 SHA-512；不支持的加载器、
+CurseForge 客户端文件 ID 清单会明确拒绝。导入先暂存和校验，已有同内容跳过、不同内容
+冲突拒绝，不覆盖世界、玩家身份数据、server.jar 或 server.properties，不执行包内脚本。
+限制为 10000 项、展开总量 512 MiB、单文件 256 MiB，并拒绝越界路径与符号链接。
+
+导出的是**服务端扩展与配置包**，含版本/加载器和 SHA-256 清单，不包含世界、玩家名单
+或服务端核心，不是客户端启动器格式。配置可能含部署者自己的连接信息，分享前应检查。
+Forge / NeoForge 建服、CurseForge API 授权下载和自动解决任意第三方依赖尚未提供。
+
 ## 架构
 
 ```mermaid
@@ -128,18 +182,22 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 
 ## 状态
 
-`v0.1.0` 是 alpha。当前只支持 Paper 的完整闭环；Vanilla、接管现有目录、
-`server.properties`、玩家管理、在线/定时备份仍在路线图上。
+`v0.1.0` 是 alpha。支持 Paper / Fabric 建服、兼容扩展管理、玩家操作和服务端整合包导入导出；
+Vanilla、接管现有目录、`server.properties` 编辑、在线/定时备份仍在路线图上。
 
 | 已实现 | 下一步 |
 | --- | --- |
-| Paper 安装/启停/控制台/日志 | Vanilla provider |
+| Paper / Fabric 安装、启停、控制台、日志 | Vanilla provider |
 | 常驻 runner + daemon 重连 | 接管现有服务端目录 |
 | 停服备份/校验/恢复 | 在线/定时备份 |
-| 持久任务、字节进度、取消 | 玩家管理 |
-| 会话 TUI、七主题、史蒂夫 | `server.properties` 编辑 |
-| 用户服务 + 版本化安装器 | 签名/公证、Homebrew tap、deb/rpm |
-| `.mrpack` 只读分析 | Fabric/整合包真正物化导入 |
+| 持久任务、字节进度、取消 | `server.properties` 编辑 |
+| 玩家操作（OP/白名单/封禁/踢出） | 结构化管理结果与 CLI 生命周期命令 |
+| `/rg` 日志搜索、实时过滤、CPU/RSS 趋势与告警 | TPS/MSPT 与 JVM 指标 |
+| 工作区多页面、稳定编号、日志状态保留 | 多实例调度与主机内存预算 |
+| Modrinth 扩展安装、MRPACK/ZIP 整合包预览/导入/导出 | Forge / NeoForge 与 CurseForge 文件 ID 授权导入 |
+| 会话 TUI、七主题、史蒂夫 | 签名/公证、Homebrew tap、deb/rpm |
+| API 协议 8–9 协商 + runner 协议握手 | 状态 schema 迁移与更新前任务排空 |
+| 版本化 `mc update status/rollback` | 带健康检查的签名自动更新器 |
 
 完整差距见 [Implementation gaps](docs/IMPLEMENTATION_GAPS.md)。
 

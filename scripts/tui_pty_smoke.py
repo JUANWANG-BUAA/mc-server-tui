@@ -49,6 +49,32 @@ def main():
                         break
                     request.extend(chunk)
                 state["requests"].append(request)
+                try:
+                    decoded = json.loads(request)
+                except ValueError:
+                    decoded = None
+                if (
+                    decoded is not None
+                    and decoded.get("payload", {}).get("operation") == "server_info"
+                ):
+                    response = {
+                        "protocol_version": decoded.get("protocol_version", 9),
+                        "payload": {
+                            "result": "server_info",
+                            "data": {
+                                "product": "mc-server-tui",
+                                "version": "0.1.0",
+                                "api_protocol_min": 8,
+                                "api_protocol_max": 9,
+                                "state_schema": 1,
+                                "runner_protocol": 1,
+                            },
+                        },
+                    }
+                    connection.sendall(
+                        json.dumps(response, ensure_ascii=False).encode() + b"\n"
+                    )
+                    return
                 while state["running"]:
                     time.sleep(0.05)
             except OSError:
@@ -185,7 +211,12 @@ def main():
                     waited, _ = os.waitpid(pid, os.WNOHANG)
                     if not waited:
                         os.kill(pid, signal.SIGKILL)
-                        os.waitpid(pid, 0)
+                        kill_deadline = time.monotonic() + 2
+                        while time.monotonic() < kill_deadline:
+                            waited, _ = os.waitpid(pid, os.WNOHANG)
+                            if waited:
+                                break
+                            time.sleep(0.01)
                 except ChildProcessError:
                     pass
             if master is not None:

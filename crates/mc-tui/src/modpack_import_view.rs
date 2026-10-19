@@ -18,11 +18,12 @@ use crate::{
 
 pub(crate) fn render(
     frame: &mut Frame<'_>,
+    area: Rect,
     state: &ModpackImportState,
     animation_frame: u8,
     hits: &mut HitMap,
 ) {
-    let compact = frame.area().width < 80 || frame.area().height < 20;
+    let compact = area.width < 80 || area.height < 19;
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -30,21 +31,17 @@ pub(crate) fn render(
             Constraint::Min(1),
             Constraint::Length(3),
         ])
-        .split(frame.area());
+        .split(area);
     let header = if compact {
-        vec![Line::from(vec![
-            Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-            Span::styled("整合包导入", theme::accent()),
-        ])]
+        vec![Line::from(Span::styled(" 整合包导入", theme::accent()))]
     } else {
         vec![
             Line::from(vec![
-                Span::styled(" ◆ MC SERVER TUI ", theme::brand()),
-                Span::styled("整合包导入", theme::accent()),
+                Span::styled(" 整合包导入", theme::accent()),
                 Span::styled("  ·  静态兼容检查", theme::muted()),
             ]),
             Line::from(Span::styled(
-                "只读分析 .mrpack；检查 MC 版本、加载器、Mod 环境标记和下载来源。",
+                "选择 ZIP 预览导入当前实例；MRPACK 可检查版本、加载器和服务端文件。",
                 theme::muted(),
             )),
         ]
@@ -76,7 +73,7 @@ fn render_picker(
 ) {
     let items = if state.candidates.is_empty() {
         vec![ListItem::new(Line::from(vec![
-            Span::styled("未找到 .mrpack", theme::warning()),
+            Span::styled("未找到 .mrpack / .zip", theme::warning()),
             Span::styled(
                 "  · 将整合包放到 Downloads、桌面或当前目录后按 r",
                 theme::muted(),
@@ -140,8 +137,15 @@ fn render_picker(
         frame,
         area,
         state.candidates.len(),
-        state.selected,
+        ui::window_start(state.selected, state.candidates.len(), visible_items.max(1)),
         visible_items.max(1),
+    );
+    ui::scrollbar_hits(
+        area,
+        state.candidates.len(),
+        visible_items.max(1),
+        hits,
+        crate::hit::ScrollView::Modpacks,
     );
 }
 
@@ -216,7 +220,7 @@ fn render_footer(
         )
     } else {
         (
-            "选择本地 .mrpack；Enter 开始只读兼容性检查。".to_owned(),
+            "选择 ZIP / MRPACK；Enter 检查或预览，确认后再应用。".to_owned(),
             theme::muted(),
         )
     };
@@ -248,7 +252,7 @@ fn render_footer(
             Line::from(Span::styled(message, style)),
             actions,
             Line::from(Span::styled(
-                "当前阶段不会下载文件、解压覆盖或创建实例；阻断项必须在导入前修复。",
+                "本页检查只读；/import <路径> 可预览，停服后加 --apply 执行导入。",
                 theme::muted(),
             )),
         ]),
@@ -366,7 +370,7 @@ fn render_report(
     if !compact {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            "当前只读检查不会下载 Mod，也不会创建或修改实例。",
+            "本页只读，不会下载 Mod；/import <路径> --apply 可停服导入。",
             theme::muted(),
         )));
     }

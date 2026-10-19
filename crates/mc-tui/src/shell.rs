@@ -88,8 +88,8 @@ pub(crate) const SHELL_COMMANDS: &[ShellCommandSpec] = &[
     ShellCommandSpec {
         name: "import",
         aliases: &["modpack", "mrpack"],
-        args: "",
-        summary: "导入并检查 .mrpack 整合包",
+        args: "[路径.zip|.mrpack] [--apply]",
+        summary: "预览并停服导入 ZIP / Modrinth 整合包",
     },
     ShellCommandSpec {
         name: "backup",
@@ -138,6 +138,66 @@ pub(crate) const SHELL_COMMANDS: &[ShellCommandSpec] = &[
         aliases: &["exit", "q"],
         args: "",
         summary: "退出 TUI；后台任务会继续运行",
+    },
+    ShellCommandSpec {
+        name: "connect",
+        aliases: &["join", "address"],
+        args: "",
+        summary: "本机、局域网与外网联机地址说明",
+    },
+    ShellCommandSpec {
+        name: "monitor",
+        aliases: &["health"],
+        args: "",
+        summary: "游戏状态、在线人数与实例监控",
+    },
+    ShellCommandSpec {
+        name: "rg",
+        aliases: &["grep", "search-logs"],
+        args: "[-i] [-e] <模式>",
+        summary: "搜索当前及轮转日志，显示文件名和行号",
+    },
+    ShellCommandSpec {
+        name: "players",
+        aliases: &["player", "permissions"],
+        args: "[操作] [玩家]",
+        summary: "OP、白名单、封禁、解封、踢出与在线玩家",
+    },
+    ShellCommandSpec {
+        name: "mods",
+        aliases: &["plugins", "addons"],
+        args: "[list|search|install] [名称]",
+        summary: "搜索、校验并安装兼容插件或模组与依赖",
+    },
+    ShellCommandSpec {
+        name: "export",
+        aliases: &["pack-export"],
+        args: "<路径.zip>",
+        summary: "停服导出整合包、配置与校验清单",
+    },
+    ShellCommandSpec {
+        name: "fabric",
+        aliases: &["create-fabric"],
+        args: "<名称> <版本> --accept-eula",
+        summary: "自动安装稳定 Fabric 与兼容 Java，用于模组服务器",
+    },
+    ShellCommandSpec {
+        name: "pages",
+        aliases: &["windows", "tabs"],
+        args: "",
+        summary: "列出工作区页面、稳定编号与当前页面",
+    },
+    ShellCommandSpec {
+        name: "page",
+        aliases: &["window"],
+        args: "<页面编号>",
+        summary: "按稳定编号切换页面，保留日志位置",
+    },
+    ShellCommandSpec {
+        name: "close",
+        aliases: &["close-page"],
+        args: "[页面编号]",
+        summary: "关闭页面，后台服务器继续运行",
     },
 ];
 

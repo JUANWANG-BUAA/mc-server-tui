@@ -47,6 +47,9 @@ jobs:
       - name: Build workspace
         run: cargo build --workspace --locked
 
+      - name: Real daemon protocol window
+        run: python3 scripts/check_protocol_window.py
+
       - name: Launcher smoke
         run: |
           ./target/debug/mc version --json

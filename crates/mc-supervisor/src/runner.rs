@@ -36,6 +36,8 @@ pub async fn run_instance_runner(
         .arg("-jar")
         .arg("server.jar")
         .arg("nogui")
+        .arg("--port")
+        .arg(instance.port.to_string())
         .current_dir(instance.directory.join("server"))
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())

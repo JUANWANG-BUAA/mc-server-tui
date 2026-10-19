@@ -72,6 +72,11 @@ enum Command {
         #[command(subcommand)]
         command: ServiceCommand,
     },
+    /// Inspect the versioned installation or roll back to the previous version.
+    Update {
+        #[command(subcommand)]
+        command: UpdateCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -118,6 +123,21 @@ enum ServiceCommand {
     },
 }
 
+#[derive(Debug, Subcommand)]
+enum UpdateCommand {
+    /// Show the active and previous installed versions.
+    Status,
+    /// Atomically switch `current` back to `previous` and restart the service.
+    Rollback {
+        /// Print the version switch without changing symlinks or the service.
+        #[arg(long)]
+        dry_run: bool,
+        /// Switch symlinks but leave the daemon service running.
+        #[arg(long)]
+        no_restart: bool,
+    },
+}
+
 #[derive(Debug, Serialize)]
 struct VersionInfo {
     product: &'static str,
@@ -128,6 +148,8 @@ struct VersionInfo {
     arch: &'static str,
     api_protocol_min: u16,
     api_protocol_max: u16,
+    state_schema: u32,
+    runner_protocol: u16,
     service_manager: &'static str,
 }
 
@@ -138,6 +160,8 @@ struct StatusReport {
     version: Option<String>,
     api_protocol_min: Option<u16>,
     api_protocol_max: Option<u16>,
+    state_schema: Option<u32>,
+    runner_protocol: Option<u16>,
     legacy_ping: bool,
 }
 
@@ -177,6 +201,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
         Some(Command::Service { command }) => {
             service_command(&config_path, &config, command).await?
         }
+        Some(Command::Update { command }) => update_command(&config, command).await?,
     }
     Ok(())
 }
@@ -202,6 +227,8 @@ fn print_version(json: bool) -> Result<(), Box<dyn Error>> {
         arch: env::consts::ARCH,
         api_protocol_min: mc_core::API_PROTOCOL_MIN,
         api_protocol_max: mc_core::API_PROTOCOL_MAX,
+        state_schema: mc_core::STATE_SCHEMA_VERSION,
+        runner_protocol: mc_core::RUNNER_PROTOCOL_VERSION,
         service_manager: service::manager_name(),
     };
     if json {
@@ -214,6 +241,8 @@ fn print_version(json: bool) -> Result<(), Box<dyn Error>> {
             "API protocol: {}–{}",
             info.api_protocol_min, info.api_protocol_max
         );
+        println!("state schema: {}", info.state_schema);
+        println!("runner protocol: {}", info.runner_protocol);
         println!("service manager: {}", info.service_manager);
     }
     Ok(())
@@ -235,6 +264,8 @@ async fn print_status(config: &Config, json: bool) {
                 version: Some(info.version),
                 api_protocol_min: Some(info.api_protocol_min),
                 api_protocol_max: Some(info.api_protocol_max),
+                state_schema: Some(info.state_schema),
+                runner_protocol: Some(info.runner_protocol),
                 legacy_ping: false,
             };
             if json {
@@ -246,10 +277,12 @@ async fn print_status(config: &Config, json: bool) {
                 println!("daemon: running");
                 println!("socket: {}", report.socket);
                 println!(
-                    "version: {} (API {}–{})",
+                    "version: {} (API {}–{}, state {}, runner {})",
                     report.version.as_deref().unwrap_or("unknown"),
                     report.api_protocol_min.unwrap_or_default(),
-                    report.api_protocol_max.unwrap_or_default()
+                    report.api_protocol_max.unwrap_or_default(),
+                    report.state_schema.unwrap_or_default(),
+                    report.runner_protocol.unwrap_or_default()
                 );
             }
         }
@@ -260,6 +293,8 @@ async fn print_status(config: &Config, json: bool) {
                 version: None,
                 api_protocol_min: None,
                 api_protocol_max: None,
+                state_schema: None,
+                runner_protocol: None,
                 legacy_ping: true,
             };
             if json {
@@ -634,6 +669,236 @@ async fn service_command(
     }
 }
 
+struct InstalledVersions {
+    root: PathBuf,
+    current: PathBuf,
+    previous: Option<PathBuf>,
+}
+
+async fn update_command(config: &Config, command: UpdateCommand) -> Result<(), Box<dyn Error>> {
+    let install = installed_versions(&env::current_exe()?)?;
+    match command {
+        UpdateCommand::Status => {
+            println!("install: {}", install.root.display());
+            println!(
+                "current: {}",
+                version_name(&install.root, &install.current)?
+            );
+            match &install.previous {
+                Some(version) => {
+                    println!("previous: {}", version_name(&install.root, version)?);
+                }
+                None => println!("previous: none"),
+            }
+            let service = service::status().ok();
+            if let Some(service) = service {
+                println!(
+                    "service: {} (installed: {}, running: {})",
+                    service.unit_path, service.installed, service.running
+                );
+            }
+            Ok(())
+        }
+        UpdateCommand::Rollback {
+            dry_run,
+            no_restart,
+        } => {
+            let previous = install.previous.as_ref().ok_or(
+                "no previous version is recorded; reinstall the desired version with install.sh",
+            )?;
+            if previous == &install.current {
+                return Err("current and previous point to the same version".into());
+            }
+            let versions = install.root.join("versions");
+            println!(
+                "current: {}",
+                version_name(&install.root, &install.current)?
+            );
+            println!(
+                "rollback target: {}",
+                version_name(&install.root, previous)?
+            );
+
+            // A program downgrade is only safe while the older binary can read
+            // the state layout. There is no pre-migration snapshot yet, so
+            // refuse a schema downgrade instead of risking unreadable state.
+            let target_schema = target_version_state_schema(previous)?;
+            let running_schema = match config.resolved_socket() {
+                Ok(socket) => probe(&socket)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|info| info.state_schema),
+                Err(_) => None,
+            };
+            if let Some(running_schema) = running_schema {
+                println!("state schema: target {target_schema}, running daemon {running_schema}");
+                if target_schema < running_schema {
+                    return Err(format!(
+                        "refusing rollback: {} supports state schema {target_schema}, but the running daemon reports {running_schema}; a state snapshot or a newer target is required",
+                        previous.display()
+                    )
+                    .into());
+                }
+            } else {
+                println!(
+                    "state schema: target {target_schema}; running daemon unavailable, downgrade compatibility was not checked"
+                );
+            }
+
+            if dry_run {
+                println!("dry-run: symlinks and the service were not changed");
+                return Ok(());
+            }
+
+            let current_link = relative_version_link(&install.current, &versions)?;
+            let previous_link = relative_version_link(previous, &versions)?;
+            replace_symlink(&install.root.join("current"), &previous_link)?;
+            replace_symlink(&install.root.join("previous"), &current_link)?;
+            println!("switched current -> {}", previous.display());
+
+            let service = service::status().ok();
+            if no_restart {
+                println!(
+                    "service: not restarted (--no-restart); run `mc service restart` to load the previous daemon"
+                );
+                return Ok(());
+            }
+            match service {
+                Some(status) if status.installed => {
+                    service::restart()?;
+                    if wait_for_daemon(&config.resolved_socket()?, Duration::from_secs(10)).await
+                    {
+                        println!("daemon: ready");
+                    } else {
+                        return Err(format!(
+                            "rolled back to {} but the daemon did not become ready; run `mc service status` and inspect the service log",
+                            previous.display()
+                        )
+                        .into());
+                    }
+                }
+                Some(_) => println!(
+                    "service: not installed; start the daemon manually so the previous version takes effect"
+                ),
+                None => println!(
+                    "service: status unavailable; restart the daemon so the previous version takes effect"
+                ),
+            }
+            Ok(())
+        }
+    }
+}
+
+fn installed_versions(executable: &Path) -> Result<InstalledVersions, Box<dyn Error>> {
+    let executable = std::fs::canonicalize(executable)?;
+    let root = versioned_root(&executable)
+        .ok_or("this is not a versioned installation; use install.sh for update rollback")?;
+    let versions = root.join("versions");
+    if !versions.is_dir() {
+        return Err(format!(
+            "{} does not look like a versioned installation",
+            root.display()
+        )
+        .into());
+    }
+    let current = resolve_version_link(&root.join("current"), &versions)?;
+    let previous_link = root.join("previous");
+    let previous = if std::fs::symlink_metadata(&previous_link).is_ok() {
+        Some(resolve_version_link(&previous_link, &versions)?)
+    } else {
+        None
+    };
+    Ok(InstalledVersions {
+        root,
+        current,
+        previous,
+    })
+}
+
+fn target_version_state_schema(version: &Path) -> Result<u32, Box<dyn Error>> {
+    let executable = version.join("bin").join("mc");
+    let output = ProcessCommand::new(&executable)
+        .args(["version", "--json"])
+        .output()
+        .map_err(|error| format!("could not inspect {}: {error}", executable.display()))?;
+    if !output.status.success() {
+        return Err(format!(
+            "{} version --json failed with {}",
+            executable.display(),
+            output.status
+        )
+        .into());
+    }
+    parse_state_schema(&output.stdout)
+}
+
+fn parse_state_schema(output: &[u8]) -> Result<u32, Box<dyn Error>> {
+    let value: serde_json::Value = serde_json::from_slice(output)
+        .map_err(|error| format!("could not parse version JSON: {error}"))?;
+    // v0.1.0 and earlier predate the field; they used state schema 1.
+    let schema = value
+        .get("state_schema")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(1);
+    u32::try_from(schema).map_err(|_| "state schema does not fit u32".into())
+}
+
+fn resolve_version_link(link: &Path, versions: &Path) -> Result<PathBuf, Box<dyn Error>> {
+    let target = std::fs::read_link(link)
+        .map_err(|error| format!("could not read {}: {error}", link.display()))?;
+    let target = if target.is_absolute() {
+        target
+    } else {
+        link.parent().unwrap_or_else(|| Path::new(".")).join(target)
+    };
+    let version = std::fs::canonicalize(&target)
+        .map_err(|error| format!("could not resolve {}: {error}", link.display()))?;
+    let versions = std::fs::canonicalize(versions)?;
+    if !version.starts_with(&versions) || version == versions {
+        return Err(format!("{} points outside the version directory", link.display()).into());
+    }
+    if !version.join("bin/mc").is_file() {
+        return Err(format!("{} does not contain bin/mc", version.display()).into());
+    }
+    Ok(version)
+}
+
+fn version_name<'a>(root: &Path, version: &'a Path) -> Result<&'a str, Box<dyn Error>> {
+    let versions = root.join("versions");
+    version
+        .strip_prefix(&versions)
+        .ok()
+        .and_then(Path::to_str)
+        .ok_or_else(|| format!("{} is not under {}", version.display(), versions.display()).into())
+}
+
+fn relative_version_link(version: &Path, versions: &Path) -> Result<PathBuf, Box<dyn Error>> {
+    let name = version
+        .strip_prefix(versions)
+        .map_err(|_| format!("{} is not under {}", version.display(), versions.display()))?;
+    Ok(PathBuf::from("versions").join(name))
+}
+
+fn replace_symlink(link: &Path, target: &Path) -> Result<(), Box<dyn Error>> {
+    let parent = link
+        .parent()
+        .ok_or_else(|| format!("{} has no parent directory", link.display()))?;
+    let file_name = link
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("{} has no file name", link.display()))?;
+    let temporary = parent.join(format!(".{file_name}.{}.tmp", std::process::id()));
+    match std::fs::remove_file(&temporary) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    std::os::unix::fs::symlink(target, &temporary)?;
+    std::fs::rename(&temporary, link)?;
+    Ok(())
+}
+
 fn print_service_plan(plan: &service::ServicePlan) {
     println!("manager: {}", plan.manager);
     println!("unit: {}", plan.unit_path.display());
@@ -719,10 +984,14 @@ mod tests {
             arch: env::consts::ARCH,
             api_protocol_min: mc_core::API_PROTOCOL_MIN,
             api_protocol_max: mc_core::API_PROTOCOL_MAX,
+            state_schema: mc_core::STATE_SCHEMA_VERSION,
+            runner_protocol: mc_core::RUNNER_PROTOCOL_VERSION,
             service_manager: service::manager_name(),
         };
         let json = serde_json::to_string(&info).expect("serialize version");
         assert!(json.contains("api_protocol_min"));
+        assert!(json.contains("state_schema"));
+        assert!(json.contains("runner_protocol"));
         assert!(json.contains("mc-server-tui"));
         assert!(json.contains(env!("MC_BUILD_TARGET")));
     }
@@ -740,5 +1009,140 @@ mod tests {
         let path = resolve_config_path(Some(PathBuf::from("relative/config.toml")))
             .expect("resolve config path");
         assert!(path.is_absolute());
+    }
+
+    #[test]
+    fn rollback_swaps_current_and_previous_versions() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let base = std::env::temp_dir().join(format!(
+            "mcst-rollback-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock after epoch")
+                .as_nanos()
+        ));
+        let versions = base.join("versions");
+        for version in ["0.1.0", "0.2.0"] {
+            let bin = versions.join(version).join("bin");
+            std::fs::create_dir_all(&bin).expect("create version bin directory");
+            std::fs::write(bin.join("mc"), b"#!/bin/sh\n").expect("write launcher");
+        }
+        std::os::unix::fs::symlink("versions/0.2.0", base.join("current")).expect("link current");
+        std::os::unix::fs::symlink("versions/0.1.0", base.join("previous")).expect("link previous");
+
+        let install = installed_versions(&versions.join("0.2.0").join("bin").join("mc"))
+            .expect("read versioned install");
+        assert_eq!(
+            version_name(&install.root, &install.current).expect("current name"),
+            "0.2.0"
+        );
+        assert_eq!(
+            version_name(
+                &install.root,
+                install.previous.as_ref().expect("previous version")
+            )
+            .expect("previous name"),
+            "0.1.0"
+        );
+
+        let canonical_versions = install.root.join("versions");
+        let target = install.previous.as_ref().expect("previous version").clone();
+        let current_link =
+            relative_version_link(&install.current, &canonical_versions).expect("current link");
+        let previous_link =
+            relative_version_link(&target, &canonical_versions).expect("previous link");
+        replace_symlink(&install.root.join("current"), &previous_link).expect("switch current");
+        replace_symlink(&install.root.join("previous"), &current_link).expect("switch previous");
+
+        let resolved_current =
+            resolve_version_link(&install.root.join("current"), &canonical_versions)
+                .expect("read current");
+        let resolved_previous =
+            resolve_version_link(&install.root.join("previous"), &canonical_versions)
+                .expect("read previous");
+        assert_eq!(
+            version_name(&install.root, &resolved_current).expect("current name"),
+            "0.1.0"
+        );
+        assert_eq!(
+            version_name(&install.root, &resolved_previous).expect("previous name"),
+            "0.2.0"
+        );
+
+        std::fs::remove_dir_all(&base).expect("clean rollback fixture");
+    }
+
+    #[test]
+    fn old_release_version_json_defaults_to_state_schema_one() {
+        assert_eq!(
+            parse_state_schema(br#"{"version":"0.1.0"}"#).expect("missing field"),
+            1
+        );
+        assert_eq!(
+            parse_state_schema(br#"{"state_schema":2}"#).expect("present field"),
+            2
+        );
+        assert!(parse_state_schema(b"not json").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rollback_target_schema_is_read_from_the_target_binary() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let base = std::env::temp_dir().join(format!(
+            "mcst-target-schema-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock after epoch")
+                .as_nanos()
+        ));
+        let bin = base.join("bin");
+        std::fs::create_dir_all(&bin).expect("create target bin");
+        let launcher = bin.join("mc");
+        std::fs::write(
+            &launcher,
+            "#!/bin/sh\nprintf '%s\\n' '{\"state_schema\":2}'\n",
+        )
+        .expect("write target launcher");
+        std::fs::set_permissions(&launcher, std::fs::Permissions::from_mode(0o755))
+            .expect("make target launcher executable");
+
+        assert_eq!(
+            target_version_state_schema(&base).expect("target schema"),
+            2
+        );
+
+        std::fs::remove_dir_all(&base).expect("clean target schema fixture");
+    }
+
+    #[test]
+    fn version_link_must_stay_inside_the_version_directory() {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let base = std::env::temp_dir().join(format!(
+            "mcst-version-link-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock after epoch")
+                .as_nanos()
+        ));
+        let versions = base.join("versions");
+        let outside = base.join("outside");
+        std::fs::create_dir_all(&versions).expect("create versions");
+        std::fs::create_dir_all(outside.join("bin")).expect("create outside");
+        std::fs::write(outside.join("bin").join("mc"), b"#!/bin/sh\n").expect("write launcher");
+        std::os::unix::fs::symlink("outside", base.join("current")).expect("link outside");
+
+        let error = resolve_version_link(&base.join("current"), &versions)
+            .expect_err("outside versions must be rejected");
+        assert!(error.to_string().contains("outside the version directory"));
+
+        std::fs::remove_dir_all(&base).expect("clean version link fixture");
     }
 }
