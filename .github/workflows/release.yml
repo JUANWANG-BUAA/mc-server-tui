@@ -15,6 +15,7 @@ jobs:
   prepare:
     name: Validate release tag
     runs-on: ubuntu-22.04
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
@@ -54,6 +55,7 @@ jobs:
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
@@ -86,6 +88,7 @@ jobs:
     name: draft GitHub Release
     needs: [prepare, build]
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Download packages

@@ -1,95 +1,289 @@
-# mc-server-tui
+<div align="center">
+  <img src="output/playwright/themes-overview.png" alt="mc-server-tui with seven terminal themes and a pixel Steve mascot" width="100%">
+  <h1>mc-server-tui</h1>
+  <p><a href="README.zh-CN.md">简体中文</a> · <strong>English</strong></p>
+  <p><strong>A terminal-first Minecraft Java server manager for macOS and Linux.</strong></p>
+  <p>Guided Paper setup · resident supervisor · live console · verified downloads · world backups · a Claude Code-style shell · seven themes</p>
 
-Rust workspace for managing local Minecraft Java server instances on macOS and Linux.
+  <p>
+    <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/actions/workflows/ci.yml"><img src="https://github.com/JUANWANG-BUAA/mc-server-tui/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+    <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases"><img src="https://img.shields.io/badge/release-v0.1.0%20alpha-orange?style=flat-square" alt="Release"></a>
+    <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue?style=flat-square" alt="License"></a>
+    <img src="https://img.shields.io/badge/rust-1.89%2B-orange?style=flat-square" alt="Rust 1.89+">
+    <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="macOS and Linux">
+    <img src="https://img.shields.io/badge/status-alpha-orange?style=flat-square" alt="Alpha">
+  </p>
+</div>
 
-## Current implementation slice
+> [!WARNING]
+> **v0.1.0 is an unsigned alpha pre-release.** The installer verifies the release
+> manifest's SHA-256 and file size, but there is no code signature or macOS
+> notarization yet. Keep independent backups of any world you care about.
 
-The workspace has shared API and error contracts, a reusable async daemon client, local `doctor` checks, a Paper Fill v3 adapter, a foreground Unix-socket daemon, a verified downloader, persistent Paper instance creation/listing, durable background tasks, and a per-instance Java process supervisor. A stable `mc` launcher now loads `config.toml`, probes the daemon's version/API range, and installs a user-level launchd (macOS) or systemd (Linux) service without sudo. Creation returns a task ID; metadata resolution, download, verification, and installation proceed asynchronously. The TUI starts in a Claude Code-style session shell with a command transcript, a bottom composer, command completion, persistent status dock, live task progress, and CPU/RSS resource readouts for the selected instance. It also keeps a structured Paper creation wizard, instance detail with lifecycle controls and a live console, task detail with byte-level progress and cancellation, classically browsable panels, and a world-backup manager with pagination, integrity verification, restore preview, explicit confirmation, and durable restore status. Seven low-contrast themes (`Claude`, `DeepSeek`, `Codex`, `Kimi`, `PCL2`, `Mono`, `Ocean`) can be switched at runtime, and the status dock includes a small pixel Steve head that blinks while work is active and dozes when idle. A new `mc-modpack` analyzer inspects Modrinth `.mrpack` files read-only for Minecraft version, loader, Mod environment markers, unsafe paths, hashes, and download hosts. Network and process lifecycle requests run asynchronously, so input remains responsive while requests are pending. Startup recovery registers valid committed directories, quarantines interrupted staging data, and marks unfinished tasks interrupted.
+## Why another server manager?
+
+Most Minecraft server panels assume a browser, a daemon with broad privileges,
+or a workflow that hides the actual server process. `mc-server-tui` is built for
+the terminal:
+
+- **One shell for daily work.** Start, stop, watch logs, cancel a download,
+  inspect a task, or send a console command without changing pages.
+- **The server outlives the UI.** A per-instance resident runner owns Java's
+  console and keeps running when the TUI or management daemon restarts.
+- **Downloads are evidence-based.** Paper builds are locked to an exact build,
+  size, and SHA-256; partial downloads resume only when the source proves the
+  range is safe.
+- **World safety first.** Backups are checksummed, listed in pages, verified,
+  and restored through a preview + explicit confirmation + recovery journal.
+- **It looks like a terminal.** Near-black palettes, restrained accent colors,
+  a pixel Steve mascot, and no browser dependency.
+
+## Features
+
+| Area | What is there today |
+| --- | --- |
+| **Session TUI** | Transcript + composer + persistent status dock, slash-command completion, command palette, cursor editing, history, inline `/logs` and `/cancel` |
+| **Guided Paper setup** | Version/build picker with scrollbar and paging, Java binding, memory/port presets, EULA confirmation, plan preview |
+| **Lifecycle** | Idempotent start, graceful stop, readiness detection, console input, incremental logs, CPU/RSS readouts |
+| **Resident supervision** | Per-instance runner, process identity markers, daemon restarts reattach without killing Java |
+| **Durable tasks** | SQLite-backed queue, byte progress, speed/source, event cursors, cooperative cancellation |
+| **World backups** | Stopped-world discovery, preflight, staging copy, SHA-256 manifest, paged listing, verification, restore plan/token, rollback journal |
+| **Modpacks** | Read-only `.mrpack` analysis for MC version, loader, `env.server`, path traversal, hashes, and download hosts |
+| **Distribution** | `mc` launcher, `config.toml`, launchd/systemd user service, versioned installer, release manifest, Homebrew formula template |
+
+## Screenshots
+
+| Session shell | Guided Paper creation |
+| --- | --- |
+| <img src="output/playwright/shell-session-claude-80x24.png" alt="Session shell with transcript, composer, status dock, and Steve" width="100%"> | <img src="output/playwright/theme-create-version-80x24.png" alt="Paper version picker" width="100%"> |
+| **Backup manager** | **Byte-level task progress** |
+| <img src="output/playwright/theme-backup-manager-80x24.png" alt="World backup manager" width="100%"> | <img src="output/playwright/theme-download-progress-80x24.png" alt="Download task with progress and source" width="100%"> |
+
+More visual evidence, including all seven themes and the Steve animation states,
+lives in [`output/playwright/`](output/playwright/).
+
+## Quick start
+
+### Requirements
+
+- macOS 13+ or Linux (x86_64 or arm64)
+- Java 21+ on `PATH` (current Paper versions)
+- A terminal at least **80×24**; 40×12 layouts render with reduced chrome
+- Network access for the first Paper download
+
+### Install a release
+
+`v0.1.0` is a pre-release, so GitHub's `/latest/` URL does not select it yet.
+Use the tag-specific installer:
 
 ```sh
+TAG=v0.1.0
+curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
+mc setup
+mc
+```
+
+`mc setup` writes [`config.toml`](crates/mc-config/src/lib.rs), checks Java,
+installs a launchd/systemd **user** service, starts the daemon, and leaves the
+TUI to `mc`. The installer verifies SHA-256; see the warning above.
+
+If you do not want a background service, write config only and start the daemon
+in a separate terminal:
+
+```sh
+mc setup --no-service
+mc daemon run   # terminal 1
+mc tui          # terminal 2
+```
+
+### Build from source
+
+```sh
+git clone https://github.com/JUANWANG-BUAA/mc-server-tui.git
+cd mc-server-tui
 cargo build --workspace
-
-# Preview the generated config and launchd/systemd unit without touching the system:
-./target/debug/mc setup --dry-run
-
-# Write config.toml, install the user service, and wait for the daemon:
+./target/debug/mc setup --dry-run   # inspect config + service unit
 ./target/debug/mc setup
-
-# Then open the TUI:
 ./target/debug/mc
-
-# Inspect the local service or forward to the text CLI:
-./target/debug/mc service status --json
-./target/debug/mc version --json
-./target/debug/mc status --json
-./target/debug/mc doctor
-./target/debug/mc doctor --json
-./target/debug/mc cli status
-./target/debug/mc cli doctor
-./target/debug/mc cli paper versions
-./target/debug/mc cli instance list
-./target/debug/mc cli task list
 ```
 
-The source-build service points at `target/debug/mc`; it is for development, not a production install. `mc setup --no-service` writes config only, and `mc service install --dry-run` prints the exact launchd/systemd plan. The daemon can still be started manually with `cargo run -p mc-daemon` or `./target/debug/mc daemon run`.
+The source-build service points at `target/debug/mc`; it is for development, not
+a production install.
 
-The default Paper User-Agent is recorded in `config.toml` and includes the project identity. Override it for a real deployment (or for a fork) with:
+## Daily use
+
+The default screen is a session shell. Type `/` for completion, or plain text to
+send it to the selected instance's console.
+
+| Command | Purpose |
+| --- | --- |
+| `/create` | Guided Paper server creation |
+| `/open` | Instance detail: lifecycle, console, logs, backups |
+| `/start`, `/stop` | Start / graceful stop the selected instance |
+| `/logs` | Tail the last console lines inline |
+| `/tasks`, `/task <n>` | Durable task list and detail |
+| `/cancel [n]` | Cancel a queued/running download (the TUI asks twice) |
+| `/backup`, `/backups` | Create a stopped-world backup; open the backup manager |
+| `/console <command>` | Send a console command |
+| `/status`, `/instances`, `/use <n>` | Inspect and select instances |
+| `/theme <name>`, `F2` | Switch between seven themes |
+| `/classic` | Two-panel instance/task dashboard |
+| `/help`, `F1` | Keyboard and command help |
+
+Useful keys: `Enter` send · `Tab` complete · `←/→` caret · `Home/End` line ends ·
+`↑/↓` history/completion · `PgUp/PgDn` transcript · `Ctrl-K` palette ·
+`F1` help · `F2` theme.
+
+Outside the TUI:
 
 ```sh
-./target/debug/mc setup --user-agent 'my-server-tool/0.1.0 (https://example.com/contact)'
-# or, for tests/automation:
-export MC_SERVER_TUI_USER_AGENT='my-server-tool/0.1.0 (https://example.com/contact)'
+mc status --json
+mc doctor --json
+mc version --json
+mc service status --json
+mc service restart
+mc uninstall          # preserves instance data/config/cache
 ```
 
-The default points at this project repository. Forks or shared deployments should set a deployment-specific contact with `--user-agent`. The daemon socket is per-user and restricted to the current user. `MC_SERVER_TUI_SOCKET` and `MC_SERVER_TUI_STATE_DIR` still override the config; a custom socket must live in a directory with mode `0700`. The config path can be selected with `--config` or `MC_SERVER_TUI_CONFIG`.
+## Architecture
 
-## Module boundaries
+```mermaid
+flowchart LR
+    TUI["TUI client"] -->|Unix socket| D["management daemon"]
+    CLI["mc CLI"] -->|Unix socket| D
+    D --> T["durable tasks / SQLite"]
+    D --> S["process supervisor"]
+    S --> RA["resident runner · instance A"]
+    S --> RB["resident runner · instance B"]
+    RA --> JA["Paper / Java"]
+    RB --> JB["Paper / Java"]
+```
 
-- `mc-core`: domain values, stable errors, provider trait, and transport-neutral request/response types.
-- `mc-client`: bounded async Unix-socket client shared by the CLI and TUI.
-- `mc-config`: `config.toml`, platform paths, User-Agent defaults, and state/socket/cache resolution shared by every frontend.
-- `mc`: stable launcher for TUI/daemon/CLI, version/API probe, setup, and launchd/systemd user-service management.
-- `provider-paper`: Fill v3 HTTP access and conversion to core types.
-- `mc-download`: exact artifact fetching, redirect/DNS checks, safe range resume, SHA-256 validation, content-addressed cache, byte-level progress, and cooperative cancellation.
-- `mc-modpack`: bounded read-only `.mrpack` parsing, path safety, loader/version inspection, Mod environment classification, and adapter-report generation.
-- `mc-system`: local Java discovery, port check, data directory and disk checks.
-- `mc-instance`: versioned `instance.toml`/`lock.json`, atomic staging, SQLite index and startup recovery.
-- `mc-task`: durable task/event storage, phase and transfer-progress reporting, cooperative cancellation, bounded workers, per-instance operation locks, and restart interruption recovery.
-- `mc-supervisor`: per-instance Java start/stop, resident runner, PID identity verification, private console socket, readiness observation, and bounded log reads.
-- `mc-daemon`: bounded local API transport, request dispatch, durable tasks, and process-supervisor integration; user-level service installation is handled by `mc`.
-- `mc-cli`: command parsing and text presentation through the local API.
-- `mc-tui`: session transcript and composer, command completion and palette, guided Paper creation flow, task progress/cancel detail, instance detail, lifecycle actions, world backups, Modrinth adapter reports, incremental console output, process resource readouts, mouse interaction, and runtime themes.
+The runner owns Java's stdin/stdout/stderr and a private control socket. Killing
+or upgrading the management daemon does **not** kill the Minecraft process; the
+new daemon reads process identity records and reattaches. This is the foundation
+for future hot updates. See [Supervision](docs/SUPERVISION.md).
 
-Instance storage and crash reconciliation rules are recorded in [docs/INSTANCE_SCHEMA.md](docs/INSTANCE_SCHEMA.md). The guided terminal interaction contract is in [docs/INTERACTION_DESIGN.md](docs/INTERACTION_DESIGN.md), the read-only `.mrpack` adapter contract is in [docs/MODPACK_IMPORT.md](docs/MODPACK_IMPORT.md), and TUI layout snapshots plus the PTY/fake-daemon test plan are tracked in [docs/TUI_TESTING.md](docs/TUI_TESTING.md). The documented-versus-implemented audit is in [docs/IMPLEMENTATION_GAPS.md](docs/IMPLEMENTATION_GAPS.md), and the macOS/Linux packaging, service-install, and hot-update plan is in [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
+## Status
 
-The TUI opens in the session shell. The session transcript is above the composer; the status dock below it shows the selected instance, configured memory, CPU/RSS for a running server, and live progress bars for up to two tasks. Type `/` for inline command completion, or type free text to send it to the selected instance's console. Useful commands include `/help`, `/status`, `/instances`, `/use <序号|名称>`, `/open`, `/start`, `/stop`, `/console <命令>`, `/tasks`, `/task <序号>`, `/logs`, `/cancel [序号]`, `/create`, `/import`, `/backup`, `/backups`, `/refresh`, `/theme <name>`, `/classic`, and `/quit`.
+`v0.1.0` is an alpha. The current vertical slice is intentionally narrow:
 
-- `Enter` sends, `Tab` completes a slash command, `←/→` moves the composer caret, `Home/End` jumps to line start/end, `Delete` removes forward, `↑/↓` walks history or the completion list, `PgUp/PgDn` scrolls the transcript, `Ctrl-A/Ctrl-E` jumps to line start/end, `Ctrl-L` clears the session, `Ctrl-K` opens the full command palette, `F1` opens keyboard help, and `F2` cycles themes. When a completion is highlighted, `Enter` executes the highlighted command; an exact command name always wins over the highlighted suggestion.
-- The selected instance is refreshed in the background so the status dock can show its address, server state, CPU, and RSS without opening a separate page. The dock also shows a contextual quick-action line; `/logs` tails the last 12 console lines inline and `/cancel [n]` cancels a download without opening task detail. Long list outputs such as `/help`, `/status`, `/tasks`, `/instances`, and `/theme` scroll to their first line; `/logs` keeps the tail in view.
-- `/create` opens the structured Paper wizard. Versions are selected with `↑/↓` (not left/right), `PgUp/PgDn` pages the list, `Home/End` jumps to either end, and a scrollbar plus `start-end/total` counter make the list state explicit. Tab still moves between fields and `←/→` remains a compatibility alias for changing a choice.
-- `/classic` (or `t` in the classic view) switches to the two-panel instance/task dashboard. Mouse wheel scrolls lists, single click selects, double click opens, and clicking the EULA row toggles it.
-- The server detail view keeps `s` start, `x` graceful stop, `:` console input, `b` backup, `l` world/backup manager, and `r` refresh. The backup manager keeps `v` verify, Enter restore preview, `c` + exact `RESTORE`, `m` load more, and `b` create backup. Task detail keeps `x` twice to cancel and `r` to fetch events after the current sequence.
+| Implemented | Next |
+| --- | --- |
+| Paper install/start/stop/console/logs | Vanilla provider |
+| Resident runner + daemon reattachment | Takeover of existing server directories |
+| Stopped-world backup/verify/restore | Online/scheduled backups |
+| Durable tasks, byte progress, cancellation | Player management |
+| Session TUI, seven themes, Steve | `server.properties` editor |
+| User service + versioned release installer | Signing/notarization, Homebrew tap, deb/rpm |
+| Read-only `.mrpack` analysis | Actual Fabric/modpack materialization |
 
-Theme selection is available via `F2`, `/theme <name>`, the command palette, or the `MC_SERVER_TUI_THEME` environment variable (`claude`, `deepseek`, `codex`, `kimi`, `pcl2`, `mono`, `ocean`). The chosen theme is saved under the platform config directory (`org.mc-server-tui.mc-server-tui/theme`) and restored on the next launch. All themes use a near-black page; color is reserved for focus, status, active progress, and the pixel mascot. The pixel Steve head keeps canonical Minecraft colors (brown hair, skin, white/blue eyes, brown mouth); only the sparkle or `z`/`Z` above it uses the theme accent. It blinks on a short cycle, shows a sparkle while tasks run, and dozes when idle.
+The full documented-vs-implemented audit is in
+[Implementation gaps](docs/IMPLEMENTATION_GAPS.md). The next milestone is a
+signed, package-managed beta, not “more services at any cost.”
 
-## Distribution status
+## Documentation
 
-Phase 0 and the Phase 1 packaging loop are implemented: `mc` launcher, `config.toml` with a default User-Agent, `version --json`, `ServerInfo`/API-range probe, launchd/systemd user-service management, a versioned tarball installer with SHA-256 verification, `mc uninstall`, a release-manifest generator, and a rendered Homebrew formula template. A macOS/Linux CI workflow builds, packages, installs, and uninstalls a local artifact. There is a published **unsigned alpha pre-release** at `v0.1.0`; there is still no signed/notarized artifact, public Homebrew tap, apt/dnf repository, or hot updater; those remain Phase 2–4. Release steps and the draft-release review checklist are in [docs/RELEASING.md](docs/RELEASING.md). The implementation audit and the distribution/hot-update design are recorded in [docs/IMPLEMENTATION_GAPS.md](docs/IMPLEMENTATION_GAPS.md) and [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md). The supervisor runner already survives daemon restarts, which is the key prerequisite for updating the daemon without killing running Minecraft servers.
+| Start here | Deep dives |
+| --- | --- |
+| [Documentation index](docs/README.md) | Every contract in one place |
+| [FAQ](docs/FAQ.md) | Java, service, data paths, alpha limits |
+| [Interaction design](docs/INTERACTION_DESIGN.md) | Shell/overlay/drill-in hierarchy, themes, mascot |
+| [Supervision](docs/SUPERVISION.md) | Runner ownership, PID identity, daemon reattachment |
+| [Instance schema](docs/INSTANCE_SCHEMA.md) | `instance.toml`, `lock.json`, SQLite index, recovery |
+| [Async concurrency](docs/ASYNC_CONCURRENCY.md) | Request path, bounded tasks, cancellation |
+| [Backup & restore](docs/BACKUP_RESTORE_DESIGN.md) | Transaction, verification, confirmation token |
+| [Distribution](docs/DISTRIBUTION.md) | macOS/Linux packaging, services, signing, hot update |
+| [Release process](docs/RELEASING.md) | Tag → CI → draft release → review |
+| [Changelog](CHANGELOG.md) | User-facing changes and known alpha limitations |
+| [0.1.0 release notes](docs/releases/0.1.0.md) | First public unsigned alpha |
+| [TUI testing](docs/TUI_TESTING.md) | Renderer, PTY, screenshots, visual review |
+| [Product design](PRODUCT_DESIGN.md) | Scope and release gates |
+| [Implementation gaps](docs/IMPLEMENTATION_GAPS.md) | What is still missing |
 
-Release packaging and the versioned installer can be exercised locally without a public URL:
+## Development
+
+The repository pins Rust **1.89.0** in [`rust-toolchain.toml`](rust-toolchain.toml).
+
+```sh
+cargo fmt --all --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo build --workspace
+```
+
+Current automated evidence: **164 tests on macOS**, **165 on Linux** (the Linux
+run adds a `systemd-analyze` unit check), plus four PTY scripts under
+[`scripts/`](scripts/):
+
+```sh
+python3 scripts/tui_pty_smoke.py
+python3 scripts/tui_guided_create_pty.py
+python3 scripts/tui_task_detail_pty.py
+python3 scripts/tui_instance_detail_pty.py
+```
+
+Release tooling:
 
 ```sh
 cargo build --workspace --release
+# macOS Apple Silicon; use the matching target for other hosts
 python3 scripts/package_release.py \
   --version 0.1.0 --target aarch64-apple-darwin \
   --base-url "file://$PWD/dist/0.1.0"
-./scripts/install.sh \
-  --manifest-url "file://$PWD/dist/0.1.0/release-manifest.json" \
+./scripts/install.sh --manifest-url "file://$PWD/dist/0.1.0/release-manifest.json" \
   --prefix /tmp/mcst-prefix --root /tmp/mcst-root
-/tmp/mcst-prefix/bin/mc version --json
 /tmp/mcst-prefix/bin/mc uninstall
 ```
 
-This is an unsigned alpha path: the installer verifies SHA-256 but warns that no signature was checked. Homebrew formula rendering is in `packaging/homebrew/`; publishing a tap is still Phase 2.
+See [Release process](docs/RELEASING.md) for tag-driven CI/CD and the draft
+release checklist.
 
-Run the UI renderer and state tests with `cargo test -p mc-tui`. Build the TUI and run `python3 scripts/tui_pty_smoke.py`, `python3 scripts/tui_task_detail_pty.py`, `python3 scripts/tui_guided_create_pty.py`, and `python3 scripts/tui_instance_detail_pty.py` to verify command-palette creation, option loading, byte progress, cancellation, task event resume, backup verification/restore confirmation, and instance lifecycle interactions through PTY fake daemons. Lifecycle API details and the process identity contract are in [docs/SUPERVISION.md](docs/SUPERVISION.md).
+## Project layout
+
+| Crate / directory | Responsibility |
+| --- | --- |
+| `mc-core` | domain types, errors, provider contract, API envelopes |
+| `mc-client` | bounded async Unix-socket client |
+| `mc-config` | `config.toml`, platform paths, User-Agent defaults |
+| `mc-daemon` | local API transport, dispatch, tasks, supervisor wiring |
+| `mc-supervisor` | resident runner, Java lifecycle, PID identity, console/logs |
+| `mc-instance` | instance config/lock files, staging, SQLite index, recovery |
+| `mc-task` | durable task/event storage, bounded workers, cancellation |
+| `mc-backup` | stopped-world backup, checksums, restore transaction |
+| `mc-modpack` | read-only `.mrpack` analysis |
+| `provider-paper` | Paper Fill v3 metadata resolution |
+| `mc-download` | verified HTTPS downloads, resume, cache, hash checks |
+| `mc-system` | Java discovery, doctor, disk/port checks |
+| `mc-tui` | session shell, wizard, detail pages, themes, mascot |
+| `mc-cli` | text CLI over the daemon API |
+| `mc` | stable launcher, setup, service, version/status, uninstall |
+| `scripts/` | PTY fake daemons, visual probes, release/install tooling |
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. The most useful
+contributions right now are:
+
+- Vanilla provider and existing-directory takeover;
+- `server.properties` editing and player management;
+- online/scheduled backup design and a real-world restore drill;
+- Linux host validation and packaging;
+- focused TUI interaction fixes with before/after screenshots.
+
+Use the issue templates for bugs/features. Do not open a public issue for a
+vulnerability; follow [SECURITY.md](SECURITY.md).
+
+## License
+
+Dual-licensed under either of:
+
+- [MIT](LICENSE-MIT)
+- [Apache License 2.0](LICENSE-APACHE)
+
+at your option. See [LICENSE](LICENSE) for the contribution statement.
+
+`mc-server-tui` is an independent project. It is not affiliated with Mojang,
+Microsoft, or PaperMC. Minecraft is a trademark of Mojang Synergies AB.
+
+<sub>Minecraft server manager · PaperMC · Rust TUI · Ratatui · terminal dashboard · macOS · Linux · self-hosted · server supervision · world backups</sub>

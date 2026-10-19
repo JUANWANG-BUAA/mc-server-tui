@@ -1,0 +1,91 @@
+# FAQ
+
+## Is this stable?
+
+No. `v0.1.0` is an **unsigned alpha pre-release**. The core Paper lifecycle,
+backups, and TUI work, but the feature set is intentionally incomplete. See
+[Implementation gaps](IMPLEMENTATION_GAPS.md).
+
+## What do I need?
+
+- macOS 13+ or Linux (x86_64/arm64);
+- Java 21+ for current Paper versions;
+- a terminal of at least 80×24; smaller layouts degrade or hide the mascot;
+- internet access for the first Paper download.
+
+## How do I install it?
+
+Release installer (tag-specific while `v0.1.0` is a pre-release):
+
+```sh
+TAG=v0.1.0
+curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
+mc setup
+mc
+```
+
+`mc setup` writes `config.toml`, checks Java, installs a launchd/systemd user
+service, starts the daemon, and leaves the TUI to `mc`.
+
+Source:
+
+```sh
+cargo build --workspace
+./target/debug/mc setup
+./target/debug/mc
+```
+
+## Does closing the terminal stop my server?
+
+No. The TUI is a client. The resident runner owns the Java process and keeps
+running when the TUI or management daemon restarts. Install the user service so
+the daemon is supervised by launchd/systemd.
+
+## Where is my data?
+
+The platform application state directory for `mc-server-tui`, under
+`org.mc-server-tui.mc-server-tui`. `mc doctor` prints the exact path. Instance
+worlds live under `<state>/instances/<uuid>/server/`; do not edit the UUID
+directory while the server is running.
+
+## Can I use an existing server directory?
+
+Not yet. “Take over existing directory” is a first-stable-version gap. Do not
+point this alpha at a production world you cannot restore from a separate
+backup.
+
+## Does it support Vanilla, Fabric, or modpacks?
+
+Paper is the only installable provider today. `.mrpack` files can be analyzed
+read-only. Actual modpack materialization and Fabric installation are next-phase
+work.
+
+## Are backups online?
+
+No. Backups are stopped-world only. Stop the server before creating a backup;
+restore requires the instance to be stopped and uses a preview plus explicit
+confirmation.
+
+## How do I update?
+
+There is no auto-updater yet. Install a newer release over the existing
+versioned install (the installer preserves `previous`), or use the package
+manager once packages exist. Phase 2 adds signed releases; Phase 3/4 add
+compatibility ranges and a safe updater.
+
+## Why is the release unsigned?
+
+Signing/notarization requires an Apple Developer ID and release secrets. The
+installer verifies the manifest's SHA-256 and size, but this is not a substitute
+for a signature. Do not describe the alpha artifacts as signed.
+
+## Does it work on Windows?
+
+No. The current implementation depends on Unix sockets and Unix process
+semantics. macOS and Linux are the supported platforms.
+
+## Where should I report a bug or vulnerability?
+
+- Bugs/features: GitHub issue templates.
+- Vulnerabilities: private GitHub Security Advisory, see [SECURITY](../SECURITY.md).
+- General setup questions: [FAQ](FAQ.md) and `mc doctor --json`.

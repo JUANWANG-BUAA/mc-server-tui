@@ -3,6 +3,9 @@ name = "mc-system"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 directories.workspace = true

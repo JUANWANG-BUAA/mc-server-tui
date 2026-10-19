@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a focused improvement
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user task is hard or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the interaction and the expected outcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Area
+      options:
+        - TUI interaction
+        - Server lifecycle / supervision
+        - Downloads / providers
+        - Backups / restore
+        - Modpacks / loaders
+        - CLI / service / packaging
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and data impact
+      description: Could this write worlds, delete data, change ports, or affect a running server?

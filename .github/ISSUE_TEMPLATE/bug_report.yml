@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible defect in mc-server-tui
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. This project is an alpha; please include enough
+        local evidence to reproduce the problem without sharing world data or
+        secrets. For security issues use SECURITY.md instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear description of the observed behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Run ...
+        2. Press ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: mc-server-tui version
+      description: Output of `mc version --json`.
+      placeholder: '{"version":"0.1.0",...}'
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: macOS 15 arm64 / Ubuntu 22.04 x86_64
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal and size
+      placeholder: iTerm2 3.5, 80x24 / GNOME Terminal, 120x40
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Doctor output
+      description: Paste `mc doctor --json` or `mc cli doctor`; remove sensitive paths if needed.
+      render: json
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Trim to the failing section. Never paste tokens, IP addresses you consider private, or full world data.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed secrets and private data from this report.
+          required: true
+        - label: This is not a security vulnerability (see SECURITY.md).
+          required: true

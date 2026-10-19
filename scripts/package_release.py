@@ -21,6 +21,14 @@ BINARIES = (
     "mc-server-tui-daemon",
     "mc-server-tui-cli",
 )
+DOCUMENTS = (
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+)
 
 
 def sha256(path: Path) -> str:
@@ -57,6 +65,19 @@ def package(args: argparse.Namespace) -> tuple[Path, Path]:
             source = binary_dir / name
             info = archive.gettarinfo(str(source), arcname=f"{root_name}/bin/{name}")
             info.mode = 0o755
+            info.uid = 0
+            info.gid = 0
+            info.uname = ""
+            info.gname = ""
+            info.mtime = 0
+            with source.open("rb") as handle:
+                archive.addfile(info, handle)
+        for name in DOCUMENTS:
+            source = Path(name)
+            if not source.is_file():
+                raise SystemExit(f"missing project document: {name}")
+            info = archive.gettarinfo(str(source), arcname=f"{root_name}/{name}")
+            info.mode = 0o644
             info.uid = 0
             info.gid = 0
             info.uname = ""

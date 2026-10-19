@@ -3,6 +3,11 @@ name = "mc"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["minecraft", "server", "tui", "cli", "management"]
+categories = ["command-line-utilities", "games"]
 
 [[bin]]
 name = "mc"
