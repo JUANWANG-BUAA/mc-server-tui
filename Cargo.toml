@@ -24,7 +24,7 @@ rust-version = "1.89"
 version = "0.1.0"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/JUANWANG-BUAA/mc-server-tui"
-homepage = "https://github.com/JUANWANG-BUAA/mc-server-tui"
+homepage = "https://juanwang-buaa.github.io/mc-server-tui/"
 
 [workspace.dependencies]
 async-trait = "0.1"

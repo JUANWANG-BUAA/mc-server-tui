@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://juanwang-buaa.github.io/mc-server-tui/sitemap.xml

@@ -6,6 +6,7 @@
   <p>Guided Paper setup · resident supervisor · live console · verified downloads · world backups · a Claude Code-style shell · seven themes</p>
 
   <p>
+    <a href="https://juanwang-buaa.github.io/mc-server-tui/"><img src="https://img.shields.io/badge/website-live-d97757?style=flat-square" alt="Website"></a>
     <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/actions/workflows/ci.yml"><img src="https://github.com/JUANWANG-BUAA/mc-server-tui/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
     <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases"><img src="https://img.shields.io/github/v/release/JUANWANG-BUAA/mc-server-tui?include_prereleases&amp;style=flat-square&amp;label=release" alt="Release"></a>
     <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue?style=flat-square" alt="License"></a>
@@ -186,6 +187,7 @@ signed, package-managed beta, not “more services at any cost.”
 
 | Start here | Deep dives |
 | --- | --- |
+| [Website](https://juanwang-buaa.github.io/mc-server-tui/) | Screenshots, theme switcher, architecture, install |
 | [Documentation index](docs/README.md) | Every contract in one place |
 | [FAQ](docs/FAQ.md) | Java, service, data paths, alpha limits |
 | [Interaction design](docs/INTERACTION_DESIGN.md) | Shell/overlay/drill-in hierarchy, themes, mascot |
@@ -258,6 +260,7 @@ release checklist.
 | `mc-tui` | session shell, wizard, detail pages, themes, mascot |
 | `mc-cli` | text CLI over the daemon API |
 | `mc` | stable launcher, setup, service, version/status, uninstall |
+| `site/` | static GitHub Pages landing page (no build step) |
 | `scripts/` | PTY fake daemons, visual probes, release/install tooling |
 
 ## Contributing

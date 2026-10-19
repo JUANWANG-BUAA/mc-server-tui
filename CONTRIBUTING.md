@@ -56,6 +56,19 @@ release-ready lifecycle change.
 - Do not add a dependency for a small helper without checking the existing
   workspace crates first.
 
+## Website
+
+The landing page is the dependency-free static site in [`site/`](site/). Preview
+it with:
+
+```sh
+python3 -m http.server 8099 --directory site
+```
+
+Check desktop and 390px mobile layouts, theme switching, the copy button, and
+reduced-motion behavior. The GitHub Pages workflow deploys `site/` on `main`.
+See [docs/WEBSITE.md](docs/WEBSITE.md).
+
 ## Pull requests
 
 - Keep changes focused; separate TUI, daemon, and release-tooling work when

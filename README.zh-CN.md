@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="README.md">English</a> · <strong>简体中文</strong>
+  <a href="README.md">English</a> · <strong>简体中文</strong> · <a href="https://juanwang-buaa.github.io/mc-server-tui/">官网</a>
   <img src="output/playwright/themes-overview.png" alt="mc-server-tui 七套主题与像素史蒂夫" width="100%">
   <h1>mc-server-tui</h1>
   <p><strong>面向 macOS / Linux 的终端优先 Minecraft Java 服务端管理器。</strong></p>
@@ -145,6 +145,7 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 
 ## 文档
 
+- [官网](https://juanwang-buaa.github.io/mc-server-tui/)
 - [文档索引](docs/README.md)
 - [FAQ](docs/FAQ.md)
 - [交互设计](docs/INTERACTION_DESIGN.md)

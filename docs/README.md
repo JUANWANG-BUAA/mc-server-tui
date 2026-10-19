@@ -48,6 +48,7 @@ documents below are the implementation contracts behind the current alpha.
 | [Code of conduct](../CODE_OF_CONDUCT.md) | participation expectations |
 | [Changelog](../CHANGELOG.md) | user-facing changes and alpha limitations |
 | [0.1.0 release notes](releases/0.1.0.md) | first public unsigned alpha |
+| [Website](WEBSITE.md) | static landing page, local preview, GitHub Pages deploy |
 
 ## Upstream design
 

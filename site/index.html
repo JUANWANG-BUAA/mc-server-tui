@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en" data-theme="claude">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>document.documentElement.classList.add("js");</script>
+  <title>mc-server-tui — Minecraft servers without the browser</title>
+  <meta name="description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Guided Paper setup, a resident supervisor, live console, verified downloads, world backups, and a Claude Code-style TUI.">
+  <meta name="keywords" content="Minecraft server manager, PaperMC, Rust TUI, Ratatui, macOS, Linux, self-hosted, Minecraft backup, terminal UI, server supervisor">
+  <meta name="author" content="JUANWANG-BUAA">
+  <meta name="theme-color" content="#0b0b0c">
+  <link rel="canonical" href="https://juanwang-buaa.github.io/mc-server-tui/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/styles.css">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="mc-server-tui — Minecraft servers without the browser">
+  <meta property="og:description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Paper setup, resident runner, live console, verified downloads, backups.">
+  <meta property="og:url" content="https://juanwang-buaa.github.io/mc-server-tui/">
+  <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="mc-server-tui — Minecraft servers without the browser">
+  <meta name="twitter:description" content="A terminal-first Minecraft Java server manager for macOS and Linux.">
+  <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "mc-server-tui",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux",
+    "softwareVersion": "0.1.0",
+    "license": "MIT OR Apache-2.0",
+    "url": "https://juanwang-buaa.github.io/mc-server-tui/",
+    "codeRepository": "https://github.com/JUANWANG-BUAA/mc-server-tui",
+    "description": "Terminal-first Minecraft Java server manager with a resident supervisor, verified downloads, backups, and a Claude Code-style TUI."
+  }
+  </script>
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="page-glow" aria-hidden="true"></div>
+
+  <header class="site-header" id="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#top" aria-label="mc-server-tui home">
+        <img class="brand-mark" src="assets/favicon.svg" alt="" width="28" height="28">
+        <span>mc-server-tui</span>
+        <span class="alpha-tag">ALPHA</span>
+      </a>
+      <nav class="nav" aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#themes">Themes</a>
+        <a href="#inside">Inside</a>
+        <a href="#install">Install</a>
+        <a href="#docs">Docs</a>
+      </nav>
+      <a class="header-github" href="https://github.com/JUANWANG-BUAA/mc-server-tui" target="_blank" rel="noreferrer">
+        GitHub <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-copy" data-reveal>
+        <div class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span> Terminal-first · macOS + Linux</div>
+        <h1>Minecraft servers,<br><em>without the browser.</em></h1>
+        <p class="lede">A control room for Paper servers that lives in your shell. Guide a new server from zero, watch every byte, tail the console, and restore a world without opening a web panel.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#install">Install the alpha <span aria-hidden="true">→</span></a>
+          <a class="button button-ghost" href="https://github.com/JUANWANG-BUAA/mc-server-tui" target="_blank" rel="noreferrer">View source <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="hero-meta">
+          <span>Unsigned alpha</span><span class="meta-sep">/</span>
+          <span>SHA-256 verified</span><span class="meta-sep">/</span>
+          <span>4 platforms</span>
+        </div>
+      </div>
+
+      <div class="hero-visual" data-reveal>
+        <div class="terminal-window hero-terminal">
+          <div class="terminal-bar">
+            <span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="terminal-path">mc-server-tui <span>/ session</span></span>
+            <span class="theme-label" id="hero-theme-label">CLAUDE</span>
+          </div>
+          <div class="terminal-screen">
+            <img id="hero-shot" src="assets/shell-session-claude-80x24.png" alt="mc-server-tui session shell in the Claude theme" width="830" height="500" fetchpriority="high">
+          </div>
+          <div class="terminal-status">
+            <span class="status-live"><i aria-hidden="true"></i> resident runner online</span>
+            <span>80×24</span>
+            <span>no browser required</span>
+          </div>
+        </div>
+
+        <div class="runner-card">
+          <div class="steve" aria-hidden="true">
+            <svg viewBox="0 0 7 4" shape-rendering="crispEdges" role="presentation">
+              <rect width="7" height="1" fill="#402b1c"/>
+              <rect x="0" y="1" width="1" height="1" fill="#402b1c"/><rect x="6" y="1" width="1" height="1" fill="#402b1c"/>
+              <rect x="1" y="1" width="1" height="1" fill="#c68642"/><rect x="2" y="1" width="1" height="1" fill="#f0f0f0"/><rect x="3" y="1" width="1" height="1" fill="#c68642"/><rect x="4" y="1" width="1" height="1" fill="#f0f0f0"/><rect x="5" y="1" width="1" height="1" fill="#c68642"/>
+              <rect x="0" y="2" width="1" height="1" fill="#402b1c"/><rect x="1" y="2" width="1" height="1" fill="#c68642"/><rect x="2" y="2" width="1" height="1" fill="#3a4fc4"/><rect x="3" y="2" width="1" height="1" fill="#c68642"/><rect x="4" y="2" width="1" height="1" fill="#3a4fc4"/><rect x="5" y="2" width="1" height="1" fill="#c68642"/><rect x="6" y="2" width="1" height="1" fill="#402b1c"/>
+              <rect x="0" y="3" width="1" height="1" fill="#c68642"/><rect x="1" y="3" width="1" height="1" fill="#c68642"/><rect x="2" y="3" width="1" height="1" fill="#c68642"/><rect x="3" y="3" width="1" height="1" fill="#5b3a22"/><rect x="4" y="3" width="1" height="1" fill="#5b3a22"/><rect x="5" y="3" width="1" height="1" fill="#c68642"/><rect x="6" y="3" width="1" height="1" fill="#c68642"/>
+            </svg>
+          </div>
+          <p><strong>The UI is disposable.</strong><br>Java keeps running when the daemon restarts.</p>
+        </div>
+
+        <div class="theme-picker" role="group" aria-label="Preview a terminal theme">
+          <button type="button" class="theme-chip is-active" data-set-theme="claude" aria-pressed="true"><i style="--swatch:#d97757"></i>Claude</button>
+          <button type="button" class="theme-chip" data-set-theme="deepseek" aria-pressed="false"><i style="--swatch:#4d6bfe"></i>DeepSeek</button>
+          <button type="button" class="theme-chip" data-set-theme="codex" aria-pressed="false"><i style="--swatch:#10a37f"></i>Codex</button>
+          <button type="button" class="theme-chip" data-set-theme="kimi" aria-pressed="false"><i style="--swatch:#a78bfa"></i>Kimi</button>
+          <button type="button" class="theme-chip" data-set-theme="pcl2" aria-pressed="false"><i style="--swatch:#56b8e8"></i>PCL2</button>
+          <button type="button" class="theme-chip" data-set-theme="mono" aria-pressed="false"><i style="--swatch:#d8d8d8"></i>Mono</button>
+          <button type="button" class="theme-chip" data-set-theme="ocean" aria-pressed="false"><i style="--swatch:#6cb6c9"></i>Ocean</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Project facts">
+      <div><strong>04</strong><span>release targets</span></div>
+      <div><strong>07</strong><span>terminal themes</span></div>
+      <div><strong>01</strong><span>resident runner per instance</span></div>
+      <div><strong>00</strong><span>browser tabs</span></div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="section-heading" data-reveal>
+        <p class="eyebrow">Why it feels different</p>
+        <h2>Less dashboard.<br><em>More control room.</em></h2>
+        <p>Every screen is designed around the job: get a server running, see what it is doing, and keep the world safe when something goes wrong.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card" data-reveal>
+          <span class="feature-index">01</span>
+          <h3>One shell. Every server.</h3>
+          <p>Start, stop, tail logs, cancel a download, inspect a task, or send a console command without leaving the transcript. Drill into details only when the task needs them.</p>
+          <span class="feature-tag">session shell</span>
+        </article>
+        <article class="feature-card" data-reveal>
+          <span class="feature-index">02</span>
+          <h3>The UI is disposable.</h3>
+          <p>A per-instance runner owns Java's console. Close the TUI, restart the daemon, or update the management layer; the Minecraft process keeps running and reattaches.</p>
+          <span class="feature-tag">resident supervisor</span>
+        </article>
+        <article class="feature-card" data-reveal>
+          <span class="feature-index">03</span>
+          <h3>Downloads with receipts.</h3>
+          <p>Paper builds are locked to an exact build, size, and SHA-256. Resume is only used when the source proves the range; the installed bytes are verified before they become an instance.</p>
+          <span class="feature-tag">verified downloads</span>
+        </article>
+        <article class="feature-card" data-reveal>
+          <span class="feature-index">04</span>
+          <h3>Backups you can defend.</h3>
+          <p>Stopped-world snapshots with a checksummed manifest, paged listing, integrity verification, restore preview, explicit confirmation token, and a recovery journal.</p>
+          <span class="feature-tag">transactional restore</span>
+        </article>
+        <article class="feature-card" data-reveal>
+          <span class="feature-index">05</span>
+          <h3>Tasks that survive.</h3>
+          <p>Durable SQLite tasks, byte-level progress, speed and source, event cursors, and cooperative cancellation. The TUI can disconnect without losing the transition history.</p>
+          <span class="feature-tag">durable task queue</span>
+        </article>
+        <article class="feature-card" data-reveal>
+          <span class="feature-index">06</span>
+          <h3>A terminal with taste.</h3>
+          <p>Seven near-black palettes, restrained accent color, a pixel Steve who blinks, and a Claude Code-style composer. Functional first; decoration never fights the log.</p>
+          <span class="feature-tag">terminal UI</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="section theme-section" id="themes">
+      <div class="section-heading compact" data-reveal>
+        <p class="eyebrow">Make it yours</p>
+        <h2>Seven themes.<br><em>Same quiet shell.</em></h2>
+        <p>Low-contrast near-black backgrounds, one accent color, and a mascot that uses the theme only for the sparkle. Switch with <code>F2</code>, <code>/theme &lt;name&gt;</code>, or the picker here.</p>
+        <div class="theme-list" role="group" aria-label="Theme preview">
+          <button type="button" class="theme-row is-active" data-set-theme="claude" aria-pressed="true"><span class="swatch" style="--swatch:#d97757"></span><span>Claude</span><small>terracotta</small></button>
+          <button type="button" class="theme-row" data-set-theme="deepseek" aria-pressed="false"><span class="swatch" style="--swatch:#4d6bfe"></span><span>DeepSeek</span><small>signal blue</small></button>
+          <button type="button" class="theme-row" data-set-theme="codex" aria-pressed="false"><span class="swatch" style="--swatch:#10a37f"></span><span>Codex</span><small>mint</small></button>
+          <button type="button" class="theme-row" data-set-theme="kimi" aria-pressed="false"><span class="swatch" style="--swatch:#a78bfa"></span><span>Kimi</span><small>violet</small></button>
+          <button type="button" class="theme-row" data-set-theme="pcl2" aria-pressed="false"><span class="swatch" style="--swatch:#56b8e8"></span><span>PCL2</span><small>launcher blue</small></button>
+          <button type="button" class="theme-row" data-set-theme="mono" aria-pressed="false"><span class="swatch" style="--swatch:#d8d8d8"></span><span>Mono</span><small>paper white</small></button>
+          <button type="button" class="theme-row" data-set-theme="ocean" aria-pressed="false"><span class="swatch" style="--swatch:#6cb6c9"></span><span>Ocean</span><small>sea glass</small></button>
+        </div>
+      </div>
+      <div class="theme-preview" data-reveal>
+        <div class="terminal-window">
+          <div class="terminal-bar">
+            <span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="terminal-path">theme preview <span>/ live screenshot</span></span>
+            <span class="theme-label" id="theme-preview-label">CLAUDE</span>
+          </div>
+          <div class="terminal-screen">
+            <img id="theme-shot" src="assets/shell-session-claude-80x24.png" alt="mc-server-tui Claude theme screenshot" width="830" height="500" loading="lazy">
+          </div>
+        </div>
+        <p class="caption">Real 80×24 terminal captures, not mockups. Theme preference persists across launches.</p>
+      </div>
+    </section>
+
+    <section class="section gallery-section" id="inside">
+      <div class="section-heading" data-reveal>
+        <p class="eyebrow">Inside the shell</p>
+        <h2>Structured when it matters.<br><em>Inline by default.</em></h2>
+        <p>Everyday work stays in the session. The wizard, backup manager, and task detail only take over when a decision or a safe recovery needs your full attention.</p>
+      </div>
+      <div class="gallery">
+        <figure class="gallery-card" data-reveal>
+          <img src="assets/theme-create-version-80x24.png" alt="Guided Paper version picker with scrollbar and runtime summary" width="830" height="500" loading="lazy">
+          <figcaption><span>01 / Guided create</span><strong>Version, Java, memory, EULA — one reviewed plan.</strong></figcaption>
+        </figure>
+        <figure class="gallery-card" data-reveal>
+          <img src="assets/theme-backup-manager-80x24.png" alt="World backup manager with paged backups and verification status" width="830" height="500" loading="lazy">
+          <figcaption><span>02 / Backup manager</span><strong>Verify, preview impact, then type the exact confirmation.</strong></figcaption>
+        </figure>
+        <figure class="gallery-card" data-reveal>
+          <img src="assets/theme-download-progress-80x24.png" alt="Download task with byte progress, speed, and source" width="830" height="500" loading="lazy">
+          <figcaption><span>03 / Byte progress</span><strong>Know what is downloading, from where, and how fast.</strong></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section architecture-section" id="architecture">
+      <div class="architecture-copy" data-reveal>
+        <p class="eyebrow">Architecture</p>
+        <h2>The UI is disposable.<br><em>The server isn't.</em></h2>
+        <p>The TUI and CLI are clients. A local daemon owns tasks and supervision. Each instance has a detached runner that holds Java's stdin/stdout/stderr and a private control socket.</p>
+        <ul class="check-list">
+          <li>Daemon restart → reattach, don't kill Java</li>
+          <li>Process identity must match before any signal</li>
+          <li>World writes go through leases and recovery journals</li>
+          <li>Unix socket is per-user, mode 0600</li>
+        </ul>
+        <a class="text-link" href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/SUPERVISION.md" target="_blank" rel="noreferrer">Read the supervision contract <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="diagram" data-reveal aria-label="Architecture diagram">
+        <div class="diagram-row two">
+          <div class="node"><span>TUI</span><small>client</small></div>
+          <div class="node"><span>CLI</span><small>client</small></div>
+        </div>
+        <div class="diagram-link">Unix socket · 0600</div>
+        <div class="node node-wide node-daemon"><span>management daemon</span><small>API · durable tasks · leases</small></div>
+        <div class="diagram-link">supervises</div>
+        <div class="diagram-row two">
+          <div class="node"><span>runner A</span><small>detached process</small></div>
+          <div class="node"><span>runner B</span><small>detached process</small></div>
+        </div>
+        <div class="diagram-link">owns pipes</div>
+        <div class="diagram-row two">
+          <div class="node node-java"><span>Paper / Java</span><small>instance A</small></div>
+          <div class="node node-java"><span>Paper / Java</span><small>instance B</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section install-section" id="install">
+      <div class="install-copy" data-reveal>
+        <p class="eyebrow">Get started</p>
+        <h2>One command.<br><em>Then it's yours.</em></h2>
+        <p>Install the alpha user-local, write a config, verify Java, and install a launchd/systemd user service. No browser, no root, no daemon left in a random terminal.</p>
+        <div class="requirements">
+          <span>macOS 13+</span><span>Linux x86_64/arm64</span><span>Java 21+</span><span>80×24 terminal</span>
+        </div>
+        <a class="text-link" href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.1.0" target="_blank" rel="noreferrer">Release notes and checksums <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="install-panel" data-reveal>
+        <div class="terminal-window">
+          <div class="terminal-bar">
+            <span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="terminal-path">install.sh <span>/ unsigned alpha</span></span>
+            <button class="copy-button" type="button" id="copy-install" aria-label="Copy install commands">Copy</button>
+          </div>
+          <pre class="install-code" id="install-snippet"><span class="prompt">$</span> TAG=v0.1.0
+<span class="prompt">$</span> curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
+<span class="prompt">$</span> mc setup
+<span class="prompt">$</span> mc</pre>
+          <div class="terminal-status">
+            <span class="status-live"><i aria-hidden="true"></i> SHA-256 verified</span>
+            <span>not signed yet</span>
+            <span>tag-specific install</span>
+          </div>
+        </div>
+        <p class="install-note"><strong>Alpha note:</strong> v0.1.0 is a pre-release, so GitHub's <code>/latest/</code> URL does not select it yet. The installer checks the manifest hash and size, but not a code signature. Keep an independent world backup.</p>
+        <details class="source-build">
+          <summary>Prefer to build from source?</summary>
+          <pre><code>git clone https://github.com/JUANWANG-BUAA/mc-server-tui.git
+cd mc-server-tui
+cargo build --workspace
+./target/debug/mc setup --dry-run
+./target/debug/mc setup
+./target/debug/mc</code></pre>
+        </details>
+      </div>
+    </section>
+
+    <section class="section roadmap-section" id="roadmap">
+      <div class="section-heading compact" data-reveal>
+        <p class="eyebrow">Roadmap</p>
+        <h2>Alpha, with receipts.</h2>
+        <p>The current release is deliberately narrow. We publish the gaps instead of pretending the product is finished.</p>
+      </div>
+      <div class="roadmap">
+        <article class="roadmap-item done" data-reveal>
+          <span class="phase">Phase 0–1</span>
+          <h3>Shipped foundation</h3>
+          <p>Paper lifecycle, resident runner, durable tasks, backup/restore, session TUI, seven themes, user service, versioned installer, four-platform release.</p>
+          <span class="status-pill">shipped</span>
+        </article>
+        <article class="roadmap-item next" data-reveal>
+          <span class="phase">Phase 2</span>
+          <h3>Signed distribution</h3>
+          <p>Apple Developer ID signing/notarization, Homebrew tap, Linux .deb/.rpm and apt/dnf repositories, SBOM and changelog discipline.</p>
+          <span class="status-pill">next</span>
+        </article>
+        <article class="roadmap-item" data-reveal>
+          <span class="phase">Phase 3</span>
+          <h3>Safe hot update</h3>
+          <p>N/N−1 protocol window, runner handshake, state migrations, task draining, atomic version switch, health checks and rollback.</p>
+          <span class="status-pill">planned</span>
+        </article>
+        <article class="roadmap-item" data-reveal>
+          <span class="phase">Then</span>
+          <h3>Vanilla, takeover, players</h3>
+          <p>Vanilla provider, existing-directory takeover, server.properties editing, player management, online/scheduled backups, and actual modpack import.</p>
+          <span class="status-pill">planned</span>
+        </article>
+      </div>
+      <a class="text-link roadmap-link" href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/IMPLEMENTATION_GAPS.md" target="_blank" rel="noreferrer">See the complete implementation gap audit <span aria-hidden="true">↗</span></a>
+    </section>
+
+    <section class="section docs-section" id="docs">
+      <div class="section-heading compact" data-reveal>
+        <p class="eyebrow">Documentation</p>
+        <h2>Read before you trust it with a world.</h2>
+        <p>The contracts are explicit about process identity, world safety, download provenance, and what is still missing.</p>
+      </div>
+      <div class="docs-grid">
+        <a class="doc-card" href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/README.md" target="_blank" rel="noreferrer"><span class="doc-index">01</span><strong>Documentation index</strong><span>Every implementation contract in one place.</span><i aria-hidden="true">↗</i></a>
+        <a class="doc-card" href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/FAQ.md" target="_blank" rel="noreferrer"><span class="doc-index">02</span><strong>FAQ</strong><span>Java, service, data paths, updates, alpha limits.</span><i aria-hidden="true">↗</i></a>
+        <a class="doc-card" href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/SUPERVISION.md" target="_blank" rel="noreferrer"><span class="doc-index">03</span><strong>Supervision</strong><span>Runner ownership, PID identity, reattachment.</span><i aria-hidden="true">↗</i></a>
+        <a class="doc-card" href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/INTERACTION_DESIGN.md" target="_blank" rel="noreferrer"><span class="doc-index">04</span><strong>Interaction design</strong><span>Shell/overlay/drill-in hierarchy and visual rules.</span><i aria-hidden="true">↗</i></a>
+        <a class="doc-card" href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/DISTRIBUTION.md" target="_blank" rel="noreferrer"><span class="doc-index">05</span><strong>Distribution</strong><span>macOS/Linux packaging, signing, hot update.</span><i aria-hidden="true">↗</i></a>
+        <a class="doc-card" href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/RELEASING.md" target="_blank" rel="noreferrer"><span class="doc-index">06</span><strong>Releasing</strong><span>Tag → CI → draft release → review.</span><i aria-hidden="true">↗</i></a>
+      </div>
+    </section>
+
+    <section class="final-cta" data-reveal>
+      <div class="final-steve" aria-hidden="true">
+        <svg viewBox="0 0 7 4" shape-rendering="crispEdges" role="presentation">
+          <rect width="7" height="1" fill="#402b1c"/>
+          <rect x="0" y="1" width="1" height="1" fill="#402b1c"/><rect x="6" y="1" width="1" height="1" fill="#402b1c"/>
+          <rect x="1" y="1" width="1" height="1" fill="#c68642"/><rect x="2" y="1" width="1" height="1" fill="#f0f0f0"/><rect x="3" y="1" width="1" height="1" fill="#c68642"/><rect x="4" y="1" width="1" height="1" fill="#f0f0f0"/><rect x="5" y="1" width="1" height="1" fill="#c68642"/>
+          <rect x="0" y="2" width="1" height="1" fill="#402b1c"/><rect x="1" y="2" width="1" height="1" fill="#c68642"/><rect x="2" y="2" width="1" height="1" fill="#3a4fc4"/><rect x="3" y="2" width="1" height="1" fill="#c68642"/><rect x="4" y="2" width="1" height="1" fill="#3a4fc4"/><rect x="5" y="2" width="1" height="1" fill="#c68642"/><rect x="6" y="2" width="1" height="1" fill="#402b1c"/>
+          <rect x="0" y="3" width="1" height="1" fill="#c68642"/><rect x="1" y="3" width="1" height="1" fill="#c68642"/><rect x="2" y="3" width="1" height="1" fill="#c68642"/><rect x="3" y="3" width="1" height="1" fill="#5b3a22"/><rect x="4" y="3" width="1" height="1" fill="#5b3a22"/><rect x="5" y="3" width="1" height="1" fill="#c68642"/><rect x="6" y="3" width="1" height="1" fill="#c68642"/>
+        </svg>
+      </div>
+      <p class="eyebrow">The terminal is enough</p>
+      <h2>Your server doesn't need another dashboard.</h2>
+      <p>Keep it in the shell, keep the world safe, and keep the browser closed.</p>
+      <div class="hero-actions center">
+        <a class="button button-primary" href="#install">Install the alpha <span aria-hidden="true">→</span></a>
+        <a class="button button-ghost" href="https://github.com/JUANWANG-BUAA/mc-server-tui" target="_blank" rel="noreferrer">Star on GitHub <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-brand">
+      <img src="assets/favicon.svg" alt="" width="22" height="22">
+      <span>mc-server-tui</span>
+      <span class="footer-alpha">alpha</span>
+    </div>
+    <p>Terminal-first Minecraft Java server management for macOS and Linux.</p>
+    <div class="footer-links">
+      <a href="https://github.com/JUANWANG-BUAA/mc-server-tui" target="_blank" rel="noreferrer">GitHub</a>
+      <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases" target="_blank" rel="noreferrer">Releases</a>
+      <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/docs/FAQ.md" target="_blank" rel="noreferrer">FAQ</a>
+      <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/LICENSE-MIT" target="_blank" rel="noreferrer">MIT</a>
+      <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/LICENSE-APACHE" target="_blank" rel="noreferrer">Apache-2.0</a>
+    </div>
+    <p class="fine-print">Not affiliated with Mojang, Microsoft, or PaperMC. Minecraft is a trademark of Mojang Synergies AB. <span id="year">2026</span></p>
+  </footer>
+</body>
+</html>
