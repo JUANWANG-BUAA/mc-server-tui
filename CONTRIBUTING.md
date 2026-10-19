@@ -19,7 +19,7 @@ The repository pins Rust **1.89.0** in `rust-toolchain.toml`. Install the
 components with rustup if needed:
 
 ```sh
-rustup toolchain install 1.89.0 --component rustfmt,clippy
+rustup toolchain install 1.89.0 --component rustfmt --component clippy
 ```
 
 ## Local checks
