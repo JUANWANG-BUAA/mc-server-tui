@@ -7,7 +7,7 @@
 
   <p>
     <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/actions/workflows/ci.yml"><img src="https://github.com/JUANWANG-BUAA/mc-server-tui/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-    <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases"><img src="https://img.shields.io/badge/release-v0.1.0%20alpha-orange?style=flat-square" alt="Release"></a>
+    <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases"><img src="https://img.shields.io/github/v/release/JUANWANG-BUAA/mc-server-tui?include_prereleases&amp;style=flat-square&amp;label=release" alt="Release"></a>
     <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue?style=flat-square" alt="License"></a>
     <img src="https://img.shields.io/badge/rust-1.89%2B-orange?style=flat-square" alt="Rust 1.89+">
     <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square" alt="macOS and Linux">
