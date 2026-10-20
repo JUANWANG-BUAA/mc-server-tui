@@ -22,6 +22,8 @@ fn renders_guided_version_java_and_review_steps_at_both_sizes() {
     assert!(runtime.contains("Java运行时"));
     assert!(runtime.contains("推荐"));
     assert!(runtime.contains("内存预设"));
+    assert!(runtime.contains("Survival·Paper1.21.11"));
+    assert!(render_to_text(&wizard, 40, 12).contains("Survival·Paper1.21.11"));
     assert!(render_to_text(&wizard, 40, 12).contains("Java"));
 
     wizard.handle(WizardAction::Advance);

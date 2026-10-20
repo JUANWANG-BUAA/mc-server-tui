@@ -317,9 +317,21 @@ fn render_runtime_step(
     if !wizard.runtime_settings_expanded {
         let java = wizard.java_choice_label(wizard.selected_java);
         let (min, max) = wizard.memory_range();
+        let version = wizard
+            .selected_version()
+            .map(|version| version.id.as_str())
+            .unwrap_or("未选择");
+        let suffix = format!(" · Paper {version}");
         let lines = vec![
             Line::from(Span::styled(
-                "已选择运行设置 · Enter 确认并继续",
+                format!(
+                    "{}{}",
+                    ui::truncate(
+                        &wizard.name,
+                        (inner.width as usize).saturating_sub(ui::display_width(&suffix))
+                    ),
+                    suffix
+                ),
                 theme::text(),
             )),
             Line::from(format!("Java 运行时  {java}")),
@@ -754,8 +766,12 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, wizard: &CreateWizard, anima
             ("Esc", "返回"),
         ]),
     };
-    let secondary =
-        ui::plain_hint_line(&[("F3", "运行设置展开/收起"), ("F1", "帮助")]).style(theme::dim());
+    let secondary = if wizard.step == WizardStep::Runtime {
+        ui::plain_hint_line(&[("F3", "运行设置展开/收起"), ("F1", "帮助")])
+    } else {
+        ui::plain_hint_line(&[("F1", "帮助")])
+    }
+    .style(theme::dim());
     frame.render_widget(
         Paragraph::new(vec![
             Line::from(Span::styled(message, style)),

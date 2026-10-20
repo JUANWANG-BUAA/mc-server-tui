@@ -305,6 +305,22 @@ fn render_loading(
     state: &BackupManagerState,
     animation_frame: u8,
 ) {
+    use crate::backup_manager::BackupOperation;
+    let (title, explanation) = match state.operation() {
+        Some(BackupOperation::Creating) => (
+            "创建世界备份",
+            "正在复制世界并生成校验清单，请保持实例停止。",
+        ),
+        Some(BackupOperation::Verifying) => ("校验备份", "正在检查备份内容与校验清单是否一致。"),
+        Some(BackupOperation::Planning) => (
+            "预览恢复影响",
+            "正在比较备份与当前世界；此步骤不会替换世界。",
+        ),
+        Some(BackupOperation::Restoring) => {
+            ("恢复世界", "正在替换世界并校验结果，请保持实例停止。")
+        }
+        _ => ("读取备份目录", "正在检查备份文件，完成后可选择恢复时间。"),
+    };
     let task = state
         .tracked_task_id()
         .map(|id| format!("任务 {}", &id.to_string()[..8]))
@@ -323,15 +339,12 @@ fn render_loading(
                 theme::warning().add_modifier(Modifier::BOLD),
             ),
         ]),
-        Line::from(Span::styled(
-            "正在检查备份文件，完成后可选择恢复时间。",
-            theme::muted(),
-        )),
+        Line::from(Span::styled(explanation, theme::muted())),
         Line::from(Span::styled(task, theme::muted())),
     ];
     frame.render_widget(
         Paragraph::new(lines)
-            .block(panel("读取备份目录", true))
+            .block(panel(title, true))
             .style(theme::surface()),
         area,
     );

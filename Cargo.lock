@@ -1053,7 +1053,7 @@ dependencies = [
 
 [[package]]
 name = "mc"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "clap",
  "libc",
@@ -1069,7 +1069,7 @@ dependencies = [
 
 [[package]]
 name = "mc-backup"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chrono",
  "fs2",
@@ -1085,7 +1085,7 @@ dependencies = [
 
 [[package]]
 name = "mc-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "clap",
  "mc-client",
@@ -1097,7 +1097,7 @@ dependencies = [
 
 [[package]]
 name = "mc-client"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "mc-core",
  "serde_json",
@@ -1107,7 +1107,7 @@ dependencies = [
 
 [[package]]
 name = "mc-config"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "directories",
  "serde",
@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "mc-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1131,7 +1131,7 @@ dependencies = [
 
 [[package]]
 name = "mc-daemon"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chrono",
  "clap",
@@ -1162,7 +1162,7 @@ dependencies = [
 
 [[package]]
 name = "mc-download"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chrono",
  "fs2",
@@ -1179,7 +1179,7 @@ dependencies = [
 
 [[package]]
 name = "mc-instance"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chrono",
  "libc",
@@ -1198,7 +1198,7 @@ dependencies = [
 
 [[package]]
 name = "mc-modpack"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "mc-core",
  "serde",
@@ -1210,7 +1210,7 @@ dependencies = [
 
 [[package]]
 name = "mc-supervisor"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chrono",
  "fs2",
@@ -1229,7 +1229,7 @@ dependencies = [
 
 [[package]]
 name = "mc-system"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "directories",
  "fs2",
@@ -1240,7 +1240,7 @@ dependencies = [
 
 [[package]]
 name = "mc-task"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "chrono",
  "futures-util",
@@ -1255,7 +1255,7 @@ dependencies = [
 
 [[package]]
 name = "mc-tui"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "provider-paper"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "chrono",
