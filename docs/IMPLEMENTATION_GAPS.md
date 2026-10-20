@@ -1,7 +1,7 @@
 # 实现差距与发布阻塞项
 
 > 核对日期：2026-10-20
-> 代码版本：workspace `0.2.0`
+> 代码版本：workspace `0.2.1`
 > 协议版本：`API_PROTOCOL_MIN..=API_PROTOCOL_MAX = 8..=11`（runner 协议 v1）
 > 核对方式：逐份阅读 `PRODUCT_DESIGN.md`、`BASE_IMPLEMENTATION_PLAN.md`、`MIRROR_ACCELERATION_DESIGN.md`、`UPSTREAM_DOWNLOAD_DESIGN.md` 和 `docs/` 契约，再对照 `crates/*` 的实际命令、API、测试和脚本。本文只记录可证实的状态；未来规划不当作已实现。
 
@@ -9,7 +9,7 @@
 
 1. **基础闭环是真实的**：Paper 创建、下载校验、断点续传缓存、持久任务、常驻 runner、启停、控制台、日志、停机世界备份/恢复、TUI 会话 shell 和 CLI 查询都已经有代码和测试。
 2. **离文档定义的“第一个稳定版本”还有明显差距**：Vanilla、接管现有目录、完整 `server.properties` 管理、在线/定时备份和故障规则仍未完成；玩家管理、日志搜索、Fabric 建服、整合包导入、四字段属性编辑和受控重启已经落地。属性编辑器目前只覆盖 MOTD、人数上限、难度和视距，不能算完整的分类/原始编辑能力。用户级服务安装完成了 Phase 0，但 Linux 实机服务验证和更新保护仍待补。
-3. **发布与分发仍处于起步**：已有基础 CI、Phase 0 的 `mc`/配置/服务安装，以及 Phase 1 的版本化安装器/manifest，并已公开 unsigned alpha 产物；但没有签名/公证、Homebrew tap/apt/dnf 渠道、合并后的多目标发布和自动更新器。
+3. **发布与分发仍处于起步**：已有基础 CI、Phase 0 的 `mc`/配置/服务安装，以及 Phase 1 的版本化安装器/manifest，并已公开 unsigned alpha 产物；但没有签名/公证、Homebrew tap/apt/dnf 渠道和自动更新器。
 4. **热更新的关键底座已经具备，但仍缺状态迁移和更新保护**：per-instance runner 会独立于 daemon 存活，daemon 重启后可重连；已实现 API 8–11 兼容窗口、runner 控制协议 v1 和 `mc update rollback`。仍缺状态 schema 迁移快照、更新前排空任务、签名自动更新器和健康检查式自动回退。
 5. **路线图需要显式选择**：较早的发布规划优先完成签名/包管理和更新保护；2026-10-19 产品评审则建议先验证一条完整 Paper 朋友服旅程，再把属性编辑和启动诊断做到可用，并在真实客户端验收受控重启。两条路线都成立，但当前文档没有正式决定哪个是下一里程碑，不能同时宣称二者都是“下一步优先项”。
 6. **Phase 0 与 Phase 1 发布工具已落地**（2026-10-19）：`mc` 启动器、`config.toml`、默认 User-Agent、`version --json`、`ServerInfo` 探针、launchd/systemd 用户服务管理；以及 tar.gz + SHA-256 + release manifest、版本化 `install.sh`、Homebrew formula 渲染、`mc uninstall`。macOS launchd 已做真实安装/重启/停止/卸载闭环；Linux systemd 有 `systemd-analyze` 测试和 CI 交叉编译，但还没有真实 Linux 主机安装证据。
@@ -40,7 +40,7 @@
 | **`server.properties` 分类编辑、原始编辑、差异预览、外部修改冲突检测** | 🟡 | `/config` 已实现 MOTD、人数上限、难度、视距四字段、范围校验、差异预览、SHA-256 修订冲突检测、未知键/注释保留、原子保存和 `/restart` 后续应用；缺完整分类字段、原始编辑和逐版本默认值/规则 |
 | JVM 参数/服务端参数/环境变量编辑器 | ❌ | 只有 `min_memory_mb`/`max_memory_mb`，没有完整启动参数模型 |
 | 托管 JDK 下载与校验 | ❌ | `mc-system/java` 只扫描本机；没有 Adoptium 下载/安装 |
-| Java 兼容规则按服务端与 MC 版本维护 | 🟡 | 向导优先 Java 21，其余只做“≥21”兜底；没有规则表、插件/mod 需求预检 |
+| Java 兼容规则按服务端与 MC 版本维护 | 🟡 | 向导按游戏版本推荐 Java（1.21.x 为 21、26.x 为 25）；仍缺完整兼容规则表和插件/mod 需求预检 |
 | 主机内存预算与多实例资源预测 | 🟡 | 单个实例有内存档位和端口检查；状态坞显示 CPU/RSS；没有“主机总量→系统预留→所有实例 Xmx→剩余预算” |
 | 基础故障规则与可复制诊断报告 | 🟡 | `doctor` 覆盖 Java、数据目录、磁盘、默认端口；启动失败已识别 Java 版本、端口占用、EULA、内存不足和损坏/缺失 `server.jar`；仍缺完整日志规则、崩溃归因和脱敏报告导出 |
 | 多页面工作区、稳定编号、日志过滤/位置保留 | ✅ | 顶栏页面列表、Ctrl-B 导航、`/pages`/`/page`/`/close`；关闭页面不停止服务端；实例日志过滤和读取位置随页面保留 |
@@ -50,7 +50,7 @@
 | 在线玩家、白名单、封禁、OP 管理 | 🟡 | `/players` 通过类型化控制台命令完成 list/op/deop/ban/pardon/kick/whitelist/LuckPerms；在线模式按玩家名操作依赖 Mojang 档案查询，国内网络下可能慢或失败；CLI 尚未暴露这些操作 |
 | 用户级监督服务安装/卸载/开机启动 | 🟡 | Phase 0 已实现 `mc service install/start/stop/restart/status/uninstall`；launchd 在本机做过真实闭环，systemd 生成/单测/systemd-analyze 覆盖、尚无 Linux 主机安装证据；登录启动由 RunAtLoad/enable 提供，开机前启动仍需 linger/LaunchDaemon |
 | 配置文件（User-Agent、数据目录、更新通道等） | ✅ | `mc-config` 提供 `config.toml`、默认 UA、state/socket/cache 解析；env/flag 可覆盖；服务单元注入配置路径。发布前仍需把默认项目 URL 换成真实联系方式 |
-| 版本化安装、卸载、发布清单 | 🟡 | `scripts/package_release.py`、`scripts/install.sh`、`mc uninstall`、Homebrew formula 模板/渲染脚本已实现；本轮新增 `mc update status/rollback`，切换 `current`/`previous` 并重启服务；仍缺签名/公证、tap、CI 多目标合并 manifest 和更新前排空任务 |
+| 版本化安装、卸载、发布清单 | 🟡 | `scripts/package_release.py`、`scripts/install.sh`、`mc uninstall`、Homebrew formula 模板/渲染脚本已实现；本轮新增 `mc update status/rollback`，切换 `current`/`previous` 并重启服务；仍缺签名/公证、tap 和更新前排空任务 |
 | CLI 的 start/stop/logs 等日常命令 | 🟡 | CLI 已有 `instance start/stop/restart`，以及 doctor/status/paper/instance/backup/task/modpack；`status` 仍是 Ping，没有 log/console/config；玩家、日志、扩展、整合包和属性编辑只走 TUI |
 | 关闭终端后仍可管理 | ✅ | runner 不依赖终端；安装用户服务后 daemon 由 launchd/systemd 托管，未安装时仍需手工启动 |
 
@@ -138,7 +138,7 @@
 
 ### `docs/INTERACTION_DESIGN.md`
 
-- ✅ 默认会话 shell、transcript/composer/status dock、命令补全/历史/光标编辑、帮助、主题、Steve、鼠标、向导、任务/实例/备份页。
+- ✅ 默认会话 shell、实例摘要/transcript/目标明确的 composer/单一任务摘要、命令补全/历史/光标编辑、帮助、主题、Steve、鼠标、向导、任务/实例/备份页。
 - ⏸ 镜像源选择器按安全边界明确推迟；代码没有装饰性镜像下拉。
 - 🟡 首次打开没有“后台服务未运行/一键安装服务”的 setup 引导；目前直接显示连接失败。
 
@@ -156,7 +156,7 @@
 | `docs/ASYNC_CONCURRENCY.md` | 取消未暴露 | `CancelTask`、`mc-task` 协作取消、TUI 两次 `x`、CLI/TUI 已有 |
 | `docs/INSTANCE_SCHEMA.md` | 进度只有阶段、无取消 | 同上 |
 | `docs/SUPERVISION.md` | API protocol 8–9（current 9） | 当前协议范围 8–11（current 11），runner 协议 v1 |
-| `docs/TUI_TESTING.md`、`README*` | 旧测试总数 | 已更新为 macOS workspace 217 / `mc-tui` 91（2026-10-20 本地彩色测试运行） |
+| `docs/TUI_TESTING.md`、`README*` | 旧测试总数 | 已更新为 macOS workspace 224 / `mc-tui` 98（2026-10-20 本地彩色测试运行） |
 | `README*`、`docs/FAQ.md`、`docs/MODPACK_IMPORT.md` | `.mrpack` 只读、只有 Paper | 已实现 Paper/Fabric、ZIP/MRPACK 停服导入、`/players` 类型化操作和 Modrinth 扩展安装 |
 | `docs/IMPLEMENTATION_GAPS.md`、`docs/INTERACTION_DESIGN.md` | 没有属性编辑入口 | `/config` 已提供四字段编辑、差异检查、冲突检测和原子保存；完整属性目录和原始编辑仍待补 |
 | `README*`、`docs/INTERACTION_DESIGN.md` | 只有 start/stop、启动失败只显示通用错误 | 已加入受控重启、TUI `/restart`/`R`、CLI 生命周期命令和五类启动失败诊断 |

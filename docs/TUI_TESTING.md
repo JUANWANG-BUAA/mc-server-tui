@@ -2,7 +2,7 @@
 
 The TUI uses the daemon API and durable task event cursor; rendering and input handling stay separate from daemon I/O. This makes the UI testable without contacting Paper or waiting on real downloads.
 
-## Current-source design validation (unreleased, 2026-10-20)
+## v0.2.1 design validation (2026-10-20)
 
 The current layout uses a three-line selected-instance header, one two-line task
 summary, transcript, target-labelled composer and one-line connection/operation
@@ -10,11 +10,12 @@ feedback. The former status dock and its duplicate task progress are historical.
 F3 (also available through Ctrl-K) expands runtime settings, instance diagnostics
 and backup evidence. Tests cover draft target changes, selected-instance identity,
 phase-only progress, local backup evidence disclosure and 80×24 / 40×12 layouts.
-Validation on macOS: 224 workspace tests (98 TUI tests), strict all-target/all-feature
+Validation on macOS: 224 workspace tests (98 TUI tests), strict all-target
 Clippy, formatting and workspace build pass. All four existing PTY scripts pass;
 they cover stalled requests, guided creation, cancellation, incremental logs,
 restart and restore confirmation with fake daemon responses. No new real Minecraft
 client, external-network, Linux desktop or independent-user session is claimed.
+See [v0.2.1 acceptance](acceptance/0.2.1.md) for the real Paper backup/restore drill.
 The dated sections below record earlier layouts and earlier test counts.
 
 ## Module boundaries and visual behavior
@@ -23,12 +24,12 @@ Keep the TUI split along responsibilities so screen growth does not turn the run
 
 - `app.rs` owns the screen-level state and action transitions. Feature state and behavior that need their own lifecycle belong in `app/`, `instance_detail.rs`, `backup_manager.rs`, `task_detail.rs`, or `wizard.rs` with colocated tests.
 - `runtime.rs` owns the async event loop, request scheduling, and result delivery. Key mapping is isolated in `runtime/input.rs`; daemon access is behind `ManagementSource` in `source.rs`.
-- `shell_view.rs` and `transcript.rs` own the default session shell: transcript, composer, inline command completion, and the status dock. `shell.rs` owns the static slash-command catalog and fuzzy completion. `app/shell.rs` owns command dispatch and transcript appends.
+- `shell_view.rs` and `transcript.rs` own the default session shell: transcript, composer, inline command completion, and the selected-instance header. `shell.rs` owns the static slash-command catalog and fuzzy completion. `app/shell.rs` owns command dispatch and transcript appends.
 - `view.rs` routes to the session shell, classic dashboard, wizard, task-detail, instance-detail, and world-backup renderers. Each screen renderer owns its layout and presentation, while `theme.rs` is the single palette and shared-style boundary.
 - `theme.rs` carries three near-black palettes (`Claude`, `Mono`, `Ocean`). The selected theme is process-global, switched with `F2` or `/theme`, saved under the platform config directory, and overridable with `MC_SERVER_TUI_THEME`.
 - Renderers consume state and return no I/O effects. User actions update state; the runtime observes the resulting queries/commands and schedules bounded asynchronous work. Keep daemon protocol details out of view modules.
 
-The shared themes use 24-bit RGB colors for the page, surfaces, focus, status, and key hints. The default is near-black with a warm accent; `DeepSeek` uses brand blue, `Codex` green, `Kimi` violet, `PCL2` sky blue, `Mono` is grayscale, and `Ocean` is low-saturation teal. Color is reserved for focus, selected markers, status words, spinners, and active progress. Crossterm honors `NO_COLOR`; the browser color-review command removes that variable only for the visual check. Status meaning remains available through text and symbols when color is unavailable. The status dock also reads `ps -o %cpu=,rss=` for the selected server PID and shows CPU/RSS next to configured memory; a missing process is shown as unavailable rather than fabricated.
+The shared themes use 24-bit RGB colors for the page, surfaces, focus, status, and key hints. The default is near-black with a warm accent; `DeepSeek` uses brand blue, `Codex` green, `Kimi` violet, `PCL2` sky blue, `Mono` is grayscale, and `Ocean` is low-saturation teal. Color is reserved for focus, selected markers, status words, spinners, and active progress. Crossterm honors `NO_COLOR`; the browser color-review command removes that variable only for the visual check. Status meaning remains available through text and symbols when color is unavailable. The instance header also reads `ps -o %cpu=,rss=` for the selected server PID and shows CPU/RSS next to configured memory; a missing process is shown as unavailable rather than fabricated.
 
 Animation is presentation-only. The runtime advances its four-frame status symbol every 160 ms while `AppState::has_animated_work` reports queued/running tasks, a pending operation, wizard submission, or a visible server start/stop transition. The Tokio interval uses `MissedTickBehavior::Skip`, so a delayed frame is dropped instead of causing a catch-up redraw burst. The normal two-second refresh and terminal event stream remain independent of animation; all waits are selected asynchronously, so animation does not block input or daemon replies. When adding an animated state, add both a state predicate test and a PTY assertion that observes at least two distinct frames.
 
@@ -37,7 +38,7 @@ The `TestBackend` tests own deterministic layout and content checks. PTY tests o
 ## Automated checks
 
 1. Keep screen state and wizard input separate from rendering and daemon I/O. State tests cover field validation, back navigation with retained values, explicit EULA acceptance, queued task success, retry after a submission error, monotonic event cursors, duplicate event replay, retaining the last good detail after a failed refresh, backup-page deduplication, verification failure retention, and exact restore confirmation.
-2. Render the session shell, classic dashboard, wizard, task detail, instance detail, backup catalog, and restore-preview states to an in-memory terminal backend. Cover 80×24 reference layouts and 40×12 compact layouts, including the shell transcript/composer/dock, inline command completion, every wizard step, EULA control, task progress/event cursor, server state/address, lifecycle controls, backup rows, restore impacts, and the explicit confirmation control.
+2. Render the session shell, classic dashboard, wizard, task detail, instance detail, backup catalog, and restore-preview states to an in-memory terminal backend. Cover 80×24 reference layouts and 40×12 compact layouts, including the shell transcript/composer/header, inline command completion, every wizard step, EULA control, task progress/event cursor, server state/address, lifecycle controls, backup rows, restore impacts, and the explicit confirmation control.
 3. Run input and polling together against fake daemons that delay replies or emit ordered events/log chunks. Assert that shell command submission, completion/history, navigation, wizard text input, console editing, backup confirmation, and Ctrl-C remain responsive while a request is pending; task detail resumes from its event sequence; instance detail resumes from its log byte offset; durable backup tasks are polled from queued to terminal results; and a failed request preserves the last good data.
 4. Use a PTY smoke test for raw-mode entry, resize, key handling, and terminal restoration on normal exit and panic. Keep this separate from view-model tests because terminal ownership is process-level behavior.
 

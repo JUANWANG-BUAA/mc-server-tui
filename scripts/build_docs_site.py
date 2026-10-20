@@ -73,9 +73,9 @@ PAGES = (
         "title": "User Guide · mc-server-tui",
         "description": (
             "Install, run, back up, troubleshoot, and understand the safety limits "
-            "of the mc-server-tui v0.2.0 Minecraft server manager."
+            "of the mc-server-tui v0.2.1 Minecraft server manager."
         ),
-        "eyebrow": "USER GUIDE · V0.2.0 ALPHA",
+        "eyebrow": "USER GUIDE · V0.2.1 ALPHA",
         "hero_title": "Run Minecraft.<br><em>Stay in the terminal.</em>",
         "hero_lede": (
             "A complete field guide to installing the alpha, creating a Paper or "
@@ -98,7 +98,7 @@ PAGES = (
         "read_label": "Read",
         "source_note_label": "Alpha note",
         "source_note": (
-            "This guide documents the shipped v0.2.0 behavior. The release is "
+            "This guide documents the shipped v0.2.1 behavior. The release is "
             "unsigned and does not promise production stability or data recovery."
         ),
         "source_note_link": "Read the full safety guidance",
@@ -127,10 +127,10 @@ PAGES = (
         "alternate_label": "English",
         "title": "使用手册 · mc-server-tui",
         "description": (
-            "mc-server-tui v0.2.0 中文使用手册：安装、创建服务器、日常操作、"
+            "mc-server-tui v0.2.1 中文使用手册：安装、创建服务器、日常操作、"
             "备份恢复、排错以及 alpha 版本的安全边界。"
         ),
-        "eyebrow": "使用手册 · V0.2.0 ALPHA",
+        "eyebrow": "使用手册 · V0.2.1 ALPHA",
         "hero_title": "把 Minecraft 服务端<br><em>留在终端里。</em>",
         "hero_lede": (
             "从安装 alpha、创建 Paper 或 Fabric 服务器，到日常运行与谨慎恢复世界，"
@@ -152,7 +152,7 @@ PAGES = (
         "read_label": "阅读",
         "source_note_label": "Alpha 提示",
         "source_note": (
-            "本手册描述 v0.2.0 已发布行为。当前版本未签名，"
+            "本手册描述 v0.2.1 已发布行为。当前版本未签名，"
             "不承诺生产稳定性或数据一定能够恢复。"
         ),
         "source_note_link": "阅读完整安全说明",
@@ -495,11 +495,11 @@ def render_page(page: dict[str, object]) -> str:
   <meta property="og:title" content="__TITLE__">
   <meta property="og:description" content="__DESCRIPTION__">
   <meta property="og:url" content="__CANONICAL__">
-  <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview-20261020.png">
+  <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="__TITLE__">
   <meta name="twitter:description" content="__DESCRIPTION__">
-  <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview-20261020.png">
+  <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
   <script src="__ASSET__app.js?v=20261020-docs3" defer></script>
   <script src="__ASSET__docs.js?v=20261020-docs3" defer></script>
 </head>

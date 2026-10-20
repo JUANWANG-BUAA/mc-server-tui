@@ -10,7 +10,7 @@
     }, true);
   </script>
   <title>User Guide · mc-server-tui</title>
-  <meta name="description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.0 Minecraft server manager.">
+  <meta name="description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.1 Minecraft server manager.">
   <meta name="theme-color" content="#0b0b0c">
   <link rel="canonical" href="https://juanwang-buaa.github.io/mc-server-tui/docs/">
   <link rel="alternate" hreflang="en" href="https://juanwang-buaa.github.io/mc-server-tui/docs/">
@@ -20,13 +20,13 @@
   <link rel="stylesheet" href="../assets/styles.css?v=20261020-docs3">
   <meta property="og:type" content="article">
   <meta property="og:title" content="User Guide · mc-server-tui">
-  <meta property="og:description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.0 Minecraft server manager.">
+  <meta property="og:description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.1 Minecraft server manager.">
   <meta property="og:url" content="https://juanwang-buaa.github.io/mc-server-tui/docs/">
-  <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview-20261020.png">
+  <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="User Guide · mc-server-tui">
-  <meta name="twitter:description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.0 Minecraft server manager.">
-  <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview-20261020.png">
+  <meta name="twitter:description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.1 Minecraft server manager.">
+  <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
   <script src="../assets/app.js?v=20261020-docs3" defer></script>
   <script src="../assets/docs.js?v=20261020-docs3" defer></script>
 </head>
@@ -57,7 +57,7 @@
   <main id="main" class="docs-main">
     <section class="docs-hero">
       <div class="docs-hero-copy">
-        <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span>USER GUIDE · V0.2.0 ALPHA</p>
+        <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span>USER GUIDE · V0.2.1 ALPHA</p>
         <h1>Run Minecraft.<br><em>Stay in the terminal.</em></h1>
         <p class="docs-hero-lede">A complete field guide to installing the alpha, creating a Paper or Fabric server, running it day to day, and recovering a world with care. Read the safety section before you trust it with a server.</p>
         <div class="docs-hero-meta"><span>Unsigned alpha</span><span>16 chapters</span><span>About 20 minutes</span></div>
@@ -69,7 +69,7 @@
       </div>
       <div class="docs-hero-card">
         <span class="docs-card-index">00 / Alpha note</span>
-        <p>This guide documents the shipped v0.2.0 behavior. The release is unsigned and does not promise production stability or data recovery.</p>
+        <p>This guide documents the shipped v0.2.1 behavior. The release is unsigned and does not promise production stability or data recovery.</p>
         <a href="#read-before-hosting">Read the full safety guidance <span aria-hidden="true">↓</span></a>
       </div>
     </section>
@@ -90,13 +90,12 @@
         <p class="docs-nav-empty" id="docs-nav-empty" hidden>No matching chapter.</p>
         <div class="docs-sidebar-note">
           <span>ALPHA</span>
-          <p>This guide documents the shipped v0.2.0 behavior. The release is unsigned and does not promise production stability or data recovery.</p>
+          <p>This guide documents the shipped v0.2.1 behavior. The release is unsigned and does not promise production stability or data recovery.</p>
         </div>
       </aside>
 
       <article class="docs-article" id="guide">
-<aside class="doc-callout doc-callout-warning"><span class="doc-callout-label">Notice</span><p>Applies to <code>v0.2.0</code> (unsigned alpha pre-release). This guide describes the shipped alpha. It is not a promise of production stability, data recovery, compatibility with every server pack, or support for every Minecraft version.</p></aside>
-<aside class="doc-callout doc-callout-warning"><span class="doc-callout-label">Notice</span><p><strong>Current source only (unreleased):</strong> builds after v0.2.0 keep the selected server, next action and resources at the top, with one background progress summary. Console drafts show their target; switching instances blocks submission until you return to the original instance or clear the draft with Esc. The runtime step starts with a summary: Enter continues, F3 or Tab opens settings. F3 expands instance diagnostics or backup evidence; Ctrl-K also exposes these actions. Backup details use local time with an explicit offset, and restore previews explain replacement scope and that later progress is not merged. Management connectivity is separate from Minecraft readiness. These changes are not in the v0.2.0 release.</p></aside>
+<aside class="doc-callout doc-callout-warning"><span class="doc-callout-label">Notice</span><p>Applies to <code>v0.2.1</code> (unsigned alpha pre-release). This guide describes the shipped alpha. It is not a promise of production stability, data recovery, compatibility with every server pack, or support for every Minecraft version.</p></aside>
 <section class="doc-section" id="read-before-hosting"><header class="doc-section-head"><span class="doc-section-kicker">01 / Get started</span><h2>Read this before hosting a world</h2></header>
 <p><code>mc-server-tui</code> is an independent terminal-based Minecraft Java server manager. It is not affiliated with Mojang, Microsoft, PaperMC, Modrinth, Fabric, or Forge. Minecraft and related trademarks belong to their respective owners.</p>
 <p>You are responsible for:</p>
@@ -104,14 +103,14 @@
 <p>This alpha is unsigned. Release artifacts have SHA-256 integrity checks, but no code signature or Apple notarization. Server software and third-party add-ons execute with the permissions of your user account. Use a dedicated account and do not install untrusted files. The software is provided under the repository's MIT OR Apache-2.0 license, without a guarantee of availability or recovery.</p>
 </section>
 <section class="doc-section" id="supported-scope"><header class="doc-section-head"><span class="doc-section-kicker">02 / Get started</span><h2>Supported scope</h2></header>
-<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Platform</th><th><code>v0.2.0</code> artifact</th></tr></thead><tbody><tr><td>macOS 13+ Apple Silicon</td><td><code>aarch64-apple-darwin</code></td></tr><tr><td>Linux x86_64</td><td><code>x86_64-unknown-linux-gnu</code></td></tr><tr><td>Linux arm64</td><td><code>aarch64-unknown-linux-gnu</code></td></tr><tr><td>Intel macOS</td><td>Not published in this release</td></tr></tbody></table></div>
+<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Platform</th><th><code>v0.2.1</code> artifact</th></tr></thead><tbody><tr><td>macOS 13+ Apple Silicon</td><td><code>aarch64-apple-darwin</code></td></tr><tr><td>Linux x86_64</td><td><code>x86_64-unknown-linux-gnu</code></td></tr><tr><td>Linux arm64</td><td><code>aarch64-unknown-linux-gnu</code></td></tr><tr><td>Intel macOS</td><td>Not published in this release</td></tr></tbody></table></div>
 <p>The TUI relies on a Unix socket and Unix process behavior. Windows is not supported by this release. Use a terminal at least 80×24; 40×12 is usable with reduced chrome.</p>
 <p>Java must match the selected Minecraft and server version. The creation flow shows detected runtimes and recommends one, but you remain responsible for the server version, plugins/mods, and client compatibility.</p>
 </section>
 <section class="doc-section" id="install"><header class="doc-section-head"><span class="doc-section-kicker">03 / Get started</span><h2>Install</h2></header>
 <h3 id="release-installer">Release installer</h3>
-<p><code>v0.2.0</code> is a pre-release, so use the tag-specific URL:</p>
-<div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>TAG=v0.2.0
+<p><code>v0.2.1</code> is a pre-release, so use the tag-specific URL:</p>
+<div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>TAG=v0.2.1
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc</code></pre></div>
@@ -137,6 +136,7 @@ mc doctor --json</code></pre></div>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>/create</code></pre></div>
 <p>The guided Paper flow asks for:</p>
 <ol><li>instance name and Minecraft version;</li><li>Java runtime, memory range, and server port;</li><li>a review of the artifact, download source, memory, port, and EULA.</li></ol>
+<p>The runtime step retains your instance name and version and starts with a settings summary. Press Enter to accept, or F3 / Tab to adjust Java, memory and port.</p>
 <p>New date-based releases such as <code>26.3</code> and <code>26.2</code> are sorted before legacy <code>1.21.x</code> releases in the version picker. Choose the exact version your players will use. EULA acceptance is explicit and is never selected automatically.</p>
 <p>After submission, use:</p>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>/tasks
@@ -148,13 +148,14 @@ mc doctor --json</code></pre></div>
 </section>
 <section class="doc-section" id="session-shell"><header class="doc-section-head"><span class="doc-section-kicker">05 / Day to day</span><h2>Session shell</h2></header>
 <p>The default screen is a session shell. Text without a leading slash is sent to the current Minecraft console; slash commands manage the application.</p>
+<p>The header keeps the selected instance, next action and resources visible. One compact activity area reports background work. Management connectivity is shown separately from Minecraft readiness. Console drafts show their target and stay bound to the instance where typing began: after switching instances, return to the original instance or press Esc to clear the draft before sending.</p>
 <p>Common commands:</p>
 <div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Command</th><th>Purpose</th></tr></thead><tbody><tr><td><code>/help</code>, <code>F1</code></td><td>Show all commands and keys</td></tr><tr><td><code>/instances</code>, <code>/use &lt;number-or-name&gt;</code></td><td>List and select an instance</td></tr><tr><td><code>/open</code></td><td>Open the selected instance detail</td></tr><tr><td><code>/start</code>, <code>/stop</code>, <code>/restart</code></td><td>Start, gracefully stop, or controlled restart</td></tr><tr><td><code>/logs</code></td><td>Tail console output in the session</td></tr><tr><td><code>/console &lt;command&gt;</code></td><td>Send one command to the Minecraft console</td></tr><tr><td><code>/tasks</code>, <code>/task &lt;n&gt;</code>, <code>/cancel [n]</code></td><td>Inspect or cancel durable tasks</td></tr><tr><td><code>/backup</code>, <code>/backups</code></td><td>Create or manage stopped-world backups</td></tr><tr><td><code>/config</code></td><td>Edit four common <code>server.properties</code> values</td></tr><tr><td><code>/players [action] [player]</code></td><td>OP, whitelist, ban, pardon, kick, LuckPerms helpers</td></tr><tr><td><code>/rg [-i] [-e] &lt;pattern&gt;</code></td><td>Search current and rotated logs</td></tr><tr><td><code>/connect</code>, <code>/monitor</code></td><td>Inspect join addresses and server state</td></tr><tr><td><code>/mods</code>, <code>/import</code>, <code>/export</code></td><td>Add-ons and server-pack workflows</td></tr><tr><td><code>/pages</code>, <code>/page &lt;n&gt;</code>, <code>/close [n]</code></td><td>Workspace pages</td></tr><tr><td><code>/theme [name]</code>, <code>F2</code></td><td>Themes</td></tr><tr><td><code>/quit</code></td><td>Exit the TUI; the server and tasks continue</td></tr></tbody></table></div>
 <p>Useful keys: <code>Enter</code> submit, <code>Tab</code> complete, <code>←/→</code> move the cursor, <code>Home/End</code> line boundaries, <code>↑/↓</code> history or selection, <code>Ctrl-K</code> command palette, <code>F2</code> theme, and <code>F1</code> help.</p>
 </section>
 <section class="doc-section" id="lifecycle-readiness"><header class="doc-section-head"><span class="doc-section-kicker">06 / Day to day</span><h2>Lifecycle and readiness</h2></header>
 <ul><li><code>/start</code> is idempotent and verifies the Java path, server JAR, port, and process identity.</li><li><code>/stop</code> sends Minecraft's graceful <code>stop</code> command and waits for the verified process to exit. Timeout does not force-kill Java.</li><li><code>/restart</code> requires a verified starting or running process, gracefully stops it, waits for a clean stopped state, then starts the same instance. It does not start a replacement after an unclean stop.</li><li>Readiness requires the server's <code>Done (</code> marker. An open port alone is not considered ready.</li><li>Closing the TUI or daemon does not kill the resident runner or Java process.</li></ul>
-<p>The instance detail page (<code>/open</code>) exposes lifecycle controls, console input, logs, process identity, CPU/RSS samples, and alerts. Press <code>R</code> there for a controlled restart and <code>c</code> for configuration.</p>
+<p>The instance detail page (<code>/open</code>) exposes lifecycle controls, console input, logs, process identity, CPU/RSS samples, and alerts. Press <code>R</code> there for a controlled restart and <code>c</code> for configuration. F3 expands the diagnostic summary; logs receive the space by default. Ctrl-K exposes the same detail toggle.</p>
 </section>
 <section class="doc-section" id="common-configuration"><header class="doc-section-head"><span class="doc-section-kicker">07 / Day to day</span><h2>Common configuration</h2></header>
 <p>Run:</p>
@@ -164,7 +165,8 @@ mc doctor --json</code></pre></div>
 </section>
 <section class="doc-section" id="backups-restore"><header class="doc-section-head"><span class="doc-section-kicker">08 / Day to day</span><h2>Backups and restore</h2></header>
 <p>Backups are stopped-world only.</p>
-<ol><li>Stop the server and wait for <code>stopped</code>.</li><li>Run <code>/backup</code>.</li><li>Open <code>/backups</code> and select a verified snapshot.</li><li>Press <code>v</code> to verify, then <code>Enter</code> to build a restore plan.</li><li>Review affected worlds, added/replaced/removed roots, staging space, and safety steps.</li><li>Type the exact <code>RESTORE</code> confirmation and submit.</li></ol>
+<ol><li>Stop the server and wait for <code>stopped</code>.</li><li>Run <code>/backup</code>.</li><li>Open <code>/backups</code> and select a verified snapshot.</li><li>Press <code>v</code> to verify, then <code>Enter</code> to build a restore plan.</li><li>Review affected worlds, added/replaced/removed roots, staging space, and safety steps.</li><li>Press <code>c</code>, type the exact <code>RESTORE</code> confirmation, then submit.</li></ol>
+<p>Backup details display local time with an explicit UTC offset. F3 reveals technical evidence. Restore replaces the listed world roots; progress after the backup is not merged. After creating a backup, press <code>r</code> to refresh the catalog.</p>
 <p>Restore is transactional and keeps rollback evidence until commit verification. The server remains stopped after restore. Start it explicitly and validate the world with a Minecraft client. No automated online backup or scheduler exists in this release.</p>
 </section>
 <section class="doc-section" id="players-logs-workspaces"><header class="doc-section-head"><span class="doc-section-kicker">09 / Day to day</span><h2>Players, logs, and workspaces</h2></header>
@@ -222,7 +224,7 @@ mc doctor --json</code></pre></div>
 <p>Do not expose an administrative host directly to the internet. Run the manager under a dedicated user, restrict file permissions, keep the daemon socket private, use a firewall, and review plugin/mod permissions. Minecraft server software and third-party code may contain vulnerabilities.</p>
 </section>
 <section class="doc-section" id="evidence-current-limitations"><header class="doc-section-head"><span class="doc-section-kicker">15 / Trust</span><h2>Evidence and current limitations</h2></header>
-<p>The <code>v0.2.0</code> notes record 217 automatic tests, four PTY suites, protocol checks from v8–v11, a local manifest installer smoke, and a real Paper restart drill. These results do not prove every world, plugin combination, network, or client scenario. A real Minecraft client join and post-restore in-game verification still need to be performed.</p>
+<p>The <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md" target="_blank" rel="noreferrer">v0.2.1 acceptance record</a> records 224 automatic tests, four PTY suites, v8–v11 protocol checks, and a real isolated Paper drill: console input, graceful stop, backup, marker-file restoration and post-restore readiness. These results do not prove every world, plugin combination, network, or client scenario. A real Minecraft client join and post-restore in-game verification still need to be performed.</p>
 <p>Current gaps include Vanilla, existing-directory takeover, complete <code>server.properties</code> editing, online/scheduled backups, Forge/NeoForge, CurseForge file-ID downloads, signed/notarized artifacts, a signed self-updater, state migrations, update-time task draining, and real Linux service validation.</p>
 </section>
 <section class="doc-section" id="license-no-warranty-notice"><header class="doc-section-head"><span class="doc-section-kicker">16 / Trust</span><h2>License and no-warranty notice</h2></header>

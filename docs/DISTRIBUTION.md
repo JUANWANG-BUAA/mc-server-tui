@@ -1,8 +1,8 @@
 # macOS / Linux 分发与热更新设计
 
-> 版本：0.1 · 2026-10-20
+> 版本：0.2.1 · 2026-10-20
 >
-> 状态：Phase 0/1 与 `v0.2.0` unsigned alpha 发布已完成；协议窗口为 8–11；Phase 2–4 仍待完成
+> 状态：Phase 0/1 与 `v0.2.1` unsigned alpha 发布已完成；协议窗口为 8–11；Phase 2–4 仍待完成
 >
 > 关联：[实现差距](IMPLEMENTATION_GAPS.md)、[监督契约](SUPERVISION.md)、[产品设计的发布要求](../PRODUCT_DESIGN.md)
 
@@ -21,7 +21,7 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 - launchd LaunchAgent / systemd user unit：`install/start/stop/restart/status/uninstall`，`--dry-run` 输出生成内容；launchd 已在 macOS 做过临时配置真实闭环。
 - Phase 1：`scripts/package_release.py` 生成 tar.gz + SHA-256 + manifest；`scripts/install.sh` 安装到 `versions/<version>`、切换 `current`、写稳定 launcher；`mc uninstall` 清理服务/launcher/版本目录并保留数据；`packaging/homebrew/` 模板与渲染脚本。
 - 基础 CI：macOS 14 / Ubuntu 22.04，fmt、clippy、test、build、launcher/PTY smoke；release job 打包并执行本地 installer/uninstaller smoke。
-- 发布历史：`v0.1.0` 是首个 public alpha；当前 `v0.2.0`（unsigned alpha pre-release）包含三个 target（Apple Silicon、Linux x86_64、Linux arm64）、合并 manifest、install.sh 和 Homebrew formula。
+- 发布历史：`v0.1.0` 是首个 public alpha；当前 `v0.2.1`（unsigned alpha pre-release）包含三个 target（Apple Silicon、Linux x86_64、Linux arm64）、合并 manifest、install.sh 和 Homebrew formula。
 
 尚未落地（Phase 2+）：
 
@@ -525,7 +525,7 @@ mc
 ### macOS / Linux（tarball）
 
 ```sh
-TAG=v0.2.0
+TAG=v0.2.1
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc

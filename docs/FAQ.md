@@ -2,7 +2,7 @@
 
 ## Is this stable?
 
-No. `v0.2.0` is an **unsigned alpha pre-release**. The core Paper/Fabric lifecycle,
+No. `v0.2.1` is an **unsigned alpha pre-release**. The core Paper/Fabric lifecycle,
 backups, and TUI work, but the feature set is intentionally incomplete. See
 [Implementation gaps](IMPLEMENTATION_GAPS.md).
 
@@ -16,10 +16,10 @@ backups, and TUI work, but the feature set is intentionally incomplete. See
 
 ## How do I install it?
 
-Release installer (tag-specific while `v0.2.0` is a pre-release):
+Release installer (tag-specific while `v0.2.1` is a pre-release):
 
 ```sh
-TAG=v0.2.0
+TAG=v0.2.1
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -57,7 +57,7 @@ backup.
 
 ## Does it support Vanilla, Fabric, or modpacks?
 
-`v0.2.0` supports Paper and Fabric, player actions, and stopped-instance import
+`v0.2.1` supports Paper and Fabric, player actions, and stopped-instance import
 for `.mrpack` and server-pack ZIP files. Imports add compatible
 mods/plugins/config only and refuse conflicts. Vanilla, Forge/NeoForge, and
 CurseForge file-ID materialization are not implemented.
@@ -108,3 +108,21 @@ semantics. macOS and Linux are the supported platforms.
 - Bugs/features: GitHub issue templates.
 - Vulnerabilities: private GitHub Security Advisory, see [SECURITY](../SECURITY.md).
 - General setup questions: [FAQ](FAQ.md) and `mc doctor --json`.
+
+## Why does my console draft refuse to send after switching servers?
+
+v0.2.1 binds a draft to the instance selected when typing began. Return to that
+instance, or press Esc to clear and retype for the new target. The composer shows
+whether input is an application command or a Minecraft console command.
+
+## Where did detailed runtime and backup information go?
+
+Press F3 in runtime setup, instance detail or backup manager. Ctrl-K exposes the
+same expand/collapse actions. The default views prioritize the selected server,
+logs and restore impact. This changes presentation, not restore confirmation.
+
+## What was actually tested for v0.2.1?
+
+See the [acceptance record](acceptance/0.2.1.md). It separates deterministic visual
+fixtures from the isolated real Paper backup/restore drill and lists remaining
+in-game and Linux service checks.

@@ -6,7 +6,10 @@ unsigned.
 
 ## Before tagging
 
-1. Update `version` in the workspace `Cargo.toml`; the tag must match exactly.
+1. Update workspace `Cargo.toml` and `Cargo.lock`; the tag must match exactly.
+   Update both READMEs, guides, site metadata, changelog and versioned release notes.
+   Regenerate documentation with `python3 scripts/build_docs_site.py`.
+   Record actual acceptance and remaining limits in `docs/acceptance/<version>.md`.
 2. Run locally:
 
    ```sh
@@ -21,8 +24,8 @@ unsigned.
 ## Cut a release
 
 ```sh
-git tag -a v0.2.0 -m "mc-server-tui 0.2.0"
-git push origin v0.2.0
+git tag -a v0.2.1 -m "mc-server-tui 0.2.1"
+git push origin v0.2.1
 ```
 
 The `Release` workflow then:
@@ -42,23 +45,24 @@ build before tagging.
 ## Review and publish
 
 ```sh
-gh release view v0.2.0
-gh release download v0.2.0 --pattern 'release-manifest.json' --dir /tmp/mcst-release
+gh release view v0.2.1
+gh release download v0.2.1 --pattern 'release-manifest.json' --dir /tmp/mcst-release
 ```
 
 Check:
 
-- all four target artifacts are present;
+- all three target artifacts are present;
 - `release-manifest.json` has the expected version, channel, API protocol, and
   targets;
 - `install.sh` points at the release manifest URL;
-- `mc-server-tui.rb` has both macOS URLs/checksums;
+- `mc-server-tui.rb` has the Apple Silicon macOS URL/checksum;
 - install/uninstall works from the downloaded artifacts.
 
 Then publish the draft, optionally as a pre-release:
 
 ```sh
-gh release edit v0.2.0 --draft=false --prerelease
+gh release edit v0.2.1 --notes-file docs/releases/0.2.1.md
+gh release edit v0.2.1 --draft=false --prerelease
 ```
 
 Do not describe unsigned artifacts as production-ready. Phase 2 adds signing,

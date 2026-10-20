@@ -1,7 +1,9 @@
 # Documentation
 
 Start with the [README](../README.md) for installation and the quick tour. The
-documents below are the implementation contracts behind the current alpha.
+current release is v0.2.1. User guides describe shipped behavior; design and
+review documents may contain explicitly marked future work. The dated release
+notes and testing history preserve the evidence available at the time.
 
 ## For users
 
@@ -58,7 +60,9 @@ documents below are the implementation contracts behind the current alpha.
 | [Security](../SECURITY.md) | supported versions and private vulnerability reporting |
 | [Code of conduct](../CODE_OF_CONDUCT.md) | participation expectations |
 | [Changelog](../CHANGELOG.md) | user-facing changes and alpha limitations |
-| [0.2.0 release notes](releases/0.2.0.md) | current unsigned alpha |
+| [0.2.1 release notes](releases/0.2.1.md) | current unsigned alpha |
+| [0.2.1 acceptance](acceptance/0.2.1.md) | real Paper drill, automated checks and limits |
+| [0.2.0 release notes](releases/0.2.0.md) | previous unsigned alpha |
 | [0.1.0 release notes](releases/0.1.0.md) | first public unsigned alpha |
 | [Website](WEBSITE.md) | static landing page, local preview, GitHub Pages deploy |
 

@@ -1,19 +1,9 @@
 # mc-server-tui User Guide
 
-> Applies to `v0.2.0` (unsigned alpha pre-release).
+> Applies to `v0.2.1` (unsigned alpha pre-release).
 > This guide describes the shipped alpha. It is not a promise of production
 > stability, data recovery, compatibility with every server pack, or support
 > for every Minecraft version.
-
-> **Current source only (unreleased):** builds after v0.2.0 keep the selected server,
-> next action and resources at the top, with one background progress summary.
-> Console drafts show their target; switching instances blocks submission until you
-> return to the original instance or clear the draft with Esc.
-> The runtime step starts with a summary: Enter continues, F3 or Tab opens settings.
-> F3 expands instance diagnostics or backup evidence; Ctrl-K also exposes these actions.
-> Backup details use local time with an explicit offset, and restore previews explain
-> replacement scope and that later progress is not merged. Management connectivity
-> is separate from Minecraft readiness. These changes are not in the v0.2.0 release.
 
 ## 1. Read this before hosting a world
 
@@ -40,7 +30,7 @@ MIT OR Apache-2.0 license, without a guarantee of availability or recovery.
 
 ## 2. Supported scope
 
-| Platform | `v0.2.0` artifact |
+| Platform | `v0.2.1` artifact |
 | --- | --- |
 | macOS 13+ Apple Silicon | `aarch64-apple-darwin` |
 | Linux x86_64 | `x86_64-unknown-linux-gnu` |
@@ -59,10 +49,10 @@ server version, plugins/mods, and client compatibility.
 
 ### Release installer
 
-`v0.2.0` is a pre-release, so use the tag-specific URL:
+`v0.2.1` is a pre-release, so use the tag-specific URL:
 
 ```sh
-TAG=v0.2.0
+TAG=v0.2.1
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -113,6 +103,9 @@ The guided Paper flow asks for:
 2. Java runtime, memory range, and server port;
 3. a review of the artifact, download source, memory, port, and EULA.
 
+The runtime step retains your instance name and version and starts with a settings
+summary. Press Enter to accept, or F3 / Tab to adjust Java, memory and port.
+
 New date-based releases such as `26.3` and `26.2` are sorted before legacy
 `1.21.x` releases in the version picker. Choose the exact version your players
 will use. EULA acceptance is explicit and is never selected automatically.
@@ -139,6 +132,12 @@ and creates a managed instance.
 
 The default screen is a session shell. Text without a leading slash is sent to
 the current Minecraft console; slash commands manage the application.
+
+The header keeps the selected instance, next action and resources visible. One
+compact activity area reports background work. Management connectivity is shown
+separately from Minecraft readiness. Console drafts show their target and stay
+bound to the instance where typing began: after switching instances, return to
+the original instance or press Esc to clear the draft before sending.
 
 Common commands:
 
@@ -180,7 +179,8 @@ palette, `F2` theme, and `F1` help.
 
 The instance detail page (`/open`) exposes lifecycle controls, console input,
 logs, process identity, CPU/RSS samples, and alerts. Press `R` there for a
-controlled restart and `c` for configuration.
+controlled restart and `c` for configuration. F3 expands the diagnostic summary;
+logs receive the space by default. Ctrl-K exposes the same detail toggle.
 
 ## 7. Common configuration
 
@@ -210,7 +210,11 @@ Backups are stopped-world only.
 4. Press `v` to verify, then `Enter` to build a restore plan.
 5. Review affected worlds, added/replaced/removed roots, staging space, and
    safety steps.
-6. Type the exact `RESTORE` confirmation and submit.
+6. Press `c`, type the exact `RESTORE` confirmation, then submit.
+
+Backup details display local time with an explicit UTC offset. F3 reveals
+technical evidence. Restore replaces the listed world roots; progress after the
+backup is not merged. After creating a backup, press `r` to refresh the catalog.
 
 Restore is transactional and keeps rollback evidence until commit verification.
 The server remains stopped after restore. Start it explicitly and validate the
@@ -341,8 +345,9 @@ software and third-party code may contain vulnerabilities.
 
 ## 15. Evidence and current limitations
 
-The `v0.2.0` notes record 217 automatic tests, four PTY suites, protocol checks
-from v8–v11, a local manifest installer smoke, and a real Paper restart drill.
+The [v0.2.1 acceptance record](https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md) records 224 automatic tests,
+four PTY suites, v8–v11 protocol checks, and a real isolated Paper drill: console
+input, graceful stop, backup, marker-file restoration and post-restore readiness.
 These results do not prove every world, plugin combination, network, or client
 scenario. A real Minecraft client join and post-restore in-game verification
 still need to be performed.

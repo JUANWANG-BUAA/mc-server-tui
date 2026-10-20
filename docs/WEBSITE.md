@@ -55,3 +55,16 @@ offline and deploy as a plain artifact. The visual language mirrors the TUI:
 near-black surfaces, one accent color, mono microcopy, real 80×24 screenshots,
 and one animated pixel Steve. The documentation uses a three-column reading
 layout on wide screens, a chapter drawer on mobile, and printable prose.
+
+## v0.2.1 asset and release maintenance
+
+`site/assets/*-0.2.1.png` are current 80×24 terminal captures (867×504 pixels).
+They use the compiled binary and deterministic visual-daemon responses; captions
+must identify demonstration data. The separate real Paper test is documented in
+[`acceptance/0.2.1.md`](acceptance/0.2.1.md). Older screenshots are historical.
+
+When releasing, update the workspace version, landing-page JSON-LD/install tag,
+both guides, both READMEs, docs-generator metadata and release notes together.
+The matrix is three targets: Apple Silicon macOS and GNU Linux x86_64/arm64.
+Keep roadmap proposals separate from shipped capabilities. Check generated pages
+for stale tags, local links, image dimensions and desktop/mobile overflow.

@@ -16,17 +16,17 @@
   <meta name="theme-color" content="#0b0b0c">
   <link rel="canonical" href="https://juanwang-buaa.github.io/mc-server-tui/">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/styles.css?v=20261020-docs3">
+  <link rel="stylesheet" href="assets/styles.css?v=0.2.1">
   <noscript><style>[data-reveal]{opacity:1!important;transform:none!important}</style></noscript>
   <meta property="og:type" content="website">
   <meta property="og:title" content="mc-server-tui — Minecraft servers without the browser">
   <meta property="og:description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Paper and Fabric setup, resident runner, live console, verified downloads, backups.">
   <meta property="og:url" content="https://juanwang-buaa.github.io/mc-server-tui/">
-  <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview-20261020.png">
+  <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="mc-server-tui — Minecraft servers without the browser">
   <meta name="twitter:description" content="A terminal-first Minecraft Java server manager for macOS and Linux.">
-  <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview-20261020.png">
+  <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -34,14 +34,14 @@
     "name": "mc-server-tui",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Linux",
-    "softwareVersion": "0.2.0",
+    "softwareVersion": "0.2.1",
     "license": "MIT OR Apache-2.0",
     "url": "https://juanwang-buaa.github.io/mc-server-tui/",
     "codeRepository": "https://github.com/JUANWANG-BUAA/mc-server-tui",
     "description": "Terminal-first Minecraft Java server manager with a resident supervisor, verified downloads, backups, and a Claude Code-style TUI."
   }
   </script>
-  <script src="assets/app.js?v=20261020-docs3" defer></script>
+  <script src="assets/app.js?v=0.2.1" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -73,7 +73,7 @@
       <div class="hero-copy" data-reveal>
         <div class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span> Terminal-first · macOS + Linux</div>
         <h1>Minecraft servers,<br><em>without the browser.</em></h1>
-        <p class="lede">A control room for Paper and Fabric servers that lives in your shell. Guide a new server from zero, watch every byte, tail the console, and restore a world without opening a web panel.</p>
+        <p class="lede">Keep the right server in view. Create a Paper or Fabric instance, follow its logs, and review a world restore from your terminal. Clear console targets and focused details make everyday work easier.</p>
         <div class="hero-actions">
           <a class="button button-primary" href="#install">Install the alpha <span aria-hidden="true">→</span></a>
           <a class="button button-ghost" href="https://github.com/JUANWANG-BUAA/mc-server-tui" target="_blank" rel="noreferrer">View source <span aria-hidden="true">↗</span></a>
@@ -81,7 +81,7 @@
         <div class="hero-meta">
           <span>Unsigned alpha</span><span class="meta-sep">/</span>
           <span>SHA-256 verified</span><span class="meta-sep">/</span>
-          <span>4 platforms</span>
+          <span>3 release targets</span>
         </div>
       </div>
 
@@ -93,10 +93,10 @@
             <span class="theme-label" id="hero-theme-label">CLAUDE</span>
           </div>
           <div class="terminal-screen">
-            <img id="hero-shot" src="assets/shell-session-claude-20261020.png" alt="mc-server-tui session shell in the Claude theme" width="830" height="500" fetchpriority="high">
+            <img id="hero-shot" src="assets/session-claude-0.2.1.png" alt="mc-server-tui session shell in the Claude theme" width="867" height="504" fetchpriority="high">
           </div>
           <div class="terminal-status">
-            <span class="status-live"><i aria-hidden="true"></i> resident runner online</span>
+            <span class="status-live"><i aria-hidden="true"></i> v0.2.1 · demonstration data</span>
             <span>80×24</span>
             <span>no browser required</span>
           </div>
@@ -128,7 +128,7 @@
     </section>
 
     <section class="stats" aria-label="Project facts">
-      <div><strong>04</strong><span>release targets</span></div>
+      <div><strong>03</strong><span>release targets</span></div>
       <div><strong>07</strong><span>terminal themes</span></div>
       <div><strong>01</strong><span>resident runner per instance</span></div>
       <div><strong>00</strong><span>browser tabs</span></div>
@@ -143,14 +143,14 @@
       <div class="feature-grid">
         <article class="feature-card" data-reveal>
           <span class="feature-index">01</span>
-          <h3>One shell. Every server.</h3>
-          <p>Start, stop, tail logs, cancel a download, inspect a task, or send a console command without leaving the transcript. Drill into details only when the task needs them.</p>
+          <h3>Your server, always in view.</h3>
+          <p>The selected server, next action and resources stay visible. Console drafts show their destination and stay bound to it when you switch instances. One compact summary follows background work.</p>
           <span class="feature-tag">session shell</span>
         </article>
         <article class="feature-card" data-reveal>
           <span class="feature-index">02</span>
           <h3>The UI is disposable.</h3>
-          <p>A per-instance runner owns Java's console. Close the TUI, restart the daemon, or update the management layer; the Minecraft process keeps running and reattaches.</p>
+          <p>A per-instance runner owns Java's console. Close the TUI or restart the daemon; the Minecraft process keeps running and reattaches.</p>
           <span class="feature-tag">resident supervisor</span>
         </article>
         <article class="feature-card" data-reveal>
@@ -161,8 +161,8 @@
         </article>
         <article class="feature-card" data-reveal>
           <span class="feature-index">04</span>
-          <h3>Backups you can defend.</h3>
-          <p>Stopped-world snapshots with a checksummed manifest, paged listing, integrity verification, restore preview, explicit confirmation token, and a recovery journal.</p>
+          <h3>See what a restore will change.</h3>
+          <p>Choose a verified snapshot by local time. Review which worlds will be replaced before typing RESTORE. Later progress is not merged; technical evidence is available with F3.</p>
           <span class="feature-tag">transactional restore</span>
         </article>
         <article class="feature-card" data-reveal>
@@ -174,7 +174,7 @@
         <article class="feature-card" data-reveal>
           <span class="feature-index">06</span>
           <h3>A terminal with taste.</h3>
-          <p>Seven near-black palettes, restrained accent color, a pixel Steve who blinks, and a Claude Code-style composer. Functional first; decoration never fights the log.</p>
+          <p>Seven near-black palettes, a clear composer, and details that open with F3. Logs get room to breathe; pixel Steve welcomes you when the workspace is empty.</p>
           <span class="feature-tag">terminal UI</span>
         </article>
       </div>
@@ -184,7 +184,7 @@
       <div class="section-heading compact" data-reveal>
         <p class="eyebrow">Make it yours</p>
         <h2>Seven themes.<br><em>Same quiet shell.</em></h2>
-        <p>Low-contrast near-black backgrounds, one accent color, and a mascot that uses the theme only for the sparkle. Switch with <code>F2</code>, <code>/theme &lt;name&gt;</code>, or the picker here.</p>
+        <p>Near-black backgrounds, one accent color, and the same focused layout in every theme. Switch with <code>F2</code>, <code>/theme &lt;name&gt;</code>, or the picker here.</p>
         <div class="theme-list" role="group" aria-label="Theme preview">
           <button type="button" class="theme-row is-active" data-set-theme="claude" aria-pressed="true"><span class="swatch" style="--swatch:#d97757"></span><span>Claude</span><small>terracotta</small></button>
           <button type="button" class="theme-row" data-set-theme="deepseek" aria-pressed="false"><span class="swatch" style="--swatch:#4d6bfe"></span><span>DeepSeek</span><small>signal blue</small></button>
@@ -199,14 +199,14 @@
         <div class="terminal-window">
           <div class="terminal-bar">
             <span class="traffic" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span class="terminal-path">theme preview <span>/ live screenshot</span></span>
+            <span class="terminal-path">theme preview <span>/ terminal capture</span></span>
             <span class="theme-label" id="theme-preview-label">CLAUDE</span>
           </div>
           <div class="terminal-screen">
-            <img id="theme-shot" src="assets/shell-session-claude-20261020.png" alt="mc-server-tui Claude theme screenshot" width="830" height="500" loading="lazy">
+            <img id="theme-shot" src="assets/session-claude-0.2.1.png" alt="mc-server-tui Claude theme screenshot" width="867" height="504" loading="lazy">
           </div>
         </div>
-        <p class="caption">Real 80×24 terminal captures, not mockups. Theme preference persists across launches.</p>
+        <p class="caption">Actual v0.2.1 TUI at 80×24, using deterministic demonstration data. Theme preference persists across launches.</p>
       </div>
     </section>
 
@@ -218,15 +218,15 @@
       </div>
       <div class="gallery">
         <figure class="gallery-card" data-reveal>
-          <img src="assets/theme-create-version-20261020.png" alt="Guided Paper version picker with 26.x versions before legacy 1.21 releases" width="830" height="500" loading="lazy">
-          <figcaption><span>01 / Guided create</span><strong>Version, Java, memory, EULA — one reviewed plan.</strong></figcaption>
+          <img src="assets/runtime-0.2.1.png" alt="Paper runtime summary retaining instance name and game version" width="867" height="504" loading="lazy">
+          <figcaption><span>01 / Guided create</span><strong>Review the defaults. Expand settings when you need them.</strong></figcaption>
         </figure>
         <figure class="gallery-card" data-reveal>
-          <img src="assets/theme-backup-manager-20261020.png" alt="World backup manager with paged backups and verification status" width="830" height="500" loading="lazy">
+          <img src="assets/backups-0.2.1.png" alt="World backup manager with paged backups and verification status" width="867" height="504" loading="lazy">
           <figcaption><span>02 / Backup manager</span><strong>Verify, preview impact, then type the exact confirmation.</strong></figcaption>
         </figure>
         <figure class="gallery-card" data-reveal>
-          <img src="assets/theme-download-progress-20261020.png" alt="Download task with byte progress, speed, and source" width="830" height="500" loading="lazy">
+          <img src="assets/task-0.2.1.png" alt="Download task with byte progress, speed, and source" width="867" height="504" loading="lazy">
           <figcaption><span>03 / Byte progress</span><strong>Know what is downloading, from where, and how fast.</strong></figcaption>
         </figure>
       </div>
@@ -271,9 +271,9 @@
         <h2>One command.<br><em>Then it's yours.</em></h2>
         <p>Install the alpha user-local, write a config, verify Java, and install a launchd/systemd user service. No browser, no root, no daemon left in a random terminal.</p>
         <div class="requirements">
-          <span>macOS 13+ Apple Silicon</span><span>Linux x86_64/arm64</span><span>Java 21+</span><span>80×24 terminal</span>
+          <span>macOS 13+ Apple Silicon</span><span>Linux x86_64/arm64</span><span>Java matched to game version</span><span>80×24 terminal</span>
         </div>
-        <a class="text-link" href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.2.0" target="_blank" rel="noreferrer">Release notes and checksums <span aria-hidden="true">↗</span></a>
+        <a class="text-link" href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.2.1" target="_blank" rel="noreferrer">Release notes and checksums <span aria-hidden="true">↗</span></a>
       </div>
       <div class="install-panel" data-reveal>
         <div class="terminal-window">
@@ -282,7 +282,7 @@
             <span class="terminal-path">install.sh <span>/ unsigned alpha</span></span>
             <button class="copy-button" type="button" id="copy-install" aria-label="Copy install commands">Copy</button>
           </div>
-          <pre class="install-code" id="install-snippet"><span class="prompt">$</span> TAG=v0.2.0
+          <pre class="install-code" id="install-snippet"><span class="prompt">$</span> TAG=v0.2.1
 <span class="prompt">$</span> curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 <span class="prompt">$</span> mc setup
 <span class="prompt">$</span> mc</pre>
@@ -292,7 +292,7 @@
             <span>tag-specific install</span>
           </div>
         </div>
-        <p class="install-note"><strong>Alpha note:</strong> v0.2.0 is a pre-release, so GitHub's <code>/latest/</code> URL does not select it yet. The installer checks the manifest hash and size, but not a code signature. Keep an independent world backup.</p>
+        <p class="install-note"><strong>Alpha note:</strong> v0.2.1 is a pre-release, so GitHub's <code>/latest/</code> URL does not select it yet. The installer checks the manifest hash and size, but not a code signature. Keep an independent world backup.</p>
         <details class="source-build">
           <summary>Prefer to build from source?</summary>
           <pre><code>git clone https://github.com/JUANWANG-BUAA/mc-server-tui.git

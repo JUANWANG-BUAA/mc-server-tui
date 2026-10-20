@@ -5,6 +5,21 @@ All notable user-facing changes are recorded here. The format is based on
 
 ## [Unreleased]
 
+### Planned
+
+- Vanilla provider and takeover of existing server directories.
+- Broader `server.properties` editing (including raw mode), Java compatibility
+  rules, and structured management results for the CLI.
+- State schema migration snapshots and update-time task draining.
+- Online/scheduled backups and post-restore in-game world verification.
+- Signed/notarized releases, Homebrew tap, Linux packages, and a signed
+  self-updater with health checks.
+- Mirrors and retry policy for constrained networks.
+
+## [0.2.1] - 2026-10-20
+
+Unsigned alpha pre-release; API 8–11, state schema 1 and runner protocol 1 unchanged.
+
 ### Added
 
 - Complete English and Chinese user guides, plus native documentation pages
@@ -13,7 +28,7 @@ All notable user-facing changes are recorded here. The format is based on
 
 ### Changed
 
-- Source-only TUI redesign: selected-server summary and contextual next actions
+- Instance-centered TUI redesign: selected-server summary and contextual next actions
   above the transcript, a single compact task summary, and separate management
   connection feedback. Phase-only tasks no longer imply a byte percentage.
 - Runtime settings start with a summary; F3 expands settings, instance diagnostics
@@ -26,17 +41,7 @@ All notable user-facing changes are recorded here. The format is based on
 - Console drafts stay bound to their original instance and cannot silently follow
   a selection change. The selected server never inherits another detail page's status.
 - Re-evaluate the suggested Java when entering runtime setup after choosing a game version.
-
-### Planned
-
-- Vanilla provider and takeover of existing server directories.
-- Broader `server.properties` editing (including raw mode), Java compatibility
-  rules, and structured management results for the CLI.
-- State schema migration snapshots and update-time task draining.
-- Online/scheduled backups and post-restore in-game world verification.
-- Signed/notarized releases, Homebrew tap, Linux packages, and a signed
-  self-updater with health checks.
-- Mirrors and retry policy for constrained networks.
+- Runtime summaries retain instance/version context; backup loading copy matches the operation.
 
 ## [0.2.0] - 2026-10-20
 
@@ -134,6 +139,7 @@ First public **unsigned alpha** pre-release.
 - Linux systemd is generated/tested in CI but has not had a full real-host
   install drill.
 
-[Unreleased]: https://github.com/JUANWANG-BUAA/mc-server-tui/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/JUANWANG-BUAA/mc-server-tui/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.2.1
 [0.2.0]: https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.2.0
 [0.1.0]: https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.1.0

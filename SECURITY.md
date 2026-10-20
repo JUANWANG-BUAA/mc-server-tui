@@ -7,7 +7,7 @@ mc-server-tui is currently an **alpha**. Security fixes target the latest
 
 | Version | Supported |
 | --- | --- |
-| `0.1.x` alpha | best effort |
+| newest `0.2.x` alpha | best effort |
 | older pre-releases | no |
 
 ## Reporting a vulnerability
@@ -37,7 +37,7 @@ permissions. The project treats these as security-relevant:
 
 ## Signed releases
 
-The current `v0.1.0` release is **unsigned**. The installer verifies the
+The current `v0.2.1` release is **unsigned**. The installer verifies the
 release manifest's SHA-256 and file size, but it does not verify a code
 signature. Do not describe these artifacts as signed or notarized. Phase 2 adds
 signing, notarization, and package-repository verification.

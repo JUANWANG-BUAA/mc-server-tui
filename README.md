@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="output/playwright/themes-overview-20261020.png" alt="mc-server-tui with seven terminal themes and a pixel Steve mascot" width="100%">
+  <img src="site/assets/session-claude-0.2.1.png" alt="mc-server-tui with seven terminal themes and a pixel Steve mascot" width="100%">
   <h1>mc-server-tui</h1>
   <p><a href="README.zh-CN.md">简体中文</a> · <strong>English</strong></p>
   <p><strong>A terminal-first Minecraft Java server manager for macOS and Linux.</strong></p>
@@ -17,7 +17,7 @@
 </div>
 
 > [!WARNING]
-> **v0.2.0 is an unsigned alpha pre-release.** The installer verifies the release
+> **v0.2.1 is an unsigned alpha pre-release.** The installer verifies the release
 > manifest's SHA-256 and file size, but there is no code signature or macOS
 > notarization yet. Keep independent backups of any world you care about.
 
@@ -25,11 +25,11 @@ Read the [bilingual user guide](https://juanwang-buaa.github.io/mc-server-tui/do
 for installation, everyday commands, backup and restore, troubleshooting, and
 the alpha's safety limits.
 
-## Design improvements in current source (unreleased)
+## What changes in v0.2.1
 
 The selected server and next action stay at the top; background progress appears once. Management connectivity is separate from game readiness. Console drafts show their target and cannot silently follow an instance switch. Runtime settings start with a summary; F3 expands settings, instance diagnostics, or backup evidence. Backup views lead with local restore time and impact. Existing themes, commands and classic view remain available.
 
-These changes are not included in the v0.2.0 release. See the [interaction contract](docs/INTERACTION_DESIGN.md).
+See the [interaction contract](docs/INTERACTION_DESIGN.md).
 
 ## Why another server manager?
 
@@ -51,11 +51,11 @@ the terminal:
 
 ## Features
 
-This table describes the `v0.2.0` alpha release and its exact published scope.
+This table describes the `v0.2.1` alpha release and its exact published scope.
 
 | Area | What is there today |
 | --- | --- |
-| **Session TUI** | Transcript + composer + persistent status dock, slash-command completion, command palette, cursor editing, history, inline `/logs` and `/cancel` |
+| **Session TUI** | Transcript + composer + selected-instance header and a single task summary, slash-command completion, command palette, cursor editing, history, inline `/logs` and `/cancel` |
 | **Server creation** | Guided Paper version/build setup plus Fabric creation with Java/port checks and explicit EULA acceptance |
 | **Lifecycle** | Idempotent start, graceful stop, controlled restart, readiness detection, startup-failure diagnosis, console input, incremental logs, CPU/RSS readouts |
 | **Resident supervision** | Per-instance runner, process identity markers, daemon restarts reattach without killing Java |
@@ -69,12 +69,12 @@ This table describes the `v0.2.0` alpha release and its exact published scope.
 
 | Session shell | Guided Paper creation |
 | --- | --- |
-| <img src="output/playwright/shell-session-claude-20261020.png" alt="Session shell with transcript, composer, status dock, and Steve" width="100%"> | <img src="output/playwright/theme-create-version-20261020.png" alt="Paper version picker with 26.x before 1.21.x" width="100%"> |
+| <img src="site/assets/session-claude-0.2.1.png" alt="Session shell with selected instance, task progress and console target" width="100%"> | <img src="site/assets/create-0.2.1.png" alt="Paper version picker with 26.x before 1.21.x" width="100%"> |
 | **Backup manager** | **Byte-level task progress** |
-| <img src="output/playwright/theme-backup-manager-20261020.png" alt="World backup manager" width="100%"> | <img src="output/playwright/theme-download-progress-20261020.png" alt="Download task with progress and source" width="100%"> |
+| <img src="site/assets/backups-0.2.1.png" alt="World backup manager" width="100%"> | <img src="site/assets/task-0.2.1.png" alt="Download task with progress and source" width="100%"> |
 
-More visual evidence, including all seven themes and the Steve animation states,
-lives in [`output/playwright/`](output/playwright/).
+These are real v0.2.1 TUI captures with deterministic demonstration data.
+See the [acceptance record](docs/acceptance/0.2.1.md) for the separate real Paper drill.
 
 ## Quick start
 
@@ -87,11 +87,11 @@ lives in [`output/playwright/`](output/playwright/).
 
 ### Install a release
 
-`v0.2.0` is a pre-release, so GitHub's `/latest/` URL does not select it yet.
+`v0.2.1` is a pre-release, so GitHub's `/latest/` URL does not select it yet.
 Use the tag-specific installer:
 
 ```sh
-TAG=v0.2.0
+TAG=v0.2.1
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -235,7 +235,7 @@ for future hot updates. See [Supervision](docs/SUPERVISION.md).
 
 ## Status
 
-`v0.2.0` is the current public, unsigned alpha release. Current implementation
+`v0.2.1` is the current public, unsigned alpha release. Current implementation
 status (2026-10-20):
 
 | Implemented | Next |
@@ -278,7 +278,7 @@ distribution.
 | [Distribution](docs/DISTRIBUTION.md) | macOS/Linux packaging, services, signing, hot update |
 | [Release process](docs/RELEASING.md) | Tag → CI → draft release → review |
 | [Changelog](CHANGELOG.md) | User-facing changes and known alpha limitations |
-| [0.2.0 release notes](docs/releases/0.2.0.md) | Current unsigned alpha |
+| [0.2.1 release notes](docs/releases/0.2.1.md) | Current unsigned alpha |
 | [0.1.0 release notes](docs/releases/0.1.0.md) | First public unsigned alpha |
 | [TUI testing](docs/TUI_TESTING.md) | Renderer, PTY, screenshots, visual review |
 | [Product design](PRODUCT_DESIGN.md) | Scope and release gates |
@@ -295,8 +295,8 @@ cargo test --workspace
 cargo build --workspace
 ```
 
-Current automated evidence on macOS (2026-10-20): **217 workspace tests**,
-including **91 `mc-tui` tests**. Linux remains in the CI matrix but was not
+Current automated evidence on macOS (2026-10-20): **224 workspace tests**,
+including **98 `mc-tui` tests**. Linux remains in the CI matrix but was not
 re-run in this local verification. Four PTY scripts are under
 [`scripts/`](scripts/):
 
@@ -320,9 +320,9 @@ Release tooling:
 cargo build --workspace --release
 # macOS Apple Silicon; use the matching target for other hosts
 python3 scripts/package_release.py \
-  --version 0.2.0 --target aarch64-apple-darwin \
-  --base-url "file://$PWD/dist/0.2.0"
-./scripts/install.sh --manifest-url "file://$PWD/dist/0.2.0/release-manifest.json" \
+  --version 0.2.1 --target aarch64-apple-darwin \
+  --base-url "file://$PWD/dist/0.2.1"
+./scripts/install.sh --manifest-url "file://$PWD/dist/0.2.1/release-manifest.json" \
   --prefix /tmp/mcst-prefix --root /tmp/mcst-root
 /tmp/mcst-prefix/bin/mc uninstall
 ```

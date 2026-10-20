@@ -1,6 +1,6 @@
 # TUI interaction and guidance contract
 
-> Version 0.1 · 2026-10-18 · guided create, command discovery, transfer control, and adapter-report entry points
+> v0.2.1 · 2026-10-20 · shipped interaction contract
 
 ## Reference direction
 
@@ -13,9 +13,9 @@ The interaction layer borrows patterns, not visual assets, from mature terminal 
 The design rule is: a first-time user must be able to complete the normal path without knowing Paper API fields, Java executable locations, raw ports, or daemon internals. An advanced user can still reach exact values and durable task details.
 
 
-## 当前源码：实例优先的会话工作区（未发布）
+## v0.2.1：实例优先的会话工作区
 
-本节描述 v0.2.0 之后的源码改进，不代表已有发行包已包含这些变化。
+本节描述 v0.2.1 的交互行为。
 
 1. **固定实例摘要**：顶部依次显示当前实例、运行状态、版本/端口、下一步动作和资源。状态只能来自相同实例 ID 的详情或总览快照；连接失败显示“上次状态”，管理连接与 Minecraft 就绪分开表达。
 2. **一个主要工作区**：会话记录保留命令、结果与日志。后台任务只用两行显示阶段、真实传输进度、所属实例及对应 `/task <编号>`；没有字节总量的操作不显示百分比。完成结果进入会话，技术事件在任务详情。
@@ -192,7 +192,7 @@ The normal create review currently exposes the exact source as `Paper 官方 CDN
 
 Custom HTTPS mirrors and audited mirror catalogs therefore remain a follow-up implementation item rather than a fake UI option. The long-term policy is defined in `MIRROR_ACCELERATION_DESIGN.md`.
 
-## Backup and restore presentation (unreleased)
+## Backup and restore presentation
 
 Backup lists and details use local dates with an explicit offset in the detail.
 The default view leads with the restore time, stopped-at-creation consistency,

@@ -1,22 +1,22 @@
 <div align="center">
   <a href="README.md">English</a> · <strong>简体中文</strong> · <a href="https://juanwang-buaa.github.io/mc-server-tui/">官网</a>
-  <img src="output/playwright/themes-overview-20261020.png" alt="mc-server-tui 七套主题与像素史蒂夫" width="100%">
+  <img src="site/assets/session-claude-0.2.1.png" alt="mc-server-tui 七套主题与像素史蒂夫" width="100%">
   <h1>mc-server-tui</h1>
   <p><strong>面向 macOS / Linux 的终端优先 Minecraft Java 服务端管理器。</strong></p>
   <p>Paper 引导建服 · Fabric 建服 · 常驻 runner · 实时控制台 · 校验下载 · 世界备份 · Claude Code 风格会话 · 七套主题</p>
 </div>
 
 > [!WARNING]
-> **v0.2.0 是未签名的 alpha pre-release。** 安装器只校验 release manifest 的
+> **v0.2.1 是未签名的 alpha pre-release。** 安装器只校验 release manifest 的
 > SHA-256 和文件大小，没有代码签名或 macOS 公证。请始终为重要世界保留独立备份。
 
 完整操作流程、安全边界和免责声明见[中英文使用手册](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/)。
 
-## 当前源码的设计改进（未发布）
+## v0.2.1 的交互改进
 
 顶部固定当前服务器与下一步动作，后台进度只显示一次；管理连接状态与游戏就绪状态分开。控制台输入标注目标，切换实例后保留草稿并阻止误发。建服运行设置默认显示摘要，F3 调整；实例日志默认收起详细摘要，备份页默认显示恢复时间与影响，F3 查看技术详情。现有七主题、命令和经典视图继续保留。
 
-这些变化尚未包含在 v0.2.0 发行包中。详见 [交互契约](docs/INTERACTION_DESIGN.md)。
+这些变化已包含在 v0.2.1 中。详见 [交互契约](docs/INTERACTION_DESIGN.md)。
 
 ## 为什么做这个项目
 
@@ -35,7 +35,7 @@ Java 进程藏在多层封装之后。这个项目选择终端：
 
 ## 当前功能
 
-下表描述 `v0.2.0` alpha 发行版的实际范围。
+下表描述 `v0.2.1` alpha 发行版的实际范围。
 
 | 模块 | 当前状态 |
 | --- | --- |
@@ -55,8 +55,8 @@ Java 进程藏在多层封装之后。这个项目选择终端：
 Paper 需要网络。
 
 ```sh
-# v0.2.0 是 pre-release，/latest/ 暂时不会选中它，使用 tag-specific URL
-TAG=v0.2.0
+# v0.2.1 是 pre-release，/latest/ 暂时不会选中它，使用 tag-specific URL
+TAG=v0.2.1
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -199,7 +199,7 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 
 ## 状态
 
-`v0.2.0` 是当前公开的 unsigned alpha。截至 2026-10-20，实现状态如下：
+`v0.2.1` 是当前公开的 unsigned alpha。截至 2026-10-20，实现状态如下：
 
 | 已实现 | 下一步 |
 | --- | --- |
@@ -235,7 +235,7 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 - [备份恢复](docs/BACKUP_RESTORE_DESIGN.md)
 - [分发设计](docs/DISTRIBUTION.md)
 - [发布流程](docs/RELEASING.md)
-- [0.2.0 发布说明](docs/releases/0.2.0.md)
+- [0.2.1 发布说明](docs/releases/0.2.1.md)
 - [TUI 测试](docs/TUI_TESTING.md)
 - [实现差距](docs/IMPLEMENTATION_GAPS.md)
 
@@ -250,8 +250,8 @@ cargo test --workspace
 cargo build --workspace
 ```
 
-当前本机自动化证据（macOS，2026-10-20）：workspace **217** 项测试，
-其中 `mc-tui` **91** 项。Linux 仍在 CI 矩阵内，但本次未在本机重跑；另有四个 PTY 脚本：
+当前本机自动化证据（macOS，2026-10-20）：workspace **224** 项测试，
+其中 `mc-tui` **98** 项。Linux 仍在 CI 矩阵内，但本次未在本机重跑；另有四个 PTY 脚本：
 
 ```sh
 python3 scripts/tui_pty_smoke.py

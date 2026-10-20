@@ -6,43 +6,43 @@
       label: "Claude",
       accent: "#d97757",
       rgb: "217, 119, 87",
-      image: "assets/shell-session-claude-20261020.png",
+      image: "assets/session-claude-0.2.1.png",
     },
     deepseek: {
       label: "DeepSeek",
       accent: "#4d6bfe",
       rgb: "77, 107, 254",
-      image: "assets/shell-session-deepseek-80x24.png?v=20261020",
+      image: "assets/session-deepseek-0.2.1.png",
     },
     codex: {
       label: "Codex",
       accent: "#10a37f",
       rgb: "16, 163, 127",
-      image: "assets/shell-session-codex-80x24.png?v=20261020",
+      image: "assets/session-codex-0.2.1.png",
     },
     kimi: {
       label: "Kimi",
       accent: "#a78bfa",
       rgb: "167, 139, 250",
-      image: "assets/shell-session-kimi-80x24.png?v=20261020",
+      image: "assets/session-kimi-0.2.1.png",
     },
     pcl2: {
       label: "PCL2",
       accent: "#56b8e8",
       rgb: "86, 184, 232",
-      image: "assets/shell-session-pcl2-80x24.png?v=20261020",
+      image: "assets/session-pcl2-0.2.1.png",
     },
     mono: {
       label: "Mono",
       accent: "#d8d8d8",
       rgb: "216, 216, 216",
-      image: "assets/shell-session-mono-80x24.png?v=20261020",
+      image: "assets/session-mono-0.2.1.png",
     },
     ocean: {
       label: "Ocean",
       accent: "#6cb6c9",
       rgb: "108, 182, 201",
-      image: "assets/shell-session-ocean-80x24.png?v=20261020",
+      image: "assets/session-ocean-0.2.1.png",
     },
   };
 
@@ -57,14 +57,18 @@
 
   function transitionImage(image, source, label) {
     if (!image) return;
+    image.dataset.requestedSource = source;
     image.classList.add("is-switching");
     const next = new Image();
     next.onload = () => {
+      if (image.dataset.requestedSource !== source) return;
       image.src = source;
       image.alt = `mc-server-tui ${label} theme screenshot`;
       requestAnimationFrame(() => image.classList.remove("is-switching"));
     };
-    next.onerror = () => image.classList.remove("is-switching");
+    next.onerror = () => {
+      if (image.dataset.requestedSource === source) image.classList.remove("is-switching");
+    };
     next.src = source;
   }
 
