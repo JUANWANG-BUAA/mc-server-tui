@@ -259,6 +259,8 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 - 本轮新增受控重启测试覆盖真实 fake-Java 子进程替换、新 PID、停止后拒绝重启、TUI `/restart` 调度、`R` 键和 CLI 命令映射；属性编辑测试继续覆盖字段校验、差异生成、冲突保留和 80×24/40×12 渲染。
 - `python3 scripts/check_protocol_window.py`：通过，实际 daemon 接受 v8–v11，旧版本分别拒绝管理、属性和重启操作，v7/v12 越界请求返回明确错误。
 - 四个 PTY 脚本全部重新通过：冒烟、命令面板向导、任务详情和实例详情。实例页覆盖启动、控制台、`R` 受控重启、优雅停止、备份/恢复流程与终端恢复；测试子进程固定 Claude 主题并移除 `NO_COLOR`，避免依赖用户当前主题。
+- 真实 Paper 1.21.11 隔离演练：首次运行 PID 3482，受控重启后新进程 PID 3565 并再次就绪，最终优雅停止且退出码为 0。记录见
+  [真实重启记录](../output/playwright/restart-drill-20261020/真实重启记录.md)。
 - `cargo clippy --workspace --all-targets --color always -- -D warnings`：通过。
 - `python3 -m py_compile scripts/check_protocol_window.py scripts/tui_visual_fake_daemon.py scripts/tui_pty_smoke.py scripts/tui_task_detail_pty.py scripts/tui_guided_create_pty.py scripts/tui_instance_detail_pty.py`：通过。
 

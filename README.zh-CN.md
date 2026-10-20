@@ -250,6 +250,9 @@ python3 scripts/tui_task_detail_pty.py
 python3 scripts/tui_instance_detail_pty.py
 ```
 
+另完成隔离的真实 Paper 1.21.11 重启演练：运行中的 PID 3482 被 PID 3565 替代，
+新进程再次就绪后优雅停止，退出码为 0；原始实例仅只读复制，未被启动或修改。
+
 仓库的 Cargo 配置固定保留彩色编译与测试输出；TUI 本身仍尊重用户的 `NO_COLOR` 偏好。
 
 ## 贡献与安全

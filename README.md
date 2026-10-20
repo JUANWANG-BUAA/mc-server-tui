@@ -296,6 +296,10 @@ python3 scripts/tui_task_detail_pty.py
 python3 scripts/tui_instance_detail_pty.py
 ```
 
+An isolated real Paper 1.21.11 drill also replaced a running PID 3482 server
+with PID 3565, waited for readiness, and stopped it with exit code 0. The
+original instance was copied read-only and left untouched.
+
 The repository Cargo configuration keeps compiler and test output colored. The
 TUI itself still respects the user's `NO_COLOR` preference.
 
