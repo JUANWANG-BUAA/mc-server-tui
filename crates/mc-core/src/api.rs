@@ -5,9 +5,8 @@ use crate::{
     TaskEvent, TaskSnapshot,
 };
 
-/// Highest protocol version this build speaks. An N/N-1 daemon accepts every
-/// version in `API_PROTOCOL_MIN..=API_PROTOCOL_MAX`, and clients negotiate down
-/// to the highest version the daemon advertises.
+/// Highest protocol version this build speaks. Clients negotiate down to the
+/// highest common version in `API_PROTOCOL_MIN..=API_PROTOCOL_MAX`.
 pub const API_PROTOCOL_VERSION: u16 = 10;
 pub const API_PROTOCOL_MIN: u16 = 8;
 pub const API_PROTOCOL_MAX: u16 = 10;
@@ -135,7 +134,7 @@ impl ApiResponseEnvelope {
         }
     }
 
-    /// Echo the request's protocol so a v8 client never receives a v9
+    /// Echo the request's protocol so a client never receives a newer
     /// envelope it cannot decode.
     pub fn with_protocol(protocol_version: u16, payload: ApiResponse) -> Self {
         Self {
@@ -404,7 +403,8 @@ mod tests {
         assert_eq!(info.state_schema, STATE_SCHEMA_VERSION);
         assert_eq!(info.runner_protocol, RUNNER_PROTOCOL_VERSION);
         assert_eq!(info.negotiated_version(8, 9), Some(9));
-        assert_eq!(info.negotiated_version(10, 12), None);
+        assert_eq!(info.negotiated_version(10, 12), Some(10));
+        assert_eq!(info.negotiated_version(11, 12), None);
         assert_eq!(info.negotiated_version(7, 8), Some(8));
     }
 
@@ -423,7 +423,7 @@ mod tests {
     }
 
     #[test]
-    fn only_management_requests_require_protocol_nine() {
+    fn operation_protocol_minimums_are_explicit() {
         assert_eq!(ApiRequest::Ping.minimum_protocol_version(), 8);
         assert_eq!(ApiRequest::ListInstances.minimum_protocol_version(), 8);
         assert_eq!(
@@ -433,6 +433,22 @@ mod tests {
             }
             .minimum_protocol_version(),
             9
+        );
+        assert_eq!(
+            ApiRequest::ReadServerProperties {
+                instance_id: uuid::Uuid::nil(),
+            }
+            .minimum_protocol_version(),
+            10
+        );
+        assert_eq!(
+            ApiRequest::SaveServerProperties {
+                instance_id: uuid::Uuid::nil(),
+                expected_revision: String::new(),
+                values: crate::ServerPropertiesValues::default(),
+            }
+            .minimum_protocol_version(),
+            10
         );
     }
 

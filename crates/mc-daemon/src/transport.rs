@@ -221,12 +221,12 @@ mod tests {
     #[test]
     fn accepts_both_sides_of_the_protocol_window() {
         assert!(matches!(
-            classify_envelope(envelope(8, ApiRequest::Ping)),
-            Ok((8, ApiRequest::Ping))
+            classify_envelope(envelope(API_PROTOCOL_MIN, ApiRequest::Ping)),
+            Ok((API_PROTOCOL_MIN, ApiRequest::Ping))
         ));
         assert!(matches!(
-            classify_envelope(envelope(9, ApiRequest::Ping)),
-            Ok((9, ApiRequest::Ping))
+            classify_envelope(envelope(API_PROTOCOL_MAX, ApiRequest::Ping)),
+            Ok((API_PROTOCOL_MAX, ApiRequest::Ping))
         ));
     }
 
@@ -249,7 +249,10 @@ mod tests {
 
     #[test]
     fn rejects_versions_outside_the_window_and_clamps_the_reply() {
-        for (protocol, reply_protocol) in [(7, 8), (10, 9)] {
+        for (protocol, reply_protocol) in [
+            (API_PROTOCOL_MIN - 1, API_PROTOCOL_MIN),
+            (API_PROTOCOL_MAX + 1, API_PROTOCOL_MAX),
+        ] {
             match classify_envelope(envelope(protocol, ApiRequest::Ping)) {
                 Err((reply, response)) => {
                     assert_eq!(reply, reply_protocol);

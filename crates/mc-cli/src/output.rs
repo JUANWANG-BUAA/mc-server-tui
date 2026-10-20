@@ -5,6 +5,16 @@ pub(crate) fn print_response(
     include_experimental: bool,
 ) -> Result<(), AppError> {
     match response {
+        ApiResponse::ServerProperties(snapshot) => {
+            println!("Server properties for {}:", snapshot.instance_id);
+            println!("MOTD: {}", snapshot.values.motd);
+            println!("Max players: {}", snapshot.values.max_players);
+            println!("Difficulty: {}", snapshot.values.difficulty.as_str());
+            println!("View distance: {}", snapshot.values.view_distance);
+            for warning in snapshot.warnings {
+                println!("Warning: {warning}");
+            }
+        }
         ApiResponse::ManagementReport(report) => println!("{report}"),
         ApiResponse::Pong => println!("daemon: running"),
         ApiResponse::ServerInfo(info) => {

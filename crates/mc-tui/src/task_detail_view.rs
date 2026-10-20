@@ -401,10 +401,7 @@ fn render_events(
 #[cfg(test)]
 mod tests;
 
-fn transfer_progress_line(
-    progress: &mc_core::TransferProgress,
-    compact: bool,
-) -> Line<'static> {
+fn transfer_progress_line(progress: &mc_core::TransferProgress, compact: bool) -> Line<'static> {
     let ratio = if progress.total_bytes == 0 {
         0.0
     } else {
