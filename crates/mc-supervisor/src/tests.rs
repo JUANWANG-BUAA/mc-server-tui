@@ -147,14 +147,18 @@ async fn restart_replaces_the_verified_process_and_rejects_a_stopped_instance() 
         .start(fixture.instance.id)
         .await
         .expect("start fake server");
-    let first_pid = first.pid.expect("first Java PID");
+    let first_pid = wait_for_pid(&supervisor, fixture.instance.id, None).await;
+    assert!(matches!(
+        first.state,
+        ServerState::Starting | ServerState::Running
+    ));
     wait_until_running(&supervisor, fixture.instance.id).await;
 
     let restarted = supervisor
         .restart(fixture.instance.id, Some(Duration::from_secs(3)))
         .await
         .expect("restart fake server");
-    let second_pid = restarted.pid.expect("second Java PID");
+    let second_pid = wait_for_pid(&supervisor, fixture.instance.id, Some(first_pid)).await;
     assert_ne!(first_pid, second_pid);
     assert!(matches!(
         restarted.state,
@@ -417,15 +421,35 @@ async fn wait_until_running(supervisor: &ProcessSupervisor, instance_id: Uuid) {
     panic!("fake server did not reach readiness");
 }
 
+async fn wait_for_pid(
+    supervisor: &ProcessSupervisor,
+    instance_id: Uuid,
+    previous: Option<u32>,
+) -> u32 {
+    for _ in 0..80 {
+        let detail = supervisor
+            .detail(instance_id)
+            .await
+            .expect("read instance detail");
+        if let Some(pid) = detail.server.pid {
+            if Some(pid) != previous {
+                return pid;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("server did not publish the expected Java PID");
+}
+
 async fn lifecycle_sequence(
     supervisor: &ProcessSupervisor,
     instance: &InstanceSummary,
 ) -> Result<(), String> {
-    let first = supervisor
+    supervisor
         .start(instance.id)
         .await
         .map_err(|error| error.to_string())?;
-    let first_pid = first.pid.ok_or("start returned no process ID")?;
+    let first_pid = wait_for_pid(supervisor, instance.id, None).await;
     let runtime = storage::read_record(instance)
         .await
         .map_err(|error| error.to_string())?
