@@ -78,6 +78,13 @@ No. Backups are stopped-world only. Stop the server before creating a backup;
 restore requires the instance to be stopped and uses a preview plus explicit
 confirmation.
 
+## Why did the server fail to start?
+
+The instance detail recognizes common startup failures from the current console
+log: incompatible Java, an occupied port, an unaccepted EULA, insufficient Java
+memory, or a missing/corrupt `server.jar`. Unknown failures retain the log-based
+generic message. Run `/logs` or `/open` to inspect the evidence.
+
 ## How do I update?
 
 There is no automatic updater yet. The development branch provides manual

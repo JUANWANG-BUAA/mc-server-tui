@@ -113,6 +113,10 @@ pub(crate) fn render(
             ])]
         };
         if !compact {
+            lines.push(Line::from(Span::styled(
+                ui::server_message(&server.message),
+                ui::server_state_style(server.state),
+            )));
             lines.push(Line::from(vec![
                 Span::styled("版本  ", label_style()),
                 Span::styled(

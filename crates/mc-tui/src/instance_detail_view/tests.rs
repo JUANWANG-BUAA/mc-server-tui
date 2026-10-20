@@ -53,6 +53,44 @@ fn renders_instance_state_and_controls_at_reference_and_compact_sizes() {
     assert!(compact.contains("备份"));
 }
 
+#[test]
+fn renders_actionable_startup_failure_at_both_sizes() {
+    let instance_id = Uuid::new_v4();
+    let mut state = InstanceDetailState::loading(instance_id);
+    state.detail = Some(InstanceDetail {
+        instance: InstanceSummary {
+            id: instance_id,
+            name: "失败服".to_owned(),
+            provider: "Paper".to_owned(),
+            game_version: "1.21.11".to_owned(),
+            build_id: 17,
+            java_path: "/opt/java/bin/java".into(),
+            min_memory_mb: 1024,
+            max_memory_mb: 4096,
+            port: 25565,
+            directory: "/tmp/server".into(),
+            created_at: Utc::now(),
+        },
+        server: ServerSnapshot {
+            instance_id,
+            state: ServerState::Failed,
+            pid: None,
+            port: 25565,
+            address: "127.0.0.1:25565".to_owned(),
+            started_at: Some(Utc::now()),
+            last_exit_code: Some(1),
+            message:
+                "The configured port is in use; stop the other process or choose another port."
+                    .to_owned(),
+        },
+    });
+
+    for (width, height) in [(80, 24), (40, 12)] {
+        let text = render_to_text(&state, width, height);
+        assert!(text.contains("配置的端口已被占用"));
+    }
+}
+
 fn render_to_text(state: &InstanceDetailState, width: u16, height: u16) -> String {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("test terminal");

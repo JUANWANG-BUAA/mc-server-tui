@@ -40,6 +40,9 @@ All notable user-facing changes are recorded here. The format is based on
   `mc cli instance start/stop/restart`. A restart holds one coordination lock
   across graceful stop and restart, requires a verified running process, and
   aborts before starting if the old process did not stop cleanly.
+- Actionable startup-failure diagnosis from the current console log for Java
+  version incompatibility, occupied ports, unaccepted EULA, insufficient Java
+  memory, and missing/corrupt `server.jar`.
 - Static GitHub Pages landing site with real TUI screenshots, interactive
   theme switching, pixel Steve, architecture/install/roadmap sections, SEO
   metadata, sitemap, and a custom 404 page.

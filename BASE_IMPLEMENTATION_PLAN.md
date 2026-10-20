@@ -92,7 +92,7 @@ Base 是内部试用与小范围 alpha 的基础，不作为项目的最终卖�
 - 扩充 Java 兼容规则与修复入口；服务端所需版本更新时给出兼容提醒。基础扫描和逐实例绑定已在第一阶段完成。
 - 基础故障规则：Java 不兼容、端口占用、EULA、内存不足、下载失败、异常退出。
 - Vanilla 适配器；玩家在线状态及白名单、封禁、OP 基本操作。
-- 后续进度（2026-10-20）：`/config` 已实现 MOTD、人数上限、难度、视距四字段、差异预览、外部修改冲突检测和原子保存；协议 v11 已加入协调停服/启动的受控重启，TUI `/restart`/`R` 与 CLI `instance start/stop/restart` 共用同一 API。完整分类、原始模式、逐版本规则仍未完成。Fabric 建服、玩家类型化操作、`.mrpack` 校验物化导入和停服导入已落地；Vanilla、Forge/NeoForge/Quilt、首启验证和自动回滚仍未完成。
+- 后续进度（2026-10-20）：`/config` 已实现 MOTD、人数上限、难度、视距四字段、差异预览、外部修改冲突检测和原子保存；协议 v11 已加入协调停服/启动的受控重启，TUI `/restart`/`R` 与 CLI `instance start/stop/restart` 共用同一 API。启动失败快照现在能从当前日志尾部识别 Java 版本、端口占用、EULA、内存不足和损坏/缺失 `server.jar`。完整分类、原始模式、逐版本规则仍未完成。Fabric 建服、玩家类型化操作、`.mrpack` 校验物化导入和停服导入已落地；Vanilla、Forge/NeoForge/Quilt、首启验证和自动回滚仍未完成。
 
 **完成条件**：用户日常管理 Paper/Vanilla 不需要回到文件管理器手改配置或依赖 TUI 以外的 `screen/tmux` 会话。
 

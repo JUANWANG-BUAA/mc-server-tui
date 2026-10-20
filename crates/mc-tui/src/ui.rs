@@ -437,6 +437,21 @@ pub(crate) fn server_message(message: &str) -> String {
         "Server stopped." => "服务器已停止。",
         "Server exited with an error." => "服务器异常退出；请查看日志。",
         "Server failed to start; inspect the instance logs." => "服务器启动失败；请查看实例日志。",
+        "Java is incompatible with this server; select a newer Java runtime." => {
+            "Java 版本与服务端不兼容；请选择兼容的 Java 运行时。"
+        }
+        "The configured port is in use; stop the other process or choose another port." => {
+            "配置的端口已被占用；请停止占用进程或更换端口。"
+        }
+        "The Minecraft EULA has not been accepted; accept it before starting." => {
+            "尚未接受 Minecraft EULA；请先确认许可再启动。"
+        }
+        "Java ran out of memory; raise the instance memory limit." => {
+            "Java 内存不足；请提高实例的最大内存。"
+        }
+        "server.jar is missing, corrupt, or incompatible; reinstall the locked build." => {
+            "server.jar 缺失、损坏或不兼容；请重新安装锁定构建。"
+        }
         "Server process is no longer running." => "服务器进程已不在运行。",
         "This instance has not been started by the supervisor." => "此实例尚未由本工具启动。",
         "The configured port is occupied; process ownership is unknown." => {
@@ -544,5 +559,18 @@ mod display_tests {
     fn unicode_highlight_is_safe() {
         let line = log_line("[INFO] 玩家 Steve joined the game", "玩家");
         assert!(line.spans.iter().any(|s| s.content == "玩家"));
+    }
+    #[test]
+    fn startup_failure_messages_are_actionable_in_chinese() {
+        assert_eq!(
+            server_message(
+                "The configured port is in use; stop the other process or choose another port."
+            ),
+            "配置的端口已被占用；请停止占用进程或更换端口。"
+        );
+        assert_eq!(
+            server_message("Java ran out of memory; raise the instance memory limit."),
+            "Java 内存不足；请提高实例的最大内存。"
+        );
     }
 }

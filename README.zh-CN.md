@@ -34,7 +34,7 @@ release notes 为准。
 | --- | --- |
 | 会话 TUI | transcript + composer + 状态坞、命令补全、命令面板、光标编辑、历史、内联 `/logs`/`/cancel` |
 | Paper 建服 | 版本/build 选择、滚动条、Java 绑定、内存/端口、EULA、计划预览 |
-| 生命周期 | 幂等启动、优雅停止、受控重启、就绪识别、控制台、增量日志、CPU/RSS |
+| 生命周期 | 幂等启动、优雅停止、受控重启、就绪识别、启动失败诊断、控制台、增量日志、CPU/RSS |
 | 常驻监督 | per-instance runner、进程身份、daemon 重启重连 |
 | 持久任务 | SQLite 任务、字节进度、速度/来源、事件游标、协作取消 |
 | 世界备份 | 停服备份、预检、staging、校验、恢复计划/token、恢复 journal |
@@ -207,7 +207,7 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 | Modrinth 扩展安装、MRPACK/ZIP 整合包预览/导入/导出 | Forge / NeoForge 与 CurseForge 文件 ID 授权导入 |
 | 会话 TUI、七主题、史蒂夫 | 签名/公证、Homebrew tap、deb/rpm |
 | API 协议 8–11 协商 + runner 协议握手 | 状态 schema 迁移与更新前任务排空 |
-| 协调停服/启动的受控重启与 CLI 生命周期命令 | 更完整属性管理与启动失败诊断 |
+| 受控重启与可执行的启动失败诊断 | 更完整属性管理与真实客户端加入演练 |
 | 四字段 `server.properties` 编辑、差异预览与冲突检测 | 更多属性、原始编辑及重启操作 |
 | 版本化 `mc update status/rollback` | 带健康检查的签名自动更新器 |
 
@@ -240,8 +240,8 @@ cargo test --workspace
 cargo build --workspace
 ```
 
-当前本机自动化证据（macOS，2026-10-20）：workspace **213** 项测试，
-其中 `mc-tui` **89** 项。Linux 仍在 CI 矩阵内，但本次未在本机重跑；另有四个 PTY 脚本：
+当前本机自动化证据（macOS，2026-10-20）：workspace **217** 项测试，
+其中 `mc-tui` **91** 项。Linux 仍在 CI 矩阵内，但本次未在本机重跑；另有四个 PTY 脚本：
 
 ```sh
 python3 scripts/tui_pty_smoke.py

@@ -42,7 +42,7 @@
 | 托管 JDK 下载与校验 | ❌ | `mc-system/java` 只扫描本机；没有 Adoptium 下载/安装 |
 | Java 兼容规则按服务端与 MC 版本维护 | 🟡 | 向导优先 Java 21，其余只做“≥21”兜底；没有规则表、插件/mod 需求预检 |
 | 主机内存预算与多实例资源预测 | 🟡 | 单个实例有内存档位和端口检查；状态坞显示 CPU/RSS；没有“主机总量→系统预留→所有实例 Xmx→剩余预算” |
-| 基础故障规则与可复制诊断报告 | 🟡 | `doctor` 覆盖 Java、数据目录、磁盘、默认端口；没有日志规则、崩溃归因、脱敏报告导出 |
+| 基础故障规则与可复制诊断报告 | 🟡 | `doctor` 覆盖 Java、数据目录、磁盘、默认端口；启动失败已识别 Java 版本、端口占用、EULA、内存不足和损坏/缺失 `server.jar`；仍缺完整日志规则、崩溃归因和脱敏报告导出 |
 | 多页面工作区、稳定编号、日志过滤/位置保留 | ✅ | 顶栏页面列表、Ctrl-B 导航、`/pages`/`/page`/`/close`；关闭页面不停止服务端；实例日志过滤和读取位置随页面保留 |
 | 日志暂停、搜索、等级过滤、复制行、跳转错误上下文 | 🟡 | 已实现级别着色、实时 `f` 过滤、横向滚动、滚动条跳转和 `/rg`（当前/上一份轮转日志，`-i`/`-e`）；仍缺暂停缓冲、复制行和错误上下文跳转 |
 | 在线备份（`save-off`/`save-all`/一致性标记） | ❌ | 当前契约明确是 stopped-world v1；在线备份没有实现 |
@@ -156,10 +156,10 @@
 | `docs/ASYNC_CONCURRENCY.md` | 取消未暴露 | `CancelTask`、`mc-task` 协作取消、TUI 两次 `x`、CLI/TUI 已有 |
 | `docs/INSTANCE_SCHEMA.md` | 进度只有阶段、无取消 | 同上 |
 | `docs/SUPERVISION.md` | API protocol 8–9（current 9） | 当前协议范围 8–11（current 11），runner 协议 v1 |
-| `docs/TUI_TESTING.md`、`README*` | 旧测试总数 | 已更新为 macOS workspace 213 / `mc-tui` 89（2026-10-20 本地彩色测试运行） |
+| `docs/TUI_TESTING.md`、`README*` | 旧测试总数 | 已更新为 macOS workspace 217 / `mc-tui` 91（2026-10-20 本地彩色测试运行） |
 | `README*`、`docs/FAQ.md`、`docs/MODPACK_IMPORT.md` | `.mrpack` 只读、只有 Paper | 已实现 Paper/Fabric、ZIP/MRPACK 停服导入、`/players` 类型化操作和 Modrinth 扩展安装 |
 | `docs/IMPLEMENTATION_GAPS.md`、`docs/INTERACTION_DESIGN.md` | 没有属性编辑入口 | `/config` 已提供四字段编辑、差异检查、冲突检测和原子保存；完整属性目录和原始编辑仍待补 |
-| `README*`、`docs/INTERACTION_DESIGN.md` | 只有 start/stop | 已加入受控重启、TUI `/restart`/`R` 和 CLI 生命周期命令 |
+| `README*`、`docs/INTERACTION_DESIGN.md` | 只有 start/stop、启动失败只显示通用错误 | 已加入受控重启、TUI `/restart`/`R`、CLI 生命周期命令和五类启动失败诊断 |
 
 ## 6. 发布与分发阻塞项（按严重度）
 

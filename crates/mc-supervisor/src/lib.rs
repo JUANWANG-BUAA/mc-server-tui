@@ -442,6 +442,13 @@ impl ProcessSupervisor {
         record: &RuntimeRecord,
     ) -> Result<ServerSnapshot, AppError> {
         let identity = process::inspect(record).await?;
+        let failure_diagnosis = if identity == ProcessIdentity::NotRunning
+            && (record.last_error.is_some() || record.last_exit_code.is_some_and(|code| code != 0))
+        {
+            self.diagnose_failed_start(instance, record).await?
+        } else {
+            None
+        };
         let configured_port_available = if identity == ProcessIdentity::NotRunning {
             port_available(instance.port).await
         } else {
@@ -478,11 +485,16 @@ impl ProcessSupervisor {
             ProcessIdentity::NotRunning if record.last_error.is_some() => (
                 ServerState::Failed,
                 None,
-                "Server failed to start; inspect the instance logs.",
+                failure_diagnosis
+                    .unwrap_or("Server failed to start; inspect the instance logs."),
             ),
             ProcessIdentity::NotRunning => match record.last_exit_code {
                 Some(0) => (ServerState::Stopped, None, "Server stopped successfully."),
-                Some(_code) => (ServerState::Failed, None, "Server exited with an error."),
+                Some(_code) => (
+                    ServerState::Failed,
+                    None,
+                    failure_diagnosis.unwrap_or("Server exited with an error."),
+                ),
                 None if record.stopping => (ServerState::Stopped, None, "Server stopped."),
                 None => (
                     ServerState::Stopped,
@@ -497,6 +509,20 @@ impl ProcessSupervisor {
             ),
         };
         Ok(snapshot(instance, state, pid, Some(record), message))
+    }
+
+    async fn diagnose_failed_start(
+        &self,
+        instance: &InstanceSummary,
+        record: &RuntimeRecord,
+    ) -> Result<Option<&'static str>, AppError> {
+        let log = storage::read_logs(instance, u64::MAX, 64 * 1024).await?;
+        let mut evidence = record.last_error.clone().unwrap_or_default();
+        if !evidence.is_empty() && !log.content.is_empty() {
+            evidence.push('\n');
+        }
+        evidence.push_str(&log.content);
+        Ok(diagnose_failure_output(&evidence))
     }
 
     async fn lock_instance(
@@ -587,6 +613,39 @@ fn validate_console_command(command: &str) -> Result<(), AppError> {
         ));
     }
     Ok(())
+}
+
+fn diagnose_failure_output(output: &str) -> Option<&'static str> {
+    let output = output.to_ascii_lowercase();
+    if output.contains("unsupportedclassversionerror")
+        || output.contains("class file version")
+        || output.contains("requires java") && output.contains("current java")
+    {
+        return Some("Java is incompatible with this server; select a newer Java runtime.");
+    }
+    if output.contains("failed to bind to port") || output.contains("address already in use") {
+        return Some(
+            "The configured port is in use; stop the other process or choose another port.",
+        );
+    }
+    if output.contains("you need to agree to the eula") || output.contains("eula=false") {
+        return Some("The Minecraft EULA has not been accepted; accept it before starting.");
+    }
+    if output.contains("outofmemoryerror")
+        || output.contains("java heap space")
+        || output.contains("could not reserve enough space for object heap")
+    {
+        return Some("Java ran out of memory; raise the instance memory limit.");
+    }
+    if output.contains("invalid or corrupt jarfile")
+        || output.contains("unable to access jarfile")
+        || output.contains("could not find or load main class")
+    {
+        return Some(
+            "server.jar is missing, corrupt, or incompatible; reinstall the locked build.",
+        );
+    }
+    None
 }
 
 async fn port_available(port: u16) -> bool {

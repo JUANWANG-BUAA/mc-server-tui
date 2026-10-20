@@ -224,6 +224,44 @@ async fn unknown_pid_is_never_signalled_or_replaced() {
 }
 
 #[tokio::test]
+async fn failed_start_snapshot_surfaces_actionable_log_diagnosis() {
+    let mut fixture = Fixture::create().await;
+    fixture.release_port();
+    let supervisor = ProcessSupervisor::new(fixture.instances.clone());
+    let record = storage::RuntimeRecord {
+        schema_version: storage::RUNTIME_SCHEMA_VERSION,
+        instance_id: fixture.instance.id,
+        pid: 999_999,
+        java_pid: None,
+        marker: super::runner::runner_marker(fixture.instance.id),
+        started_at: Utc::now(),
+        stopping: false,
+        last_exit_code: Some(1),
+        last_error: None,
+    };
+    storage::write_record(&fixture.instance, &record)
+        .await
+        .expect("write failed runtime fixture");
+    tokio::fs::write(
+        fixture.instance.directory.join("logs/console.log"),
+        "Error: LinkageError: UnsupportedClassVersionError\n",
+    )
+    .await
+    .expect("write failed startup log");
+
+    let detail = supervisor
+        .detail(fixture.instance.id)
+        .await
+        .expect("read failed instance detail");
+    assert_eq!(detail.server.state, ServerState::Failed);
+    assert_eq!(
+        detail.server.message,
+        "Java is incompatible with this server; select a newer Java runtime."
+    );
+    fixture.remove().await;
+}
+
+#[tokio::test]
 async fn occupied_port_without_verified_process_is_unknown_and_not_started() {
     let fixture = Fixture::create().await;
     let supervisor = ProcessSupervisor::new(fixture.instances.clone());
@@ -338,6 +376,31 @@ fn console_command_rejects_line_breaks_and_control_characters() {
     assert!(super::validate_console_command("stop\nkill").is_err());
     assert!(super::validate_console_command("say\u{1b}red").is_err());
     assert!(super::validate_console_command(&"x".repeat(513)).is_err());
+}
+
+#[test]
+fn startup_failure_patterns_are_specific_and_actionable() {
+    assert_eq!(
+        super::diagnose_failure_output("java.lang.UnsupportedClassVersionError"),
+        Some("Java is incompatible with this server; select a newer Java runtime.")
+    );
+    assert_eq!(
+        super::diagnose_failure_output("FAILED TO BIND TO PORT"),
+        Some("The configured port is in use; stop the other process or choose another port.")
+    );
+    assert_eq!(
+        super::diagnose_failure_output("You need to agree to the EULA in order to run the server."),
+        Some("The Minecraft EULA has not been accepted; accept it before starting.")
+    );
+    assert_eq!(
+        super::diagnose_failure_output("java.lang.OutOfMemoryError: Java heap space"),
+        Some("Java ran out of memory; raise the instance memory limit.")
+    );
+    assert_eq!(
+        super::diagnose_failure_output("Error: Invalid or corrupt jarfile server.jar"),
+        Some("server.jar is missing, corrupt, or incompatible; reinstall the locked build.")
+    );
+    assert_eq!(super::diagnose_failure_output("ordinary log output"), None);
 }
 
 async fn wait_until_running(supervisor: &ProcessSupervisor, instance_id: Uuid) {

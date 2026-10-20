@@ -49,7 +49,7 @@ published scope.
 | --- | --- |
 | **Session TUI** | Transcript + composer + persistent status dock, slash-command completion, command palette, cursor editing, history, inline `/logs` and `/cancel` |
 | **Guided Paper setup** | Version/build picker with scrollbar and paging, Java binding, memory/port presets, EULA confirmation, plan preview |
-| **Lifecycle** | Idempotent start, graceful stop, controlled restart, readiness detection, console input, incremental logs, CPU/RSS readouts |
+| **Lifecycle** | Idempotent start, graceful stop, controlled restart, readiness detection, startup-failure diagnosis, console input, incremental logs, CPU/RSS readouts |
 | **Resident supervision** | Per-instance runner, process identity markers, daemon restarts reattach without killing Java |
 | **Durable tasks** | SQLite-backed queue, byte progress, speed/source, event cursors, cooperative cancellation |
 | **World backups** | Stopped-world discovery, preflight, staging copy, SHA-256 manifest, paged listing, verification, restore plan/token, rollback journal |
@@ -243,7 +243,7 @@ status (2026-10-20):
 | Modrinth add-on install, MRPACK/ZIP server-pack preview/import/export | Forge/NeoForge and authorized CurseForge file-ID downloads |
 | Session TUI, seven themes, Steve | Signing/notarization, Homebrew tap, deb/rpm |
 | API protocol 8–11 negotiation + runner protocol handshake | State schema migration and update task draining |
-| Controlled restart with coordinated shutdown/start and CLI lifecycle commands | Broader property coverage and startup-failure diagnostics |
+| Controlled restart and actionable startup-failure diagnosis | Broader property coverage and a real client join drill |
 | Four-field `server.properties` editor with diff review and conflict detection | More properties, raw editing, and restart operation |
 | Versioned `mc update status/rollback` | Signed self-updater with health checks |
 
@@ -284,8 +284,8 @@ cargo test --workspace
 cargo build --workspace
 ```
 
-Current automated evidence on macOS (2026-10-20): **213 workspace tests**,
-including **89 `mc-tui` tests**. Linux remains in the CI matrix but was not
+Current automated evidence on macOS (2026-10-20): **217 workspace tests**,
+including **91 `mc-tui` tests**. Linux remains in the CI matrix but was not
 re-run in this local verification. Four PTY scripts are under
 [`scripts/`](scripts/):
 

@@ -135,6 +135,20 @@ Cancellation is cooperative:
 The CLI exposes the same typed API as `mc cli instance start <id>`,
 `mc cli instance stop <id>`, and `mc cli instance restart <id>`.
 
+When startup exits with an error, the instance detail replaces the generic
+failed-start message with one actionable diagnosis when the bounded current log
+contains a supported signature:
+
+- incompatible Java runtime;
+- occupied configured port;
+- unaccepted EULA;
+- Java heap exhaustion;
+- missing, corrupt, or incompatible `server.jar`.
+
+Unknown failures still direct the user to inspect the instance log. Diagnosis
+describes evidence found in logs; it does not claim that the listed fix has
+already been applied.
+
 ## Server properties editor
 
 `/config` (alias `/properties`) opens the selected instance's

@@ -113,7 +113,7 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 验证：
 
-- `cargo test -p mc-tui --color always`：89 个单元/渲染测试，覆盖 shell 命令、`/restart` 调度、光标编辑、Enter 执行高亮补全、列表输出定位、transcript、completion popup、内联 `/logs`/`/cancel`、主题解析/枚举、史蒂夫像素头像帧差异、版本列表滚动、属性编辑状态和 classic 回归。
+- `cargo test -p mc-tui --color always`：91 个单元/渲染测试，覆盖 shell 命令、`/restart` 调度、启动失败中文诊断与两种尺寸可见性、光标编辑、Enter 执行高亮补全、列表输出定位、transcript、completion popup、内联 `/logs`/`/cancel`、主题解析/枚举、史蒂夫像素头像帧差异、版本列表滚动、属性编辑状态和 classic 回归。
 - 四个 PTY 脚本已改为 shell 入口：smoke 用 `/new` 打开向导；guided create 用 Ctrl-K 打开命令面板、`/task 1` 打开任务；task detail 用 `/task 1` 重开并保持事件游标；instance detail 用 `/open` 打开、`/quit` 退出。四者均通过。
 - 浏览器 80×24 截图覆盖 `shell-session-claude/mono/ocean`、命令补全、`/status`、F1 帮助、向导版本列表、任务进度和经典双面板。截图是视觉审查证据，交互和动画仍由状态测试与 PTY 字节流证明。
 
@@ -249,14 +249,14 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 ### 验证
 
-- `cargo test --workspace --color always`：213 项通过，其中 `mc-tui` 89、`mc-core` 14、`mc-daemon` 17、`mc-client` 2、`mc-supervisor` 12、`mc` 10。
+- `cargo test --workspace --color always`：217 项通过，其中 `mc-tui` 91、`mc-core` 14、`mc-daemon` 17、`mc-client` 2、`mc-supervisor` 14、`mc` 10。
 - 协议测试覆盖服务端报告 state/runner 版本、旧 `ServerInfo` 缺字段默认值、daemon 接受 v8–v11 并拒绝越界版本、旧请求过滤新任务、客户端按协商版本拒绝新操作、runner 旧帧兼容，以及 `mc update rollback` symlink 交换与目标 `state_schema` 读取。
 - 四个 PTY 回归全部通过；假 daemon 先响应 `server_info`，再继续原有的实例/任务/备份/取消断言。
 
 ## 本轮自动化回归（2026-10-20）
 
-- `cargo test --workspace --color always`：通过，macOS 本地 213 项测试，其中 `mc-tui` 89 项、`mc-core` 14 项、`mc-daemon` 17 项、`mc-client` 2 项、`mc-supervisor` 12 项、`mc-backup` 19 项、`mc` 10 项、`mc-config` 9 项、`mc-modpack` 2 项、`mc-task` 10 项、`mc-download` 8 项、`mc-instance` 6 项、`provider-paper` 8 项、`mc-cli` 5 项、`mc-system` 2 项。Linux 未在本次本机环境重跑；CI 矩阵仍包含 Ubuntu 22.04，额外的 `systemd-analyze` 测试只在 Linux 运行。
-- 本轮新增受控重启测试覆盖真实 fake-Java 子进程替换、新 PID、停止后拒绝重启、TUI `/restart` 调度、`R` 键和 CLI 命令映射；属性编辑测试继续覆盖字段校验、差异生成、冲突保留和 80×24/40×12 渲染。
+- `cargo test --workspace --color always`：通过，macOS 本地 217 项测试，其中 `mc-tui` 91 项、`mc-core` 14 项、`mc-daemon` 17 项、`mc-client` 2 项、`mc-supervisor` 14 项、`mc-backup` 19 项、`mc` 10 项、`mc-config` 9 项、`mc-modpack` 2 项、`mc-task` 10 项、`mc-download` 8 项、`mc-instance` 6 项、`provider-paper` 8 项、`mc-cli` 5 项、`mc-system` 2 项。Linux 未在本次本机环境重跑；CI 矩阵仍包含 Ubuntu 22.04，额外的 `systemd-analyze` 测试只在 Linux 运行。
+- 本轮新增受控重启测试覆盖真实 fake-Java 子进程替换、新 PID、停止后拒绝重启、TUI `/restart` 调度、`R` 键和 CLI 命令映射；启动失败测试覆盖五类日志签名、失败快照集成和中文可执行提示；属性编辑测试继续覆盖字段校验、差异生成、冲突保留和 80×24/40×12 渲染。
 - `python3 scripts/check_protocol_window.py`：通过，实际 daemon 接受 v8–v11，旧版本分别拒绝管理、属性和重启操作，v7/v12 越界请求返回明确错误。
 - 四个 PTY 脚本全部重新通过：冒烟、命令面板向导、任务详情和实例详情。实例页覆盖启动、控制台、`R` 受控重启、优雅停止、备份/恢复流程与终端恢复；测试子进程固定 Claude 主题并移除 `NO_COLOR`，避免依赖用户当前主题。
 - 真实 Paper 1.21.11 隔离演练：首次运行 PID 3482，受控重启后新进程 PID 3565 并再次就绪，最终优雅停止且退出码为 0。记录见
