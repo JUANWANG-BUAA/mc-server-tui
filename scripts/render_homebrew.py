@@ -29,14 +29,11 @@ def main() -> None:
             raise SystemExit(f"manifest has no macOS target {name!r}") from error
 
     arm = target("aarch64-apple-darwin")
-    intel = target("x86_64-apple-darwin")
     template = args.template.read_text(encoding="utf-8")
     replacements = {
         "{{VERSION}}": manifest["version"],
         "{{URL_ARM64}}": arm["url"],
         "{{SHA256_ARM64}}": arm["sha256"],
-        "{{URL_X86_64}}": intel["url"],
-        "{{SHA256_X86_64}}": intel["sha256"],
     }
     for marker, value in replacements.items():
         template = template.replace(marker, value)

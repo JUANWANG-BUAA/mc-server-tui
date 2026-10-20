@@ -1,7 +1,7 @@
 # Homebrew tap
 
-The formula is rendered from a signed release manifest after the macOS
-`aarch64-apple-darwin` and `x86_64-apple-darwin` artifacts exist:
+The formula is rendered from the release manifest after the Apple Silicon
+`aarch64-apple-darwin` artifact exists:
 
 ```sh
 python3 scripts/render_homebrew.py dist/0.2.0/release-manifest.json

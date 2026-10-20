@@ -8,11 +8,6 @@ class McServerTui < Formula
     sha256 "{{SHA256_ARM64}}"
   end
 
-  on_intel do
-    url "{{URL_X86_64}}"
-    sha256 "{{SHA256_X86_64}}"
-  end
-
   def install
     bin.install "bin/mc", "bin/mc-server-tui", "bin/mc-server-tui-daemon", "bin/mc-server-tui-cli"
   end
