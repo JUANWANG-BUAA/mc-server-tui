@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="output/playwright/themes-overview.png" alt="mc-server-tui with seven terminal themes and a pixel Steve mascot" width="100%">
+  <img src="output/playwright/themes-overview-20261020.png" alt="mc-server-tui with seven terminal themes and a pixel Steve mascot" width="100%">
   <h1>mc-server-tui</h1>
   <p><a href="README.zh-CN.md">简体中文</a> · <strong>English</strong></p>
   <p><strong>A terminal-first Minecraft Java server manager for macOS and Linux.</strong></p>
@@ -59,9 +59,9 @@ This table describes the `v0.2.0` alpha release and its exact published scope.
 
 | Session shell | Guided Paper creation |
 | --- | --- |
-| <img src="output/playwright/shell-session-claude-80x24.png" alt="Session shell with transcript, composer, status dock, and Steve" width="100%"> | <img src="output/playwright/theme-create-version-80x24.png" alt="Paper version picker" width="100%"> |
+| <img src="output/playwright/shell-session-claude-20261020.png" alt="Session shell with transcript, composer, status dock, and Steve" width="100%"> | <img src="output/playwright/theme-create-version-20261020.png" alt="Paper version picker with 26.x before 1.21.x" width="100%"> |
 | **Backup manager** | **Byte-level task progress** |
-| <img src="output/playwright/theme-backup-manager-80x24.png" alt="World backup manager" width="100%"> | <img src="output/playwright/theme-download-progress-80x24.png" alt="Download task with progress and source" width="100%"> |
+| <img src="output/playwright/theme-backup-manager-20261020.png" alt="World backup manager" width="100%"> | <img src="output/playwright/theme-download-progress-20261020.png" alt="Download task with progress and source" width="100%"> |
 
 More visual evidence, including all seven themes and the Steve animation states,
 lives in [`output/playwright/`](output/playwright/).

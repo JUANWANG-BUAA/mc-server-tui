@@ -1,6 +1,6 @@
 <div align="center">
   <a href="README.md">English</a> · <strong>简体中文</strong> · <a href="https://juanwang-buaa.github.io/mc-server-tui/">官网</a>
-  <img src="output/playwright/themes-overview.png" alt="mc-server-tui 七套主题与像素史蒂夫" width="100%">
+  <img src="output/playwright/themes-overview-20261020.png" alt="mc-server-tui 七套主题与像素史蒂夫" width="100%">
   <h1>mc-server-tui</h1>
   <p><strong>面向 macOS / Linux 的终端优先 Minecraft Java 服务端管理器。</strong></p>
   <p>Paper 引导建服 · Fabric 建服 · 常驻 runner · 实时控制台 · 校验下载 · 世界备份 · Claude Code 风格会话 · 七套主题</p>

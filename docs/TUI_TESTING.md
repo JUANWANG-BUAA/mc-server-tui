@@ -202,6 +202,11 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 在 830×500 浏览器视口、实测 80×24 终端下保存：
 
+- `output/playwright/shell-session-claude-20261020.png`
+- `output/playwright/theme-create-version-20261020.png`
+- `output/playwright/theme-backup-manager-20261020.png`
+- `output/playwright/theme-download-progress-20261020.png`
+- `output/playwright/themes-overview-20261020.png`
 - `output/playwright/theme-guided-dashboard-80x24.png`
 - `output/playwright/theme-command-palette-80x24.png`
 - `output/playwright/theme-create-version-80x24.png`
@@ -210,6 +215,10 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 - `output/playwright/theme-download-progress-80x24.png`
 - `output/playwright/theme-modpack-picker-80x24.png`
 - `output/playwright/theme-modpack-report-80x24.png`
+
+2026-10-20 的新版截图使用当前 0.2.0 可执行文件和当前视觉假 daemon 重新生成。
+向导截图明确验证 `26.3 / 26.2` 排在 `1.21.11` 前面；旧文件继续保留用于历史对照，
+官网和 Release 页面引用带日期的新文件名，避免同名资源命中浏览器缓存。
 
 视觉复核确认：命令面板以整屏暗色 scrim 清空底层信息，分组标题、标题/描述两行层级和选中背景清晰；向导进度点、字段焦点、推荐 Java、内存档位和 Review 资源摘要可读；任务详情同时显示进度条、字节、百分比、速度、来源和两级取消提示；整合包页面明确区分选择、证据、下一步与只读边界。
 
