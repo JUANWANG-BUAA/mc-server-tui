@@ -10,6 +10,8 @@
 > **v0.2.0 是未签名的 alpha pre-release。** 安装器只校验 release manifest 的
 > SHA-256 和文件大小，没有代码签名或 macOS 公证。请始终为重要世界保留独立备份。
 
+完整操作流程、安全边界和免责声明见[中英文使用手册](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/)。
+
 ## 为什么做这个项目
 
 Minecraft 服务端管理工具通常要求浏览器面板、较宽的系统权限，或者把真正的
@@ -215,6 +217,9 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 ## 文档
 
 - [官网](https://juanwang-buaa.github.io/mc-server-tui/)
+- [中文使用手册（站内）](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/)
+- [中文使用手册（Markdown）](docs/USER_GUIDE.zh-CN.md)
+- [English user guide](docs/USER_GUIDE.md)
 - [文档索引](docs/README.md)
 - [FAQ](docs/FAQ.md)
 - [交互设计](docs/INTERACTION_DESIGN.md)

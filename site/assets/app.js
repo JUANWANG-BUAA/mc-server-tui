@@ -53,6 +53,7 @@
   const themeLabel = document.querySelector("#theme-preview-label");
   const controls = [...document.querySelectorAll("[data-set-theme]")];
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const hasThemePreview = Boolean(heroShot || themeShot);
 
   function transitionImage(image, source, label) {
     if (!image) return;
@@ -109,10 +110,12 @@
   }
   applyTheme(savedTheme, false);
 
-  Object.values(themes).forEach((theme) => {
-    const image = new Image();
-    image.src = theme.image;
-  });
+  if (hasThemePreview) {
+    Object.values(themes).forEach((theme) => {
+      const image = new Image();
+      image.src = theme.image;
+    });
+  }
 
   const copyButton = document.querySelector("#copy-install");
   const installSnippet = document.querySelector("#install-snippet");
@@ -166,7 +169,7 @@
   }
 
   const header = document.querySelector("#site-header");
-  const navLinks = [...document.querySelectorAll(".nav a[href^='#']")];
+  const navLinks = [...document.querySelectorAll(".nav:not(.docs-top-nav) a[href^='#']")];
   const sections = navLinks
     .map((link) => document.querySelector(link.getAttribute("href")))
     .filter(Boolean);

@@ -21,6 +21,10 @@
 > manifest's SHA-256 and file size, but there is no code signature or macOS
 > notarization yet. Keep independent backups of any world you care about.
 
+Read the [bilingual user guide](https://juanwang-buaa.github.io/mc-server-tui/docs/)
+for installation, everyday commands, backup and restore, troubleshooting, and
+the alpha's safety limits.
+
 ## Why another server manager?
 
 Most Minecraft server panels assume a browser, a daemon with broad privileges,
@@ -255,6 +259,9 @@ distribution.
 | Start here | Deep dives |
 | --- | --- |
 | [Website](https://juanwang-buaa.github.io/mc-server-tui/) | Screenshots, theme switcher, architecture, install |
+| [User guide](docs/USER_GUIDE.md) | Complete Markdown tutorial from install to recovery |
+| [中文使用手册](docs/USER_GUIDE.zh-CN.md) | 从安装到备份恢复、排错与安全边界 |
+| [Online documentation](https://juanwang-buaa.github.io/mc-server-tui/docs/) | Native bilingual guide with chapter navigation |
 | [Documentation index](docs/README.md) | Every contract in one place |
 | [FAQ](docs/FAQ.md) | Java, service, data paths, alpha limits |
 | [Interaction design](docs/INTERACTION_DESIGN.md) | Shell/overlay/drill-in hierarchy, themes, mascot |

@@ -3,6 +3,14 @@
 Start with the [README](../README.md) for installation and the quick tour. The
 documents below are the implementation contracts behind the current alpha.
 
+## For users
+
+| Document | What it covers |
+| --- | --- |
+| [User guide](USER_GUIDE.md) | Complete English tutorial: install, create, operate, back up, troubleshoot, and understand alpha limits |
+| [中文使用手册](USER_GUIDE.zh-CN.md) | 完整中文教程：安装、建服、日常操作、备份恢复、排错与免责声明 |
+| [Online documentation](https://juanwang-buaa.github.io/mc-server-tui/docs/) | Native bilingual site with chapter navigation and mobile layout |
+
 ## Product and architecture
 
 | Document | What it covers |

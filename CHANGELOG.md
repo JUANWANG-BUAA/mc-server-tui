@@ -5,6 +5,12 @@ All notable user-facing changes are recorded here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Complete English and Chinese user guides, plus native documentation pages
+  with chapter navigation, code copy controls, mobile layout, and explicit
+  hosting, data-safety, license, and no-warranty notices.
+
 ### Planned
 
 - Vanilla provider and takeover of existing server directories.

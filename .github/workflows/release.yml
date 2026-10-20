@@ -126,6 +126,11 @@ jobs:
 
           Review the manifest, checksums, and release notes before running a
           downloaded installer. Phase 2 will add signing and notarization.
+
+          ### Documentation
+
+          - [English user guide](https://juanwang-buaa.github.io/mc-server-tui/docs/)
+          - [中文使用手册](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/)
           EOF
           ls -lh dist
       - name: Create or update draft release

@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "site/**"
+      - "docs/USER_GUIDE.md"
+      - "docs/USER_GUIDE.zh-CN.md"
+      - "scripts/build_docs_site.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -31,6 +34,9 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+
+      - name: Build native documentation pages
+        run: python3 scripts/build_docs_site.py
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
