@@ -2,7 +2,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Frame,
 };
 
@@ -35,7 +35,7 @@ pub(crate) fn render(
     } else if let Some(plan) = &state.plan {
         render_plan(frame, areas[1], state, plan, compact);
     } else if let Some(backup_id) = state.restored_backup_id {
-        render_restored(frame, areas[1], backup_id, compact);
+        render_restored(frame, areas[1], state, backup_id, compact);
     } else if state.backups.is_empty() && state.operation().is_some() {
         render_loading(frame, areas[1], state, animation_frame);
     } else {
@@ -56,11 +56,11 @@ fn render_header(frame: &mut Frame<'_>, area: Rect, state: &BackupManagerState, 
         vec![
             line,
             Line::from(vec![
-                Span::styled(" 停机一致性", theme::success()),
+                Span::styled(" 备份与恢复需要停服", theme::muted()),
                 Span::raw("  ·  "),
-                Span::styled("分页目录", theme::accent()),
+                Span::styled("F3 技术详情", theme::muted()),
                 Span::raw("  ·  "),
-                Span::styled("恢复前强制复验", theme::warning()),
+                Span::styled("恢复前先预览影响", theme::muted()),
             ]),
         ]
     };
@@ -92,7 +92,7 @@ fn render_browser(
     } else {
         let rows = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Length(3), Constraint::Min(1)])
+            .constraints([Constraint::Length(2), Constraint::Min(1)])
             .split(area);
         let title = format!(
             "已载入 {} 个通过完整性校验的备份{}",
@@ -151,7 +151,11 @@ fn render_backup_list(
                         },
                     ),
                     Span::styled(
-                        backup.created_at.format("%m-%d %H:%M").to_string(),
+                        backup
+                            .created_at
+                            .with_timezone(&chrono::Local)
+                            .format("%m-%d %H:%M")
+                            .to_string(),
                         theme::accent(),
                     ),
                     Span::styled(
@@ -219,6 +223,7 @@ fn render_selected_backup(
     let Some(backup) = state.selected_backup() else {
         frame.render_widget(
             Paragraph::new("暂无备份摘要")
+                .wrap(Wrap { trim: false })
                 .block(panel("所选备份", false))
                 .style(theme::surface()),
             area,
@@ -237,20 +242,20 @@ fn render_selected_backup(
             Span::styled("正在等待后台任务结果", theme::warning()),
         ])
     } else {
-        Line::from(Span::styled("按 v 重新哈希并验证所选备份", theme::muted()))
+        Line::from(Span::styled("v 重新检查备份完整性", theme::muted()))
     };
     let mut lines = vec![
-        Line::from(Span::styled(backup.id.to_string(), theme::accent())),
         Line::from(vec![Span::styled(
             backup
                 .created_at
-                .format("%Y-%m-%d %H:%M:%S UTC")
+                .with_timezone(&chrono::Local)
+                .format("%Y-%m-%d %H:%M %:z")
                 .to_string(),
             theme::muted(),
         )]),
         Line::from(vec![
             Span::styled("一致性  ", label_style()),
-            Span::styled("服务已停止 · 复制后已复验", theme::success()),
+            Span::styled("创建时已停服 · 已校验", theme::success()),
         ]),
         Line::from(vec![
             Span::styled("内容    ", label_style()),
@@ -272,16 +277,23 @@ fn render_selected_backup(
         ]));
         lines.push(Line::from(vec![
             Span::styled("确认    ", label_style()),
-            Span::styled("c 输入 RESTORE", theme::warning()),
+            Span::styled("预览后再确认恢复", theme::warning()),
         ]));
         lines.push(Line::from(Span::styled(
             "停机恢复；替换前保留当前世界回滚目录。",
             theme::muted(),
         )));
     }
+    if state.show_details {
+        lines.push(Line::from(Span::styled(
+            format!("备份 ID  {}", backup.id),
+            theme::muted(),
+        )));
+    }
     frame.render_widget(
         Paragraph::new(lines)
-            .block(panel("所选备份", !compact))
+            .wrap(Wrap { trim: false })
+            .block(panel("所选备份", false))
             .style(theme::surface()),
         area,
     );
@@ -312,7 +324,7 @@ fn render_loading(
             ),
         ]),
         Line::from(Span::styled(
-            "目录页和文件哈希均由 daemon 在实例锁内校验。",
+            "正在检查备份文件，完成后可选择恢复时间。",
             theme::muted(),
         )),
         Line::from(Span::styled(task, theme::muted())),
@@ -348,10 +360,7 @@ fn render_plan(
                     .to_string(),
                 theme::accent(),
             ),
-            Span::styled(
-                format!(" 的备份 · {}", &plan.backup_id.to_string()[..8]),
-                theme::muted(),
-            ),
+            Span::styled(" 的备份".to_owned(), theme::muted()),
         ]),
         impact_line("替换", &plan.replaced_worlds, theme::warning()),
         impact_line("新增", &plan.added_worlds, theme::accent()),
@@ -388,8 +397,16 @@ fn render_plan(
             "恢复完成后服务器保持停止，由你复查并显式启动；失败自动回滚。",
             theme::warning(),
         )));
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled("技术细节", label_style())));
+        lines.push(Line::from(Span::styled(
+            "当前世界保留在回滚目录；备份时间之后的进度不会合并。",
+            theme::text(),
+        )));
+    }
+    if state.show_details && !compact {
+        lines.push(Line::from(Span::styled(
+            "技术细节 · F3 收起",
+            label_style(),
+        )));
         lines.push(Line::from(Span::styled(
             "1. 停止并锁定实例，复验目标备份与当前世界现场树。",
             theme::muted(),
@@ -433,7 +450,7 @@ fn render_restoring(
                 theme::warning(),
             ),
             Span::styled(
-                "正在执行恢复事务",
+                "正在恢复世界",
                 theme::warning().add_modifier(Modifier::BOLD),
             ),
         ]),
@@ -442,7 +459,7 @@ fn render_restoring(
             Span::styled(worlds, theme::accent()),
         ]),
         Line::from(Span::styled(
-            "当前世界、暂存副本和回滚目录按 journal 顺序替换。",
+            "正在替换世界文件，并保留恢复前的世界副本。",
             theme::muted(),
         )),
         Line::from(Span::styled(
@@ -464,13 +481,19 @@ fn render_restoring(
     }
     frame.render_widget(
         Paragraph::new(lines)
-            .block(panel("恢复事务 · 执行中", true))
+            .block(panel("恢复世界 · 执行中", true))
             .style(theme::surface()),
         area,
     );
 }
 
-fn render_restored(frame: &mut Frame<'_>, area: Rect, backup_id: uuid::Uuid, compact: bool) {
+fn render_restored(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    state: &BackupManagerState,
+    backup_id: uuid::Uuid,
+    compact: bool,
+) {
     let mut lines = vec![
         Line::from(Span::styled(
             "✓ 世界恢复完成并通过目录树校验",
@@ -478,7 +501,21 @@ fn render_restored(frame: &mut Frame<'_>, area: Rect, backup_id: uuid::Uuid, com
         )),
         Line::from(vec![
             Span::styled("来源  ", label_style()),
-            Span::styled(backup_id.to_string(), theme::accent()),
+            Span::styled(
+                state
+                    .backups
+                    .iter()
+                    .find(|backup| backup.id == backup_id)
+                    .map(|backup| {
+                        backup
+                            .created_at
+                            .with_timezone(&chrono::Local)
+                            .format("%Y-%m-%d %H:%M %:z")
+                            .to_string()
+                    })
+                    .unwrap_or_else(|| "所选备份".to_owned()),
+                theme::text(),
+            ),
         ]),
         Line::from(Span::styled(
             "服务器保持停止；Esc 返回实例详情后可复查日志并启动。",
@@ -487,7 +524,7 @@ fn render_restored(frame: &mut Frame<'_>, area: Rect, backup_id: uuid::Uuid, com
     ];
     if !compact {
         lines.push(Line::from(Span::styled(
-            "如启动异常，请保留当前日志并检查 daemon 的恢复事务证据，不要直接覆盖世界目录。",
+            "启动后进入游戏核对世界；如有异常，保留日志和回滚目录再排查。",
             theme::muted(),
         )));
         lines.push(Line::from(Span::styled(
@@ -558,13 +595,13 @@ fn render_footer(
         )
     } else if state.is_reviewing_plan() {
         (
-            help_line("c", "输入恢复确认", "Esc", "取消预览", "q", "退出"),
+            help_line("c", "输入恢复确认", "Esc", "取消预览", "F3", "详情"),
             help_line("RESTORE", "完整短语", "c", "重新输入", "Esc", "不执行恢复"),
         )
     } else if state.is_restoring() {
         (
             Line::from(Span::styled(
-                "恢复事务运行中；本页自动读取持久任务结果。",
+                "正在恢复世界；本页自动显示结果。",
                 theme::warning(),
             )),
             help_line(
@@ -605,7 +642,7 @@ fn render_footer(
         )
     } else {
         (
-            help_line("v", "校验所选", "Enter", "恢复预览", "d", "主页"),
+            help_line("v", "校验所选", "Enter", "恢复预览", "F3", "详情"),
             if state.has_more() {
                 help_line("m", "更多", "b", "新建备份", "Esc", "返回")
             } else {

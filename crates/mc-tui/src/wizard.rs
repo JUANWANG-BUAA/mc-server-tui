@@ -28,6 +28,7 @@ pub(crate) enum WizardAction {
     Insert(char),
     Backspace,
     ToggleAcceptance,
+    ToggleRuntimeSettings,
 }
 
 #[derive(Debug)]
@@ -67,6 +68,7 @@ pub(crate) struct CreateWizard {
     pub java_runtimes: Vec<JavaRuntime>,
     pub selected_java: usize,
     pub memory_profile: usize,
+    pub runtime_settings_expanded: bool,
     pub port: String,
     pub accept_eula: bool,
     pub focused_field: usize,
@@ -86,6 +88,7 @@ impl Default for CreateWizard {
             java_runtimes: Vec::new(),
             selected_java: 0,
             memory_profile: 1,
+            runtime_settings_expanded: false,
             port: "25565".to_owned(),
             accept_eula: false,
             focused_field: 0,
@@ -178,7 +181,33 @@ impl CreateWizard {
         if self.submitting {
             return WizardOutcome::None;
         }
+        if self.step == WizardStep::Runtime
+            && !self.runtime_settings_expanded
+            && matches!(
+                action,
+                WizardAction::Up
+                    | WizardAction::Down
+                    | WizardAction::PreviousChoice
+                    | WizardAction::NextChoice
+                    | WizardAction::PagePrevious
+                    | WizardAction::PageNext
+                    | WizardAction::FirstChoice
+                    | WizardAction::LastChoice
+                    | WizardAction::SelectChoice(_)
+                    | WizardAction::Insert(_)
+                    | WizardAction::Backspace
+            )
+        {
+            return WizardOutcome::None;
+        }
         match action {
+            WizardAction::ToggleRuntimeSettings => {
+                if self.step == WizardStep::Runtime {
+                    self.runtime_settings_expanded = !self.runtime_settings_expanded;
+                    self.focused_field = 0;
+                }
+                WizardOutcome::None
+            }
             WizardAction::Advance => self.advance(),
             WizardAction::Back => self.back(),
             WizardAction::Up => {
@@ -198,11 +227,17 @@ impl CreateWizard {
                 }
             }
             WizardAction::FocusNext => {
+                if self.step == WizardStep::Runtime {
+                    self.runtime_settings_expanded = true;
+                }
                 self.focused_field = (self.focused_field + 1) % self.field_count();
                 self.error = None;
                 WizardOutcome::None
             }
             WizardAction::FocusPrevious => {
+                if self.step == WizardStep::Runtime {
+                    self.runtime_settings_expanded = true;
+                }
                 self.focused_field = self
                     .focused_field
                     .checked_sub(1)
@@ -329,11 +364,15 @@ impl CreateWizard {
                     return WizardOutcome::None;
                 }
                 self.step = WizardStep::Runtime;
+                self.selected_java =
+                    preferred_java_index(&self.java_runtimes, self.required_java())
+                        .unwrap_or(self.selected_java);
                 self.focused_field = 0;
                 WizardOutcome::None
             }
             WizardStep::Runtime => {
                 if let Err((field, message)) = self.validate_runtime() {
+                    self.runtime_settings_expanded = true;
                     self.focused_field = field;
                     self.error = Some(message);
                     return WizardOutcome::None;

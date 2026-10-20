@@ -186,6 +186,7 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             _ => Action::Ignore,
         },
         UiMode::Wizard(step) => Action::Wizard(match code {
+            KeyCode::F(3) => WizardAction::ToggleRuntimeSettings,
             KeyCode::Esc => WizardAction::Back,
             KeyCode::Enter => WizardAction::Advance,
             KeyCode::Tab => WizardAction::FocusNext,
@@ -221,6 +222,7 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
         } => match code {
             KeyCode::Char('q') => Action::Quit,
             KeyCode::Esc | KeyCode::Backspace => Action::BackFromBackups,
+            KeyCode::F(3) => Action::ToggleBackupDetails,
             KeyCode::Char('c') => Action::BeginRestoreConfirmation,
             KeyCode::Char('d') => Action::GoDashboard,
             KeyCode::Char('/') => Action::OpenCommandPalette,
@@ -228,6 +230,7 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             _ => Action::Ignore,
         },
         UiMode::BackupManager { .. } => match code {
+            KeyCode::F(3) => Action::ToggleBackupDetails,
             KeyCode::Char('q') => Action::Quit,
             KeyCode::Esc | KeyCode::Backspace => Action::BackFromBackups,
             KeyCode::Up | KeyCode::Char('k') => Action::Previous,
@@ -281,6 +284,7 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
                     KeyCode::Home => Action::First,
                     KeyCode::End => Action::Last,
                     KeyCode::Char('r') => Action::RefreshInstanceDetail,
+                    KeyCode::F(3) => Action::ToggleInstanceSummary,
                     KeyCode::Char('f') => Action::BeginLogSearch,
                     KeyCode::Left => Action::LogLeft,
                     KeyCode::Right => Action::LogRight,

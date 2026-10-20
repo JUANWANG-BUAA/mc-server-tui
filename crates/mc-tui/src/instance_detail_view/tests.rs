@@ -44,9 +44,14 @@ fn renders_instance_state_and_controls_at_reference_and_compact_sizes() {
     assert!(standard.contains("生存服"));
     assert!(standard.contains("运行中"));
     assert!(standard.contains("控制台日志"));
-    assert!(standard.contains("启动"));
+    assert!(standard.contains("重启"));
     assert!(standard.contains("备份"));
 
+    state.summary_expanded = true;
+    let expanded = render_to_text(&state, 80, 24);
+    assert!(expanded.contains("1234"));
+    state.summary_expanded = false;
+    assert!(!standard.contains("1234"));
     let compact = render_to_text(&state, 40, 12);
     assert!(compact.contains("运行中"));
     assert!(compact.contains("已就绪"));

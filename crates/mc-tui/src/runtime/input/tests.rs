@@ -360,3 +360,42 @@ fn shell_mode_maps_composer_navigation_and_theme_keys() {
         UiMode::Shell
     );
 }
+
+#[test]
+fn details_shortcut_is_contextual_and_does_not_submit_input() {
+    for (mode, expected) in [
+        (
+            UiMode::Wizard(WizardStep::Runtime),
+            Action::Wizard(crate::wizard::WizardAction::ToggleRuntimeSettings),
+        ),
+        (
+            UiMode::InstanceDetail {
+                editing_console: false,
+            },
+            Action::ToggleInstanceSummary,
+        ),
+        (
+            UiMode::BackupManager {
+                editing_confirmation: false,
+                reviewing_plan: true,
+            },
+            Action::ToggleBackupDetails,
+        ),
+    ] {
+        assert_eq!(
+            action_for_key(KeyCode::F(3), KeyModifiers::NONE, mode),
+            expected
+        );
+    }
+    assert_eq!(
+        action_for_key(
+            KeyCode::F(3),
+            KeyModifiers::NONE,
+            UiMode::BackupManager {
+                editing_confirmation: true,
+                reviewing_plan: true
+            }
+        ),
+        Action::Ignore
+    );
+}

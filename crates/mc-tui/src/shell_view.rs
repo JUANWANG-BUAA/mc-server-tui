@@ -10,7 +10,7 @@ use crate::{
     app::AppState,
     hit::{HitMap, HitTarget},
     shell,
-    task_presentation::{kind_short, phase_label, status_label, status_style},
+    task_presentation::{kind_short, phase_label, status_style},
     theme, ui,
 };
 
@@ -25,10 +25,10 @@ pub(crate) fn render(
     let root = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),
+            Constraint::Length(3),
             Constraint::Min(1),
             Constraint::Length(3),
-            Constraint::Length(if compact { 3 } else { 5 }),
+            Constraint::Length(1),
             Constraint::Length(1),
         ])
         .split(area);
@@ -55,112 +55,100 @@ pub(crate) fn render(
                     .is_some_and(|time| (chrono::Utc::now() - time).num_seconds() < 10)
             })
         });
-    if let Some(task) = activity.filter(|_| root[1].height >= 10) {
-        let body = Layout::vertical([Constraint::Length(6), Constraint::Min(1)]).split(root[1]);
-        render_activity(frame, body[0], task, animation_frame);
+    if let Some(task) = activity.filter(|_| root[1].height >= 3) {
+        let body = Layout::vertical([Constraint::Length(2), Constraint::Min(1)]).split(root[1]);
+        render_activity(frame, body[0], app, task, animation_frame);
         render_transcript(frame, body[1], app, hits);
     } else {
         render_transcript(frame, root[1], app, hits);
     }
     render_composer(frame, root[2], app, compact);
-    render_dock(frame, root[3], app, animation_frame, compact);
+    let connection = match app.connected {
+        Some(true) => "管理服务已连接",
+        Some(false) => "管理服务已断开 · 显示上次状态；/refresh 重连",
+        None => "管理服务连接中…",
+    };
+    let status = if app.status == "已连接 · 自动刷新中"
+        || app.status == "正在连接后台服务…"
+        || app.connected == Some(false)
+    {
+        connection.to_owned()
+    } else {
+        format!("{} · {connection}", app.status)
+    };
+    frame.render_widget(
+        Paragraph::new(status).style(if app.connected == Some(false) {
+            theme::warning()
+        } else {
+            theme::muted()
+        }),
+        root[3],
+    );
     render_footer(frame, root[4], app);
     render_suggestions(frame, root[2], app, hits);
 }
 
-fn render_activity(frame: &mut Frame<'_>, area: Rect, task: &mc_core::TaskSnapshot, tick: u8) {
-    let active = matches!(
-        task.status,
-        mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running
-    );
-    let mut bar = ui::progress_bar(
-        ui::task_ratio(task),
-        area.width.saturating_sub(10) as usize,
-        theme::progress(),
-    );
-    bar.push(Span::styled(
-        if active && task.progress.as_ref().is_none_or(|p| p.transfer.is_none()) {
-            "  …".to_owned()
+fn render_activity(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    app: &AppState,
+    task: &mc_core::TaskSnapshot,
+    tick: u8,
+) {
+    let target = task
+        .instance_id
+        .and_then(|id| app.instances.iter().find(|instance| instance.id == id))
+        .map(|instance| instance.name.as_str())
+        .unwrap_or("新服务器 / 后台任务");
+    let number = app
+        .tasks
+        .iter()
+        .position(|candidate| candidate.id == task.id)
+        .unwrap_or(0)
+        + 1;
+    let title = format!(
+        "{} · /task {number} 查看详情{}",
+        target,
+        if crate::task_presentation::is_cancelable_download(task) {
+            " · /cancel"
         } else {
-            format!(" {:>3}%", ui::task_percent(task))
-        },
-        status_style(task.status),
-    ));
-    let detail = if task.progress.as_ref().is_some_and(|p| p.transfer.is_some()) {
-        ui::task_detail_label(task)
-    } else if task.status == mc_core::TaskStatus::Succeeded {
-        "操作已完成；结果已写入下方会话。".to_owned()
-    } else if let Some(error) = &task.error {
-        error.reason.clone()
-    } else {
-        format!("{} · 操作进行中…", task.message)
-    };
+            ""
+        }
+    );
     frame.render_widget(
         Paragraph::new(vec![
-            Line::from(vec![Span::styled(
-                format!(
-                    "{} {} · {}",
-                    crate::task_presentation::activity_symbol(task.status, tick),
-                    crate::task_presentation::kind_label(task.kind),
-                    phase_label(task.phase)
-                ),
-                status_style(task.status),
-            )]),
-            Line::from(bar),
+            task_line(task, area.width, tick),
             Line::from(Span::styled(
-                ui::truncate(&detail, area.width.saturating_sub(4) as usize),
+                ui::truncate(&title, area.width as usize),
                 theme::muted(),
             )),
-            Line::from(Span::styled(
-                if active {
-                    "/task 查看来源与事件 · /cancel 取消下载"
-                } else {
-                    "/tasks 查看任务历史"
-                },
-                theme::muted(),
-            )),
-        ])
-        .block(
-            Block::bordered()
-                .title(" 下载与后台任务 ")
-                .border_style(status_style(task.status))
-                .style(theme::surface()),
-        ),
+        ]),
         area,
     );
 }
 
+fn selected_server(app: &AppState) -> Option<&mc_core::ServerSnapshot> {
+    let instance = app.instances.get(app.selected_instance)?;
+    app.instance_detail
+        .as_ref()
+        .and_then(|detail| detail.detail.as_ref())
+        .map(|detail| &detail.server)
+        .filter(|server| server.instance_id == instance.id)
+        .or_else(|| app.servers.get(&instance.id))
+}
+
 fn render_header(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
-    let (online, online_style) = app.connection_badge();
-    let line = Line::from(vec![
-        Span::styled(" ", theme::muted()),
-        Span::styled(online, online_style),
-        Span::styled("  ·  实例 ", theme::muted()),
-        Span::styled(
-            app.instances.len().to_string(),
-            theme::accent().add_modifier(Modifier::BOLD),
-        ),
-        Span::styled("  ·  任务 ", theme::muted()),
-        Span::styled(
-            app.tasks.len().to_string(),
-            theme::accent().add_modifier(Modifier::BOLD),
-        ),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled(
-            ui::truncate(&app.status, area.width.saturating_sub(30) as usize),
-            if app.connected == Some(false) {
-                theme::danger()
-            } else {
-                theme::muted()
-            },
-        ),
-    ]);
+    let lines = vec![
+        instance_line(app),
+        quick_actions_line(app),
+        resource_line(app, area.width < 80),
+    ];
     frame.render_widget(
-        Paragraph::new(line).block(
-            Block::default()
-                .borders(Borders::BOTTOM)
-                .border_type(theme::border_type())
-                .border_style(theme::border(false)),
+        Paragraph::new(
+            lines
+                .into_iter()
+                .map(|line| ui::clamp_line(line, area.width as usize))
+                .collect::<Vec<_>>(),
         ),
         area,
     );
@@ -170,6 +158,17 @@ fn render_transcript(frame: &mut Frame<'_>, area: Rect, app: &AppState, hits: &m
     if area.height == 0 {
         return;
     }
+    let area = if app.instances.is_empty()
+        && app.tasks.is_empty()
+        && area.width >= 80
+        && area.height >= 10
+    {
+        let columns = Layout::horizontal([Constraint::Length(11), Constraint::Min(1)]).split(area);
+        render_mascot(frame, columns[0], 2, false);
+        columns[1]
+    } else {
+        area
+    };
     let text_width = area.width.saturating_sub(2) as usize;
     app.shell_text_width.set(text_width.saturating_sub(3));
     let lines = transcript_lines(app, text_width);
@@ -251,7 +250,7 @@ fn transcript_lines(app: &AppState, width: usize) -> Vec<Line<'static>> {
     lines
 }
 
-fn render_composer(frame: &mut Frame<'_>, area: Rect, app: &AppState, compact: bool) {
+fn render_composer(frame: &mut Frame<'_>, area: Rect, app: &AppState, _compact: bool) {
     let input = &app.shell_input;
     let hint = if input.starts_with('/') {
         if needs_completion_confirmation(app) {
@@ -268,11 +267,7 @@ fn render_composer(frame: &mut Frame<'_>, area: Rect, app: &AppState, compact: b
         .borders(Borders::ALL)
         .border_type(theme::border_type())
         .border_style(theme::border(false))
-        .title(if compact {
-            " 输入 "
-        } else {
-            " 会话输入 · 直接输入文本即控制台命令 "
-        })
+        .title(composer_title(app, area.width))
         .title_style(theme::title(false))
         .title_bottom(Line::from(Span::styled(hint, theme::dim())).alignment(Alignment::Right))
         .style(theme::surface());
@@ -407,117 +402,6 @@ fn render_suggestions(frame: &mut Frame<'_>, composer: Rect, app: &AppState, hit
     }
 }
 
-fn render_dock(
-    frame: &mut Frame<'_>,
-    area: Rect,
-    app: &AppState,
-    animation_frame: u8,
-    compact: bool,
-) {
-    if compact {
-        frame.render_widget(
-            Paragraph::new(dock_info_lines(app, animation_frame, true, area.width)),
-            area,
-        );
-        return;
-    }
-    let columns = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(11), Constraint::Min(1)])
-        .split(area);
-    render_mascot(frame, columns[0], animation_frame, app.has_animated_work());
-    frame.render_widget(
-        Paragraph::new(dock_info_lines(
-            app,
-            animation_frame,
-            false,
-            columns[1].width,
-        )),
-        columns[1],
-    );
-}
-
-fn dock_info_lines(
-    app: &AppState,
-    animation_frame: u8,
-    compact: bool,
-    width: u16,
-) -> Vec<Line<'static>> {
-    let mut lines = vec![instance_line(app)];
-    let active: Vec<&mc_core::TaskSnapshot> = app
-        .tasks
-        .iter()
-        .filter(|task| {
-            matches!(
-                task.status,
-                mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running
-            )
-        })
-        .collect();
-    if let Some(task) = active.first() {
-        lines.push(task_line(task, width, animation_frame));
-    } else {
-        lines.push(Line::from(vec![
-            Span::styled(" ○ ", theme::muted()),
-            Span::styled("后台任务空闲 · /tasks 查看历史任务", theme::dim()),
-        ]));
-    }
-    if !compact {
-        if let Some(task) = active.get(1) {
-            lines.push(task_line(task, width, animation_frame));
-        } else if active.len() > 1 {
-            lines.push(Line::from(Span::styled(
-                format!("  另有 {} 个后台任务 · /tasks", active.len() - 1),
-                theme::dim(),
-            )));
-        } else {
-            let last = app
-                .tasks
-                .iter()
-                .filter(|task| {
-                    !matches!(
-                        task.kind,
-                        mc_core::TaskKind::ListWorldBackups
-                            | mc_core::TaskKind::VerifyWorldBackup
-                            | mc_core::TaskKind::PlanWorldBackupRestore
-                    )
-                })
-                .find(|task| {
-                    matches!(
-                        task.status,
-                        mc_core::TaskStatus::Succeeded
-                            | mc_core::TaskStatus::Failed
-                            | mc_core::TaskStatus::Cancelled
-                    )
-                });
-            if let Some(task) = last {
-                lines.push(Line::from(vec![
-                    Span::styled(" 最近任务  ", theme::dim()),
-                    Span::styled(kind_short(task.kind), theme::muted()),
-                    Span::styled(
-                        format!(" · {} · {}", status_label(task.status), task.message),
-                        theme::dim(),
-                    ),
-                ]));
-            } else {
-                lines.push(Line::from(Span::styled(
-                    " 提示：/use 选择实例 · /open 查看日志 · /backups 管理世界备份",
-                    theme::dim(),
-                )));
-            }
-        }
-    }
-    lines.push(resource_line(app, compact));
-    if !compact {
-        lines.push(quick_actions_line(app));
-    }
-    let width = width as usize;
-    lines
-        .into_iter()
-        .map(|line| ui::clamp_line(line, width))
-        .collect()
-}
-
 fn task_line(task: &mc_core::TaskSnapshot, width: u16, animation_frame: u8) -> Line<'static> {
     let ratio = ui::task_ratio(task);
     let percent = (ratio * 100.0).round() as u8;
@@ -537,15 +421,19 @@ fn task_line(task: &mc_core::TaskSnapshot, width: u16, animation_frame: u8) -> L
         Span::styled(format!("{}  ", phase_label(task.phase)), theme::muted()),
     ];
     let bar_width = if width < 90 { 8 } else { 14 };
-    spans.extend(ui::progress_bar(ratio, bar_width, theme::progress()));
-    spans.push(Span::styled(
-        format!("  {percent:>3}%  "),
-        if percent >= 100 {
-            theme::success()
-        } else {
-            theme::accent()
-        },
-    ));
+    if task
+        .progress
+        .as_ref()
+        .is_some_and(|progress| progress.transfer.is_some())
+    {
+        spans.extend(ui::progress_bar(ratio, bar_width, theme::progress()));
+        spans.push(Span::styled(format!("  {percent:>3}%  "), theme::accent()));
+    } else {
+        spans.push(Span::styled(
+            format!("{} · ", crate::task_presentation::status_label(task.status)),
+            theme::muted(),
+        ));
+    }
     let detail = task_dock_detail(task);
     let reserved = 27usize + bar_width;
     spans.push(Span::styled(
@@ -606,11 +494,7 @@ fn instance_line(app: &AppState) -> Line<'static> {
             ),
         ]);
     };
-    let server = app
-        .instance_detail
-        .as_ref()
-        .and_then(|detail| detail.detail.as_ref())
-        .map(|detail| &detail.server);
+    let server = selected_server(app);
     let state = server
         .map(|server| {
             (
@@ -622,7 +506,7 @@ fn instance_line(app: &AppState) -> Line<'static> {
     Line::from(vec![
         Span::styled(" ▸ ", theme::accent()),
         Span::styled(
-            instance.name.clone(),
+            ui::truncate(&instance.name, 24),
             theme::text().add_modifier(Modifier::BOLD),
         ),
         Span::styled(" · ", theme::dim()),
@@ -640,59 +524,66 @@ fn instance_line(app: &AppState) -> Line<'static> {
 }
 
 fn quick_actions_line(app: &AppState) -> Line<'static> {
-    if app.instances.is_empty() {
-        return Line::from(vec![
-            Span::styled(" 操作  ", theme::dim()),
-            Span::styled("/create", theme::key_hint()),
-            Span::styled(" 新建  · ", theme::dim()),
-            Span::styled("/import", theme::key_hint()),
-            Span::styled(" 导入整合包  · ", theme::dim()),
-            Span::styled("/help", theme::key_hint()),
-            Span::styled(" 命令", theme::dim()),
-        ]);
-    }
-    let running = app
-        .instance_detail
-        .as_ref()
-        .and_then(|detail| detail.detail.as_ref())
-        .is_some_and(|detail| {
-            matches!(
-                detail.server.state,
-                mc_core::ServerState::Running
-                    | mc_core::ServerState::Starting
-                    | mc_core::ServerState::Stopping
-            )
+    let actions = if app.instances.is_empty() {
+        if app.has_animated_work() {
+            "/tasks 查看建服进度 · /help 帮助"
+        } else {
+            "/create 创建服务器 · /help 帮助"
+        }
+    } else {
+        match selected_server(app).map(|server| server.state) {
+            Some(mc_core::ServerState::Running) => "/connect 加入方式 · /open 日志 · /backups 备份",
+            Some(mc_core::ServerState::Starting | mc_core::ServerState::Stopping) => {
+                "/open 查看进展 · /logs 最近日志"
+            }
+            Some(mc_core::ServerState::Installed | mc_core::ServerState::Stopped) => {
+                "/start 启动 · /config 设置 · /backups 备份"
+            }
+            Some(mc_core::ServerState::Failed) => "/open 检查失败原因 · /logs 最近日志",
+            _ => "/refresh 刷新状态 · /open 查看详情",
+        }
+    };
+    Line::from(Span::styled(format!(" 下一步  {actions}"), theme::text()))
+}
+
+fn composer_title(app: &AppState, width: u16) -> String {
+    let title = if app.shell_input.trim_start().starts_with('/')
+        && app
+            .shell_input
+            .split_whitespace()
+            .next()
+            .and_then(|name| name.strip_prefix('/'))
+            .and_then(shell::find)
+            .is_none_or(|command| command.name != "console")
+    {
+        " 管理命令 · / 查看操作 ".to_owned()
+    } else {
+        let target = app.shell_draft_target.or_else(|| {
+            app.instances
+                .get(app.selected_instance)
+                .map(|instance| instance.id)
         });
-    Line::from(vec![
-        Span::styled(" 操作  ", theme::dim()),
-        Span::styled(if running { "/stop" } else { "/start" }, theme::key_hint()),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled("/open", theme::key_hint()),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled("/logs", theme::key_hint()),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled("/backups", theme::key_hint()),
-        Span::styled("  ·  ", theme::dim()),
-        Span::styled("/tasks", theme::key_hint()),
-        if app
-            .tasks
-            .iter()
-            .any(crate::task_presentation::is_cancelable_download)
-        {
-            Span::styled("  ·  ", theme::dim())
-        } else {
-            Span::styled("", theme::dim())
-        },
-        if app
-            .tasks
-            .iter()
-            .any(crate::task_presentation::is_cancelable_download)
-        {
-            Span::styled("/cancel", theme::key_hint())
-        } else {
-            Span::styled("", theme::dim())
-        },
-    ])
+        match target.and_then(|id| app.instances.iter().find(|instance| instance.id == id)) {
+            Some(instance) => {
+                let changed = app.shell_draft_target.is_some_and(|id| {
+                    app.instances
+                        .get(app.selected_instance)
+                        .is_none_or(|current| current.id != id)
+                });
+                format!(
+                    " 控制台 → {}{} ",
+                    ui::truncate(&instance.name, width.saturating_sub(30) as usize),
+                    if changed {
+                        " · 目标已切换，禁止发送"
+                    } else {
+                        ""
+                    }
+                )
+            }
+            None => " 管理命令 · 输入 /create 建服 ".to_owned(),
+        }
+    };
+    ui::truncate(&title, width.saturating_sub(2) as usize)
 }
 
 fn resource_line(app: &AppState, compact: bool) -> Line<'static> {
@@ -702,14 +593,11 @@ fn resource_line(app: &AppState, compact: bool) -> Line<'static> {
             theme::dim(),
         ));
     };
-    let server = app
-        .instance_detail
-        .as_ref()
-        .and_then(|detail| detail.detail.as_ref())
-        .map(|detail| &detail.server);
+    let server = selected_server(app);
     let stats = app
         .instance_detail
         .as_ref()
+        .filter(|detail| detail.instance_id == instance.id)
         .and_then(|detail| detail.stats.as_ref());
     let mut spans = vec![Span::styled(" 资源  ", theme::dim())];
     match (server.map(|server| server.state), stats) {
@@ -799,8 +687,7 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {
         ui::plain_hint_line(&[
             ("Enter", "发送"),
             ("Tab", "补全"),
-            ("←/→", "光标"),
-            ("↑/↓", "历史"),
+            ("Ctrl-K", "操作"),
             ("F1", "帮助"),
         ])
     };

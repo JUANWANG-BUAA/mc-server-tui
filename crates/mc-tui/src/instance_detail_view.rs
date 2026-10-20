@@ -38,8 +38,13 @@ pub(crate) fn render(
     hits: &mut HitMap,
 ) {
     let compact = area.width < 80 || area.height < 17;
-    let (header_height, summary_height, footer_height) =
-        if compact { (2, 4, 3) } else { (2, 9, 4) };
+    let (header_height, summary_height, footer_height) = if compact {
+        (2, 4, 3)
+    } else if detail.summary_expanded {
+        (2, 9, 3)
+    } else {
+        (2, 4, 3)
+    };
     let areas = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -85,7 +90,23 @@ pub(crate) fn render(
         areas[0],
     );
 
-    let summary = if let Some(data) = &detail.detail {
+    let summary = if !detail.summary_expanded {
+        if let Some(data) = &detail.detail {
+            let message = ui::server_message(&data.server.message);
+            vec![
+                Line::from(format!(
+                    "{} {} · {} · F3 详细状态",
+                    data.instance.provider, data.instance.game_version, data.server.address
+                )),
+                Line::from(Span::styled(
+                    message,
+                    ui::server_state_style(data.server.state),
+                )),
+            ]
+        } else {
+            vec![Line::from("正在加载实例状态…")]
+        }
+    } else if let Some(data) = &detail.detail {
         let server = &data.server;
         let mut lines = if compact {
             vec![
@@ -223,7 +244,11 @@ pub(crate) fn render(
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(theme::border(false))
-                .title("服务状态")
+                .title(if detail.summary_expanded {
+                    "服务状态 · F3 收起"
+                } else {
+                    "服务状态 · F3 展开"
+                })
                 .title_style(theme::title(false))
                 .style(theme::surface()),
         ),

@@ -110,3 +110,20 @@ fn render_cursor_x(wizard: &CreateWizard) -> u16 {
         .expect("render");
     terminal.get_cursor_position().expect("cursor position").x
 }
+
+#[test]
+fn runtime_summary_requires_explicit_expansion_before_editing() {
+    let mut wizard = sample_wizard();
+    wizard.name = "朋友服".into();
+    wizard.handle(WizardAction::Advance);
+    let before = wizard.selected_java;
+    wizard.handle(WizardAction::Down);
+    assert_eq!(wizard.selected_java, before);
+    assert!(!render_to_text(&wizard, 80, 24).contains("/opt/java"));
+    wizard.handle(WizardAction::ToggleRuntimeSettings);
+    assert!(render_to_text(&wizard, 80, 24).contains("/opt/java"));
+    wizard.handle(WizardAction::Down);
+    assert_ne!(wizard.selected_java, before);
+    wizard.handle(WizardAction::ToggleRuntimeSettings);
+    assert!(!wizard.runtime_settings_expanded);
+}

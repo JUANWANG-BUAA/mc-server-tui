@@ -13,26 +13,24 @@ fn renders_shell_transcript_composer_and_status_dock() {
     let state = populated_state();
     let text = render_to_text(80, 24, &state, 0);
     assert!(text.contains("连接中"));
-    assert!(text.contains("会话输入"));
+    assert!(text.contains("控制台→视觉验收服"));
     assert!(text.contains("视觉验收服"));
     assert!(text.contains("下载校验"));
     assert!(text.contains("F1帮助"));
-    assert!(text.contains("/logs"));
-    assert!(text.contains("/backups"));
+    assert!(text.contains("/refresh"));
+    assert_eq!(text.matches("下载校验").count(), 1);
 
     let compact = render_to_text(40, 12, &state, 0);
-    assert!(compact.contains("任务"));
-    assert!(compact.contains("输入"));
+    assert!(compact.contains("下载校验"));
+    assert!(compact.contains("控制台"));
 }
 
 #[test]
-fn mascot_is_pixel_steve_and_changes_between_animation_frames() {
-    let state = populated_state();
+fn mascot_is_reserved_for_the_empty_welcome_screen() {
+    let state = AppState::default();
     let first = render_to_text(80, 24, &state, 2);
-    let later = render_to_text(80, 24, &state, 3);
     assert!(first.contains("▀"));
-    assert!(first.contains("✦") || first.contains("✧") || first.contains("·"));
-    assert_ne!(first, later);
+    assert!(!render_to_text(80, 24, &populated_state(), 2).contains("▀"));
 
     let styles = render_to_styles(80, 24, &state, 2);
     for expected in [
@@ -65,7 +63,7 @@ fn slash_input_opens_command_completion() {
     state.shell_input = "/sta".to_owned();
     let text = render_to_text(80, 24, &state, 0);
     assert!(text.contains("命令补全"));
-    assert!(text.contains("/status"));
+    assert!(text.contains("/refresh"));
     assert!(text.contains("Tab填入"));
     assert!(text.contains("先补全；再次Enter执行"));
 }
@@ -142,4 +140,42 @@ fn render_to_styles(
         .iter()
         .map(|cell| (cell.symbol().to_owned(), cell.fg, cell.bg))
         .collect()
+}
+
+#[test]
+fn header_uses_selected_instance_even_when_detail_belongs_to_another() {
+    let mut state = populated_state();
+    let id = state.instances[0].id;
+    state.servers.insert(
+        id,
+        mc_core::ServerSnapshot {
+            instance_id: id,
+            state: mc_core::ServerState::Installed,
+            pid: None,
+            port: 25565,
+            address: "127.0.0.1:25565".into(),
+            started_at: None,
+            last_exit_code: None,
+            message: "Installed".into(),
+        },
+    );
+    state.instance_detail = Some(crate::instance_detail::InstanceDetailState::loading(
+        Uuid::new_v4(),
+    ));
+    let text = render_to_text(80, 24, &state, 0);
+    assert!(text.contains("/start启动"));
+    assert!(text.find("视觉验收服").expect("instance") < text.find("下载校验").expect("task"));
+    state.connected = Some(false);
+    assert!(render_to_text(80, 24, &state, 0).contains("显示上次状态"));
+}
+
+#[test]
+fn composer_distinguishes_management_from_console_target() {
+    let mut state = populated_state();
+    state.shell_input = "say hello".into();
+    state.shell_cursor = state.shell_input.len();
+    assert!(render_to_text(80, 24, &state, 0).contains("控制台→视觉验收服"));
+    state.shell_input = "/help".into();
+    state.shell_cursor = state.shell_input.len();
+    assert!(render_to_text(80, 24, &state, 0).contains("管理命令"));
 }

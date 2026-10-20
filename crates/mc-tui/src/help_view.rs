@@ -106,6 +106,8 @@ fn help_lines() -> Vec<Line<'static>> {
     item(&mut lines, "/", "在非文本页面打开命令面板");
     item(&mut lines, "F2", "循环切换 7 套主题；/theme 列出全部");
 
+    item(&mut lines, "F3", "运行设置 / 实例摘要 / 备份详情展开与收起");
+
     section(&mut lines, "会话终端");
     item(&mut lines, "Enter", "发送输入；以 / 开头则执行命令");
     item(
@@ -126,7 +128,11 @@ fn help_lines() -> Vec<Line<'static>> {
     );
     item(&mut lines, "Ctrl-L", "清空当前会话记录");
     item(&mut lines, "F2", "切换主题；/theme 可列出或指定");
-    item(&mut lines, "直接输入文本", "作为当前实例的控制台命令发送");
+    item(
+        &mut lines,
+        "直接输入文本",
+        "发往输入框标注的服务器；切服后草稿禁止发送",
+    );
     item(&mut lines, "/logs", "在会话中查看最近 12 行控制台日志");
     item(&mut lines, "/cancel [n]", "取消下载任务并保留可续传文件");
 

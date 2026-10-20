@@ -113,6 +113,8 @@ pub(crate) enum Action {
     RestartServer,
     CreateBackup,
     OpenBackupManager,
+    ToggleBackupDetails,
+    ToggleInstanceSummary,
     BackFromBackups,
     RefreshBackups,
     VerifyBackup,
@@ -180,6 +182,7 @@ pub(crate) struct AppState {
     pub help_max_scroll: Cell<usize>,
     pub shell_visible: bool,
     pub shell_input: String,
+    pub shell_draft_target: Option<uuid::Uuid>,
     pub shell_cursor: usize,
     pub shell_viewport: Cell<usize>,
     pub shell_text_width: Cell<usize>,
@@ -244,6 +247,7 @@ impl Default for AppState {
             help_max_scroll: Cell::new(0),
             shell_visible: true,
             shell_input: String::new(),
+            shell_draft_target: None,
             shell_cursor: 0,
             shell_text_width: Cell::new(77),
             shell_viewport: Cell::new(0),
@@ -384,6 +388,16 @@ impl AppState {
             Action::RestartServer => self.queue_server_command(ServerLifecycleAction::Restart),
             Action::CreateBackup => self.queue_backup(),
             Action::OpenBackupManager => self.open_backup_manager(),
+            Action::ToggleBackupDetails => {
+                if let Some(state) = self.backup_manager.as_mut() {
+                    state.show_details = !state.show_details;
+                }
+            }
+            Action::ToggleInstanceSummary => {
+                if let Some(state) = self.instance_detail.as_mut() {
+                    state.summary_expanded = !state.summary_expanded;
+                }
+            }
             Action::BackFromBackups => self.close_backup_manager(),
             Action::RefreshBackups => self.queue_backup_list(None),
             Action::VerifyBackup => self.queue_backup_verify(),
@@ -566,8 +580,8 @@ impl AppState {
                         .map(|instance| instance.name.clone())
                         .unwrap_or_else(|| "服务器".to_owned());
                     self.push_transcript(TranscriptEntry::success(format!(
-                        "「{name}」已就绪，可以进入游戏。\n\
-                         本机 {address} · 朋友加入方式：/connect · 在线人数：/monitor"
+                        "「{name}」已就绪。下一步：/connect 查看加入方式。\n\
+                         本机 {address} · 外网连通尚未验证 · /monitor 在线人数"
                     )));
                 }
                 if let Some(index) =
@@ -580,7 +594,10 @@ impl AppState {
                     if task.status == mc_core::TaskStatus::Succeeded {
                         let report = match &task.result {
                             Some(mc_core::TaskResult::InstanceCreated(instance)) => {
-                                if self.shell_visible && !self.instance_detail_visible {
+                                if self.shell_visible
+                                    && !self.instance_detail_visible
+                                    && self.shell_input.is_empty()
+                                {
                                     if let Some(index) =
                                         self.instances.iter().position(|i| i.id == instance.id)
                                     {
@@ -589,7 +606,7 @@ impl AppState {
                                 }
                                 format!(
                                     "{} 已准备就绪（尚未启动）。\n\
-                                     /start 启动 · /connect 查看朋友加入方式 · /mods 搜索扩展",
+                                     下一步：/start 启动；就绪后 /connect 查看加入方式。",
                                     instance.name
                                 )
                             }
@@ -1133,6 +1150,10 @@ impl AppState {
                 }
                 self.shell_visible = true;
                 self.shell_input = format!("/{command} ");
+                self.shell_draft_target = self
+                    .instances
+                    .get(self.selected_instance)
+                    .map(|instance| instance.id);
                 self.shell_cursor = self.shell_input.len();
                 if crate::shell::find(command).is_some_and(|spec| spec.args.is_empty())
                     || matches!(command, "players" | "mods" | "rg" | "fabric")
@@ -1183,6 +1204,15 @@ impl AppState {
             CommandId::CancelWizard => self.update(Action::CancelWizard),
             CommandId::GoDashboard => self.update(Action::GoDashboard),
             CommandId::ShowShell => self.update(Action::ShowShell),
+            CommandId::ToggleDetails => {
+                if self.wizard.is_some() {
+                    self.update(Action::Wizard(WizardAction::ToggleRuntimeSettings));
+                } else if self.backup_manager_visible {
+                    self.update(Action::ToggleBackupDetails);
+                } else {
+                    self.update(Action::ToggleInstanceSummary);
+                }
+            }
             CommandId::Theme => self.update(Action::CycleTheme),
             CommandId::Help => self.update(Action::ToggleHelp),
             CommandId::Back => {

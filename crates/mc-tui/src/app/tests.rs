@@ -1054,3 +1054,39 @@ fn server_readiness_is_announced_once_with_join_guidance() {
         .iter()
         .any(|entry| entry.text.contains("/connect") && entry.text.contains("127.0.0.1:25601")));
 }
+
+#[test]
+fn console_draft_cannot_follow_a_changed_instance() {
+    let mut state = AppState::default();
+    let first = InstanceSummary {
+        id: Uuid::new_v4(),
+        name: "原服务器".into(),
+        provider: "paper".into(),
+        game_version: "1.21.11".into(),
+        build_id: 17,
+        java_path: "/usr/bin/java".into(),
+        min_memory_mb: 1024,
+        max_memory_mb: 2048,
+        port: 25565,
+        directory: "/tmp/server".into(),
+        created_at: Utc::now(),
+    };
+    let mut second = first.clone();
+    second.id = Uuid::new_v4();
+    second.name = "另一台服务器".into();
+    state.instances = vec![first, second];
+    for command in ["say hello", "/console say hello", "/cmd say hello"] {
+        state.selected_instance = 0;
+        state.shell_escape();
+        for ch in command.chars() {
+            state.shell_insert(ch);
+        }
+        state.selected_instance = 1;
+        state.shell_submit();
+        assert!(state.take_instance_command().is_none());
+        assert_eq!(state.shell_input, command);
+        assert!(state.status.contains("之前的服务器"));
+    }
+    state.shell_escape();
+    assert!(state.shell_draft_target.is_none());
+}

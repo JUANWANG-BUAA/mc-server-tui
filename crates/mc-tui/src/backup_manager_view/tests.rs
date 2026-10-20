@@ -62,7 +62,7 @@ fn renders_running_and_completed_restore_states() {
     state.plan = Some(restore_plan(state.instance_id, state.backups[0].id));
     state.begin_restore();
     let running = render_to_text(&state, 80, 24, 1);
-    assert!(running.contains("正在执行恢复事务"));
+    assert!(running.contains("正在恢复世界"));
     assert!(running.contains("持久任务会在后台继续执行"));
 
     let backup_id = state.backups[0].id;
@@ -175,4 +175,18 @@ fn render_to_text(
         .map(|cell| cell.symbol())
         .filter(|symbol| !symbol.chars().all(char::is_whitespace))
         .collect()
+}
+
+#[test]
+fn technical_identity_is_hidden_until_requested() {
+    let mut state = loaded_state();
+    let id = state.backups[0].id.to_string();
+    assert!(!render_to_text(&state, 100, 30, 0).contains(&id));
+    state.show_details = true;
+    assert!(render_to_text(&state, 100, 30, 0).contains(&id));
+    state.plan = Some(restore_plan(state.instance_id, state.backups[0].id));
+    state.show_details = false;
+    let preview = render_to_text(&state, 80, 24, 0);
+    assert!(preview.contains("进度不会合并"));
+    assert!(!preview.contains("journal"));
 }

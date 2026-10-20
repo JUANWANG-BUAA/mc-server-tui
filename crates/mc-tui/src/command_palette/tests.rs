@@ -89,3 +89,17 @@ fn shell_search_finds_stop_and_player_management() {
             .any(|entry| entry.id == CommandId::Shell(expected)));
     }
 }
+
+#[test]
+fn detailed_views_have_a_searchable_alternative_to_function_keys() {
+    let mut state = AppState::default();
+    state.instance_detail_visible = true;
+    let mut palette = CommandPaletteState::for_state(&state);
+    for ch in "展开".chars() {
+        palette.insert(ch);
+    }
+    assert_eq!(
+        palette.selected_entry().map(|entry| entry.id),
+        Some(CommandId::ToggleDetails)
+    );
+}

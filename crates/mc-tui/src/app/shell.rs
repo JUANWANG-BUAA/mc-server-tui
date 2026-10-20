@@ -93,6 +93,9 @@ impl AppState {
         if character.is_control() || self.shell_input.chars().count() >= 512 {
             return;
         }
+        if self.shell_input.is_empty() {
+            self.shell_draft_target = self.current_instance().map(|instance| instance.id);
+        }
         let cursor = self.shell_cursor.min(self.shell_input.len());
         self.shell_input.insert(cursor, character);
         self.shell_cursor = cursor + character.len_utf8();
@@ -192,6 +195,7 @@ impl AppState {
     }
 
     pub(super) fn shell_escape(&mut self) {
+        self.shell_draft_target = None;
         self.shell_input.clear();
         self.shell_cursor = 0;
         self.shell_suggestion_index = 0;
@@ -207,6 +211,24 @@ impl AppState {
     pub(super) fn shell_submit(&mut self) {
         let raw = self.shell_input.trim().to_owned();
         if raw.is_empty() {
+            return;
+        }
+        let console = !raw.starts_with('/')
+            || raw
+                .split_whitespace()
+                .next()
+                .and_then(|name| name.strip_prefix('/'))
+                .and_then(shell::find)
+                .is_some_and(|command| command.name == "console");
+        if console
+            && self.shell_draft_target.is_some_and(|id| {
+                self.current_instance()
+                    .is_none_or(|instance| instance.id != id)
+            })
+        {
+            self.status =
+                "控制台草稿属于之前的服务器；切回原实例发送，或 Esc 清空后重新输入。".to_owned();
+            self.push_transcript(TranscriptEntry::warning(self.status.clone()));
             return;
         }
         if raw.starts_with('/') && !raw.contains(char::is_whitespace) {
@@ -227,6 +249,7 @@ impl AppState {
             }
         }
         self.shell_input.clear();
+        self.shell_draft_target = None;
         self.shell_cursor = 0;
         self.shell_suggestion_index = 0;
         self.shell_history_pos = None;
@@ -323,6 +346,7 @@ impl AppState {
         };
         self.shell_history_pos = Some(next);
         self.shell_input = self.shell_history[next].clone();
+        self.shell_draft_target = self.current_instance().map(|instance| instance.id);
         self.shell_cursor = self.shell_input.len();
     }
 
@@ -333,6 +357,7 @@ impl AppState {
         if index + 1 < self.shell_history.len() {
             self.shell_history_pos = Some(index + 1);
             self.shell_input = self.shell_history[index + 1].clone();
+            self.shell_draft_target = self.current_instance().map(|instance| instance.id);
             self.shell_cursor = self.shell_input.len();
         } else {
             self.shell_history_pos = None;

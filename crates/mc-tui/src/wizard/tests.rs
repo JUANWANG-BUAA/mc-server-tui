@@ -31,6 +31,7 @@ fn version_and_java_are_selected_not_typed() {
 
     wizard.handle(WizardAction::Advance);
     assert_eq!(wizard.step, WizardStep::Runtime);
+    wizard.handle(WizardAction::ToggleRuntimeSettings);
     wizard.handle(WizardAction::NextChoice);
     assert_eq!(
         wizard.selected_java().map(|java| java.major_version),

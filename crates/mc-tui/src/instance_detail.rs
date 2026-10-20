@@ -57,6 +57,7 @@ pub(crate) struct InstanceDetailState {
     pub editing_console: bool,
     /// Number of log lines scrolled up from the tail. Zero means follow.
     pub log_scroll: usize,
+    pub summary_expanded: bool,
     pub log_max_scroll: std::cell::Cell<usize>,
     pub log_horizontal: usize,
     pub log_filter: String,
@@ -81,6 +82,7 @@ impl InstanceDetailState {
             console_input: String::new(),
             editing_console: false,
             log_scroll: 0,
+            summary_expanded: false,
             log_max_scroll: Default::default(),
             log_horizontal: 0,
             log_filter: String::new(),

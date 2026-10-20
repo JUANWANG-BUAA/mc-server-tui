@@ -12,6 +12,7 @@ pub(crate) enum CommandId {
     Refresh,
     TogglePanel,
     OpenBackupManager,
+    ToggleDetails,
     StartServer,
     StopServer,
     RestartServer,
@@ -455,6 +456,26 @@ impl CommandPaletteState {
             ));
         }
 
+        if state
+            .wizard
+            .as_ref()
+            .is_some_and(|wizard| wizard.step == crate::wizard::WizardStep::Runtime)
+            || state.backup_manager_visible
+            || state.instance_detail_visible
+        {
+            entries.push(CommandEntry::new(
+                CommandId::ToggleDetails,
+                "显示",
+                if state.wizard.is_some() {
+                    "展开 / 收起运行设置"
+                } else {
+                    "展开 / 收起详细信息"
+                },
+                "保留当前操作，切换详细设置或技术证据",
+                Some("F3"),
+                &["details", "展开", "收起", "设置"],
+            ));
+        }
         entries.push(CommandEntry::new(
             CommandId::Theme,
             "外观",

@@ -164,7 +164,7 @@ fn render_server_step(
 
     frame.render_widget(
         Paragraph::new(Line::from(Span::styled(
-            "名称只用于识别实例，不会写入 Minecraft 世界。",
+            "先确认朋友客户端版本，再从下方选择相同版本。",
             theme::muted(),
         ))),
         Rect::new(inner.x, inner.y + 1, inner.width, 1),
@@ -242,7 +242,7 @@ fn render_version_list(
                     Span::styled(format!("  {}", version.group), theme::muted()),
                 ];
                 if index == 0 {
-                    spans.push(Span::styled("   最新稳定", theme::success()));
+                    spans.push(Span::styled("   最新发布", theme::muted()));
                 }
                 ListItem::new(Line::from(spans))
             })
@@ -311,6 +311,36 @@ fn render_runtime_step(
             "未找到可用 Java。请先安装 Java 21 或更高版本，再重新打开向导。",
             1,
         );
+        return;
+    }
+
+    if !wizard.runtime_settings_expanded {
+        let java = wizard.java_choice_label(wizard.selected_java);
+        let (min, max) = wizard.memory_range();
+        let lines = vec![
+            Line::from(Span::styled(
+                "已选择运行设置 · Enter 确认并继续",
+                theme::text(),
+            )),
+            Line::from(format!("Java 运行时  {java}")),
+            Line::from(Span::styled(
+                format!(
+                    "推荐依据：所选游戏版本需要 Java {} 或更高。",
+                    wizard.required_java()
+                ),
+                theme::muted(),
+            )),
+            Line::from(format!("内存预设  {min}–{max} MiB · 端口 {}", wizard.port)),
+            Line::from(Span::styled(
+                "内存为起始配置；尚未评估主机总预算。",
+                theme::muted(),
+            )),
+            Line::from(Span::styled(
+                "F3 调整 Java、内存与端口 · Tab 也可展开",
+                theme::text(),
+            )),
+        ];
+        frame.render_widget(Paragraph::new(lines), inner);
         return;
     }
 
@@ -706,6 +736,11 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, wizard: &CreateWizard, anima
             ("Enter", "创建并下载"),
             ("Esc", "返回"),
         ]),
+        WizardStep::Runtime if !wizard.runtime_settings_expanded => ui::plain_hint_line(&[
+            ("Enter", "使用这些设置"),
+            ("F3", "调整设置"),
+            ("Esc", "返回"),
+        ]),
         WizardStep::Runtime => ui::plain_hint_line(&[
             ("Tab", "切换字段"),
             ("↑/↓", "选择"),
@@ -719,14 +754,8 @@ fn render_footer(frame: &mut Frame<'_>, area: Rect, wizard: &CreateWizard, anima
             ("Esc", "返回"),
         ]),
     };
-    let secondary = ui::plain_hint_line(&[
-        ("PgUp/PgDn", "翻页"),
-        ("Home/End", "首尾"),
-        ("Ctrl-K", "命令"),
-        ("F1", "帮助"),
-        ("Ctrl-C", "退出"),
-    ])
-    .style(theme::dim());
+    let secondary =
+        ui::plain_hint_line(&[("F3", "运行设置展开/收起"), ("F1", "帮助")]).style(theme::dim());
     frame.render_widget(
         Paragraph::new(vec![
             Line::from(Span::styled(message, style)),
@@ -765,8 +794,11 @@ fn step_guidance(wizard: &CreateWizard) -> &'static str {
     match (wizard.step, wizard.focused_field) {
         (WizardStep::Server, 0) => "输入名称，按 Tab 进入版本列表；版本用 ↑/↓ 选择。",
         (WizardStep::Server, 1) => "↑/↓ 选择 Paper 稳定版本；PgUp/PgDn 翻页，Enter 下一步。",
-        (WizardStep::Runtime, 0) => "↑/↓ 选择 Java 运行时；推荐项已按版本与架构识别。",
-        (WizardStep::Runtime, 1) => "←/→ 或 ↑/↓ 切换内存档位；默认适合小型生存服。",
+        (WizardStep::Runtime, _) if !wizard.runtime_settings_expanded => {
+            "Enter 使用当前设置；F3 或 Tab 展开调整。"
+        }
+        (WizardStep::Runtime, 0) => "↑/↓ 选择 Java 运行时；推荐项按游戏所需 Java 版本选择。",
+        (WizardStep::Runtime, 1) => "←/→ 或 ↑/↓ 切换内存档位；请结合主机可用内存选择。",
         (WizardStep::Runtime, 2) => "端口已自动选择可用值；可直接编辑，Enter 下一步。",
         (WizardStep::Review, _) if !wizard.accept_eula => {
             "按 Space 明确接受 EULA，再按 Enter 创建。"
