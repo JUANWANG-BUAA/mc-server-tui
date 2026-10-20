@@ -2,6 +2,21 @@
 
 The TUI uses the daemon API and durable task event cursor; rendering and input handling stay separate from daemon I/O. This makes the UI testable without contacting Paper or waiting on real downloads.
 
+## Current-source design validation (unreleased, 2026-10-20)
+
+The current layout uses a three-line selected-instance header, one two-line task
+summary, transcript, target-labelled composer and one-line connection/operation
+feedback. The former status dock and its duplicate task progress are historical.
+F3 (also available through Ctrl-K) expands runtime settings, instance diagnostics
+and backup evidence. Tests cover draft target changes, selected-instance identity,
+phase-only progress, local backup evidence disclosure and 80×24 / 40×12 layouts.
+Validation on macOS: 224 workspace tests (98 TUI tests), strict all-target/all-feature
+Clippy, formatting and workspace build pass. All four existing PTY scripts pass;
+they cover stalled requests, guided creation, cancellation, incremental logs,
+restart and restore confirmation with fake daemon responses. No new real Minecraft
+client, external-network, Linux desktop or independent-user session is claimed.
+The dated sections below record earlier layouts and earlier test counts.
+
 ## Module boundaries and visual behavior
 
 Keep the TUI split along responsibilities so screen growth does not turn the runtime into a screen-sized module:

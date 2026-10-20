@@ -5,6 +5,16 @@
 > stability, data recovery, compatibility with every server pack, or support
 > for every Minecraft version.
 
+> **Current source only (unreleased):** builds after v0.2.0 keep the selected server,
+> next action and resources at the top, with one background progress summary.
+> Console drafts show their target; switching instances blocks submission until you
+> return to the original instance or clear the draft with Esc.
+> The runtime step starts with a summary: Enter continues, F3 or Tab opens settings.
+> F3 expands instance diagnostics or backup evidence; Ctrl-K also exposes these actions.
+> Backup details use local time with an explicit offset, and restore previews explain
+> replacement scope and that later progress is not merged. Management connectivity
+> is separate from Minecraft readiness. These changes are not in the v0.2.0 release.
+
 ## 1. Read this before hosting a world
 
 `mc-server-tui` is an independent terminal-based Minecraft Java server manager.

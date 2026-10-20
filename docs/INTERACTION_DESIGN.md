@@ -13,18 +13,18 @@ The interaction layer borrows patterns, not visual assets, from mature terminal 
 The design rule is: a first-time user must be able to complete the normal path without knowing Paper API fields, Java executable locations, raw ports, or daemon internals. An advanced user can still reach exact values and durable task details.
 
 
-## 默认会话 shell（Claude Code 骨架）
+## 当前源码：实例优先的会话工作区（未发布）
 
-主界面采用单会话结构，而不是让用户在多屏之间找回上下文：
+本节描述 v0.2.0 之后的源码改进，不代表已有发行包已包含这些变化。
 
-1. **会话记录**：用户命令、系统结果、错误和任务状态按时间顺序追加，可用 PgUp/PgDn 或鼠标滚轮回看；`/help`、`/status`、`/tasks`、`/instances`、`/theme` 这类列表输出会从第一行开始展示，`/logs` 则保持尾部日志可见。
-2. **底部 composer**：一个输入框同时承担 slash 命令、参数补全和当前实例控制台命令。输入 `/` 时在输入框上方弹出命令补全；Tab 填入，↑/↓ 选择或翻阅历史。对尚未输入完整名称的 slash 命令，Enter 只填入高亮完整命令，用户再次按 Enter 才执行；完整命令仍可直接执行。composer 支持 ←/→、Home/End、Delete、Ctrl-A/E 的光标编辑和长行水平滚动，长命令不需要只能从末尾退格。多行粘贴合并为单行待提交内容，用户检查后再按 Enter。
-3. **输入框下方状态坞**：持续显示选中实例、版本/端口、配置内存、运行状态、CPU/RSS、最多两个活动任务的阶段和字节进度条。它不依赖用户打开任务详情或实例详情才能看见。
-4. **结构化流程仍然保留**：`/create` 打开版本/Java/EULA 向导，`/open` 打开完整日志与交互式控制台，`/backups` 打开世界备份页。日常的 `/status`、`/tasks`、`/logs`、`/cancel` 都在会话内完成，不切页；只有设置、完整控制台和破坏性恢复才进入下一层。纯文本输入不会伪装成结构化选择；破坏性操作仍然需要显式确认。
-5. **上下文快捷动作**：状态坞第五行根据状态显示 `/start` 或 `/stop`、`/open`、`/logs`、`/backups`、`/tasks`，有可取消下载时追加 `/cancel`。用户不需要记住整套命令表。
-6. **经典双面板**：`/classic` 或实际界面中的 `t` 可切回实例/任务双面板；`t` 或命令面板切回会话。会话记录在切换期间保留。
+1. **固定实例摘要**：顶部依次显示当前实例、运行状态、版本/端口、下一步动作和资源。状态只能来自相同实例 ID 的详情或总览快照；连接失败显示“上次状态”，管理连接与 Minecraft 就绪分开表达。
+2. **一个主要工作区**：会话记录保留命令、结果与日志。后台任务只用两行显示阶段、真实传输进度、所属实例及对应 `/task <编号>`；没有字节总量的操作不显示百分比。完成结果进入会话，技术事件在任务详情。
+3. **目标明确的输入框**：slash 输入显示“管理命令”；普通文本和 `/console` 显示控制台目标。草稿绑定开始输入时的实例，切服后提交会被阻止且内容保留；切回原实例或 Esc 清空重写。历史命令再次取出时绑定当前实例。尚未输入完整的命令按 Enter 只补全，再次 Enter 才执行；多行粘贴只合并为待检查文本。
+4. **稳定导航**：`/open`、`/backups`、`/config` 和 Ctrl-K 进入相同业务页面。会话与经典视图保留；输入框底部显示管理连接或当前操作反馈，页脚只保留发送、补全、操作面板和帮助。
+5. **按状态引导**：未创建时 `/create`；安装完成后 `/start`；启动中看日志；运行后 `/connect`；失败时先看原因。就绪提示不代表已验证外网可加入。
+6. **渐进披露**：运行设置、实例摘要、备份技术详情统一用 F3 或 Ctrl-K 中的展开/收起入口。日志页默认收起详细资源和进程信息，将空间留给日志。
 
-鼠标是可选增强：滚轮滚动列表/会话，单击选中行，双击打开实例或任务，点击 EULA 行切换勾选。
+鼠标仍为可选增强；完整命令、快捷键和经典视图继续支持。
 
 ## 主题
 
@@ -42,14 +42,9 @@ The design rule is: a first-time user must be able to complete the normal path w
 
 ### 像素吉祥物
 
-状态坞左侧固定一个 7×4 像素史蒂夫头像（再加一行状态符号，共 5 行）：
-
-- 保持 Minecraft 的经典配色：棕色头发、肤色、白色眼白与蓝色瞳孔、棕色嘴；
-- 有活动任务时眼睛睁开，头顶 `✦/✧/·` 依次闪烁；
-- 空闲时眼睛闭合成深色眼睑，并显示 `z/Z` 打盹；
-- 每约 3.8 秒眨眼一次；
-- 主题 accent 只用于头顶闪光或打盹符号，避免把史蒂夫染成七种奇怪的颜色；
-- 它在 80×24 下占用 11 列，信息列仍保持实例、任务、资源、主题四类信息；40×12 紧凑布局隐藏吉祥物，把空间留给 composer 和状态文本。
+当前源码只在没有实例、没有任务、且空间足够的欢迎页显示像素史蒂夫。
+运行、日志、下载与恢复场景优先展示内容；主题仍共用布局，保留七套配色。
+旧版状态坞的固定头像与重复进度布局属于 v0.2.0 历史设计。
 
 ## Visual hierarchy
 
@@ -80,12 +75,13 @@ The creation flow has three user-facing steps:
 
 1. **实例与游戏版本**
    - Name is a text field.
-   - Minecraft version is a list loaded from Paper metadata.
+   - Minecraft version is a list loaded from Paper metadata. Matching friends’ client versions is explained above the list; “latest release” is informational, not a recommendation.
    - RC and pre-release identifiers are filtered out of the normal flow.
    - The exact build and SHA-256 remain locked by the daemon at submit time.
-2. **Java、内存与端口**
+2. **运行设置摘要（F3 展开 Java、内存与端口）**
+   - The default view summarizes Java, memory and port; Enter accepts these settings. F3 expands the editor, and Tab also enters it. Collapsed settings cannot be changed by hidden arrow-key actions.
    - Java is selected from runtimes discovered by the core doctor probe.
-   - Java 21 is preferred when available; otherwise the closest compatible higher runtime is recommended.
+   - Java is selected against the chosen Minecraft version; the matching major is preferred, otherwise the closest compatible higher runtime.
    - Exact executable paths are shown as secondary evidence, not required typing.
    - Memory uses presets: 0.5–1 GiB, 1–2 GiB, 2–4 GiB, 4–8 GiB.
    - The port is pre-filled with a locally available value and remains editable for advanced cases.
@@ -195,3 +191,13 @@ The normal create review currently exposes the exact source as `Paper 官方 CDN
 - the UI must show actual host and fallback/retry state.
 
 Custom HTTPS mirrors and audited mirror catalogs therefore remain a follow-up implementation item rather than a fake UI option. The long-term policy is defined in `MIRROR_ACCELERATION_DESIGN.md`.
+
+## Backup and restore presentation (unreleased)
+
+Backup lists and details use local dates with an explicit offset in the detail.
+The default view leads with the restore time, stopped-at-creation consistency,
+size, verification and impact preview. It does not imply the server is currently stopped.
+UUIDs and journal/token evidence are secondary information behind F3.
+The restore preview explains replacements, additions, removals, retained rollback
+copies and that progress after the backup is not merged. Explicit RESTORE confirmation
+is unchanged. Completion asks the operator to start and verify the world in game.

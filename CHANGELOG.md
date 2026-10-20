@@ -11,6 +11,22 @@ All notable user-facing changes are recorded here. The format is based on
   with chapter navigation, code copy controls, mobile layout, and explicit
   hosting, data-safety, license, and no-warranty notices.
 
+### Changed
+
+- Source-only TUI redesign: selected-server summary and contextual next actions
+  above the transcript, a single compact task summary, and separate management
+  connection feedback. Phase-only tasks no longer imply a byte percentage.
+- Runtime settings start with a summary; F3 expands settings, instance diagnostics
+  or backup evidence. Ctrl-K exposes the same actions. Logs have more space by default.
+- Backup details lead with local time, verification and restore impact; UUID/journal
+  evidence is secondary. Pixel Steve is reserved for the empty welcome screen.
+
+### Fixed
+
+- Console drafts stay bound to their original instance and cannot silently follow
+  a selection change. The selected server never inherits another detail page's status.
+- Re-evaluate the suggested Java when entering runtime setup after choosing a game version.
+
 ### Planned
 
 - Vanilla provider and takeover of existing server directories.

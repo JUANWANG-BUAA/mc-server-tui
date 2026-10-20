@@ -25,6 +25,12 @@ Read the [bilingual user guide](https://juanwang-buaa.github.io/mc-server-tui/do
 for installation, everyday commands, backup and restore, troubleshooting, and
 the alpha's safety limits.
 
+## Design improvements in current source (unreleased)
+
+The selected server and next action stay at the top; background progress appears once. Management connectivity is separate from game readiness. Console drafts show their target and cannot silently follow an instance switch. Runtime settings start with a summary; F3 expands settings, instance diagnostics, or backup evidence. Backup views lead with local restore time and impact. Existing themes, commands and classic view remain available.
+
+These changes are not included in the v0.2.0 release. See the [interaction contract](docs/INTERACTION_DESIGN.md).
+
 ## Why another server manager?
 
 Most Minecraft server panels assume a browser, a daemon with broad privileges,
