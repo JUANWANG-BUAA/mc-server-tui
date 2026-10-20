@@ -21,7 +21,7 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 - launchd LaunchAgent / systemd user unit：`install/start/stop/restart/status/uninstall`，`--dry-run` 输出生成内容；launchd 已在 macOS 做过临时配置真实闭环。
 - Phase 1：`scripts/package_release.py` 生成 tar.gz + SHA-256 + manifest；`scripts/install.sh` 安装到 `versions/<version>`、切换 `current`、写稳定 launcher；`mc uninstall` 清理服务/launcher/版本目录并保留数据；`packaging/homebrew/` 模板与渲染脚本。
 - 基础 CI：macOS 14 / Ubuntu 22.04，fmt、clippy、test、build、launcher/PTY smoke；release job 打包并执行本地 installer/uninstaller smoke。
-- 发布历史：`v0.1.0` 是首个 public alpha；当前 `v0.2.0`（unsigned alpha pre-release）包含四个 target、合并 manifest、install.sh 和 Homebrew formula。
+- 发布历史：`v0.1.0` 是首个 public alpha；当前 `v0.2.0`（unsigned alpha pre-release）包含三个 target（Apple Silicon、Linux x86_64、Linux arm64）、合并 manifest、install.sh 和 Homebrew formula。
 
 尚未落地（Phase 2+）：
 
@@ -36,7 +36,7 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 
 ### 目标
 
-- macOS Apple Silicon / Intel、Linux x86_64 / arm64 提供同一条用户路径：安装 → `mc setup` → 建服 → 日常管理 → 更新 → 卸载。
+- macOS Apple Silicon 与 Linux x86_64 / arm64 提供同一条用户路径：安装 → `mc setup` → 建服 → 日常管理 → 更新 → 卸载。
 - 优先用户级安装，不需要 sudo；实例数据、日志、socket 都在当前用户目录下。
 - 组件来源可验证：SHA-256 + 签名；macOS 签名/公证；Linux 包/仓库签名。
 - 默认保留实例数据；卸载只移除程序和服务，`--purge` 才删除数据。
@@ -173,7 +173,7 @@ theme = "claude"
 | 平台 | Target | 产物 | 备注 |
 | --- | --- | --- | --- |
 | macOS Apple Silicon | `aarch64-apple-darwin` | `.tar.gz` / `.zip` | 签名 + 公证 |
-| macOS Intel | `x86_64-apple-darwin` | `.tar.gz` / `.zip` | 签名 + 公证 |
+| macOS Intel | `x86_64-apple-darwin` | 未发布 | 当前发布不包含 Intel macOS 产物 |
 | macOS Universal | `universal2` | `.pkg` / `.dmg`（可选） | Homebrew 可用单架构；pkg 面向非 Homebrew 用户 |
 | Linux x86_64 | `x86_64-unknown-linux-musl` | `.tar.gz` | 静态，减少 glibc 差异 |
 | Linux arm64 | `aarch64-unknown-linux-musl` | `.tar.gz` | 静态 |
@@ -334,7 +334,6 @@ fmt + clippy + test (macOS arm64, Linux x86_64)
   ↓
 build matrix:
   aarch64-apple-darwin      macos-14 (arm64)
-  x86_64-apple-darwin       macos-13 / cross
   universal2                lipo 两个 darwin 产物
   x86_64-unknown-linux-musl ubuntu-22.04 + musl toolchain / cross
   aarch64-unknown-linux-musl ubuntu-24.04-arm 或 cross

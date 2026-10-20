@@ -8,7 +8,7 @@ backups, and TUI work, but the feature set is intentionally incomplete. See
 
 ## What do I need?
 
-- macOS 13+ or Linux (x86_64/arm64);
+- macOS 13+ on Apple Silicon, or Linux (x86_64/arm64);
 - the Java release required by the selected Minecraft version (Java 21 for
   1.21.x; newer releases may require newer Java);
 - a terminal of at least 80×24; smaller layouts degrade or hide the mascot;

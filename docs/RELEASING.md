@@ -28,8 +28,8 @@ git push origin v0.2.0
 The `Release` workflow then:
 
 - validates that `v<version>` matches `Cargo.toml`;
-- builds `aarch64-apple-darwin`, `x86_64-apple-darwin`,
-  `x86_64-unknown-linux-gnu`, and `aarch64-unknown-linux-gnu`;
+- builds `aarch64-apple-darwin`, `x86_64-unknown-linux-gnu`, and
+  `aarch64-unknown-linux-gnu`;
 - creates tar.gz + SHA-256 + per-target manifests;
 - merges the manifests and renders the Homebrew formula;
 - creates `install.sh` with the release manifest URL baked in;

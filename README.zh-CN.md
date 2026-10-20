@@ -43,7 +43,7 @@ Java 进程藏在多层封装之后。这个项目选择终端：
 
 ## 快速开始
 
-要求：macOS 13+ 或 Linux x86_64/arm64；Java 21（1.21.x）/ Java 25+（26.x）；终端至少 80×24；首次下载
+要求：macOS 13+ Apple Silicon，或 Linux x86_64/arm64；Java 21（1.21.x）/ Java 25+（26.x）；终端至少 80×24；首次下载
 Paper 需要网络。
 
 ```sh

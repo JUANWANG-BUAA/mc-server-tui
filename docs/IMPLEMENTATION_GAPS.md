@@ -164,7 +164,7 @@
 ## 6. 发布与分发阻塞项（按严重度）
 
 1. **服务安装只完成了 Phase 0**：`mc service` 已有 launchd/systemd 实现，但 Linux 真实安装、登录/开机启动、更新时“不杀 runner”的服务级验证还没完成。
-2. **发布产物已有，但签名/渠道仍未完成**：`v0.2.0` 作为 unsigned alpha pre-release 发布四个平台的 tar.gz、SHA-256、manifest、install.sh 和 Homebrew formula；仍没有签名/公证、实际 tap/apt/dnf 仓库和 SBOM。
+2. **发布产物已有，但签名/渠道仍未完成**：`v0.2.0` 作为 unsigned alpha pre-release 发布 Apple Silicon 与 Linux x86_64/arm64 的 tar.gz、SHA-256、manifest、install.sh 和 Homebrew formula；仍没有签名/公证、实际 tap/apt/dnf 仓库和 SBOM。
 3. ~~没有协议兼容窗口~~：已实现 API 8–11 协商、按请求版本回包和旧版本任务过滤；runner 控制协议为 v1。仍需自动更新器在切换前后做协议/状态检查。
 4. **没有状态迁移/降级保护**：实例 schema 仅 v1；更新后无法安全回退，缺少迁移前快照。
 5. **没有更新保护**：下载/备份/恢复任务运行时重启 daemon 会把这些任务标记为 interrupted；没有“排空/拒绝/等待”策略。

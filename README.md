@@ -70,7 +70,7 @@ lives in [`output/playwright/`](output/playwright/).
 
 ### Requirements
 
-- macOS 13+ or Linux (x86_64 or arm64)
+- macOS 13+ on Apple Silicon, or Linux (x86_64 or arm64)
 - Java 21 for 1.21.x; Java 25+ for 26.x (selected per Minecraft version)
 - A terminal at least **80×24**; 40×12 layouts render with reduced chrome
 - Network access for the first Paper download
