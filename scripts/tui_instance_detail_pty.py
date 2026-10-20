@@ -223,7 +223,7 @@ def response_for(request, state):
                 "product": "mc-server-tui",
                 "version": "0.1.0",
                 "api_protocol_min": 8,
-                "api_protocol_max": 9,
+                "api_protocol_max": 11,
                 "state_schema": 1,
                 "runner_protocol": 1,
             },
@@ -345,6 +345,17 @@ def response_for(request, state):
             "result": "server_status",
             "data": server_snapshot("stopped", "Server stopped successfully."),
         }
+    elif operation == "restart_server":
+        state["server_state"] = "running"
+        state["message"] = "Old process exited; replacement is starting."
+        state["restart_requests"] += 1
+        state["logs"] += "SERVER_READY\n"
+        response = {
+            "result": "server_status",
+            "data": server_snapshot(
+                "starting", "Old process exited; replacement is starting."
+            ),
+        }
     else:
         response = {
             "result": "error",
@@ -379,6 +390,7 @@ def main():
             "requests": [],
             "start_requests": 0,
             "stop_requests": 0,
+            "restart_requests": 0,
             "backup_requests": 0,
             "backup_instance_id": None,
             "backup_task": None,
@@ -436,6 +448,7 @@ def main():
                 environment = os.environ.copy()
                 environment["TERM"] = "xterm-256color"
                 environment["LANG"] = "C.UTF-8"
+                environment["MC_SERVER_TUI_THEME"] = "claude"
                 # Color is part of this visual regression; do not inherit a
                 # host-level NO_COLOR preference into the dedicated test TTY.
                 environment.pop("NO_COLOR", None)
@@ -628,6 +641,19 @@ def main():
             if not wait_for("控制台命令已发送".encode()):
                 raise AssertionError("console command completion did not clear the pending guard")
 
+            restart_offset = len(captured)
+            os.write(master, b"R")
+            if not wait_for("replacement".encode(), start_offset=restart_offset):
+                recent = re.sub(
+                    rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured[-5000:])
+                )
+                raise AssertionError(f"restart action did not land; recent={recent}")
+            with lock:
+                if state["restart_requests"] != 1:
+                    raise AssertionError(
+                        f"TUI restart request count was {state['restart_requests']}"
+                    )
+
             stop_offset = len(captured)
             os.write(master, b"x")
             if not wait_for("服务器已正常停止".encode(), start_offset=stop_offset):
@@ -675,6 +701,7 @@ def main():
             print("Backup manager return to instance detail: passed")
             print("Start and readiness refresh: passed")
             print("Console command and incremental output: passed")
+            print("Controlled restart request and replacement feedback: passed")
             print("Graceful stop and dashboard return: passed")
             print("Alternate-screen cleanup: passed")
         finally:

@@ -65,6 +65,7 @@ pub(crate) trait ManagementSource: Send + Sync {
     ) -> Result<InstanceDetailUpdate, AppError>;
     async fn start_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
     async fn stop_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
+    async fn restart_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError>;
     async fn create_backup(
         &self,
         instance_id: uuid::Uuid,
@@ -325,6 +326,18 @@ impl ManagementSource for DaemonDashboardSource {
                 })
                 .await?,
             "stop server",
+        )
+    }
+
+    async fn restart_server(&self, instance_id: uuid::Uuid) -> Result<ServerSnapshot, AppError> {
+        expect_server_status(
+            self.client
+                .request(ApiRequest::RestartServer {
+                    instance_id,
+                    timeout_seconds: 20,
+                })
+                .await?,
+            "restart server",
         )
     }
 

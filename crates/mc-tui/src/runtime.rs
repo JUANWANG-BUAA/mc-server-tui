@@ -433,6 +433,9 @@ fn start_instance_command(
             InstanceCommand::Stop(instance_id) => {
                 InstanceCommandResult::Status(source.stop_server(instance_id).await)
             }
+            InstanceCommand::Restart(instance_id) => {
+                InstanceCommandResult::Status(source.restart_server(instance_id).await)
+            }
             InstanceCommand::Backup(instance_id) => {
                 InstanceCommandResult::Task(source.create_backup(instance_id).await.map(Box::new))
             }

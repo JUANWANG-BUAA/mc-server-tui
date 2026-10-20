@@ -14,6 +14,7 @@ pub(crate) enum CommandId {
     OpenBackupManager,
     StartServer,
     StopServer,
+    RestartServer,
     BeginConsoleInput,
     CreateBackup,
     VerifyBackup,
@@ -246,6 +247,14 @@ impl CommandPaletteState {
                 "发送 stop 并等待进程确认退出",
                 Some("x"),
                 &["stop", "shutdown", "停止"],
+            ));
+            entries.push(CommandEntry::new(
+                CommandId::RestartServer,
+                "实例",
+                "受控重启服务器",
+                "优雅停止并等待旧进程退出，然后启动同一实例",
+                Some("R"),
+                &["restart", "reboot", "重启"],
             ));
             entries.push(CommandEntry::new(
                 CommandId::BeginConsoleInput,

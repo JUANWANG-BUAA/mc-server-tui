@@ -30,7 +30,7 @@ The `TestBackend` tests own deterministic layout and content checks. PTY tests o
 
 For a release candidate, run the TUI in a real terminal at the reference sizes, drive the fake daemon through each task state, and capture terminal screenshots. Review hierarchy, truncation, contrast, progress indication, and resize behavior against the same fixtures used by the renderer tests. A screenshot is a review artifact; the deterministic cell snapshot remains the CI regression check.
 
-The optional browser projection uses `ttyd` on localhost and a normal browser, so it can be used when host-window screenshots are unavailable. Start the protocol-v9 fake daemon and TUI from the repository root:
+The optional browser projection uses `ttyd` on localhost and a normal browser, so it can be used when host-window screenshots are unavailable. Start the protocol-v11 fake daemon and TUI from the repository root:
 
 ```sh
 python3 -u scripts/tui_visual_fake_daemon.py --socket /tmp/mc-tui-visual.sock
@@ -92,7 +92,8 @@ The screen sequence is tested independently:
 | Workspace pages | Top bar page list, stable IDs, close/jump, preserved log filter and position at both sizes | Ctrl-B navigation, `/pages`, `/page`, `/close` (renderer/state coverage) |
 | Players and logs | `/players` help, online list, typed actions, `/rg` results, live filter and level colors | `/players` action dispatch and `/rg` arguments (renderer/state coverage) |
 | Add-ons and packs | `/mods` catalog/install states, `/import` preview/apply, `/export` destination | Add-on install and pack import arguments (renderer/state coverage) |
-| Instance detail | State, address, CPU/RSS, logs and controls at both sizes | `/open`, start, incremental console log, console command, graceful stop, return and restore terminal |
+| Server properties | Four-field form, diff review, validation error, conflict banner, saved/running guidance at both sizes | `/config` dispatch and editor state transitions (renderer/state coverage) |
+| Instance detail | State, address, CPU/RSS, logs and start/stop/restart controls at both sizes | `/open`, start, incremental console log, console command, graceful stop/restart, return and restore terminal |
 | World and backups | Catalog, selected summary, plan impact, confirmation and restore result at both sizes | Enter detail, open manager, poll list task, verify selected backup, build restore plan, type RESTORE, poll restore task, return to detail |
 
 Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 scripts/tui_task_detail_pty.py && python3 scripts/tui_guided_create_pty.py && python3 scripts/tui_instance_detail_pty.py`. For the real transport window, run `cargo build -p mc-daemon && python3 scripts/check_protocol_window.py` (no Paper or Java needed). These PTY checks validate the terminal stream and key path against fake daemons. The integrated create flow asserts the exact submitted version, Java executable, memory, port, EULA flag, transfer content, cancel request count, and alternate-screen cleanup.
@@ -112,13 +113,13 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 验证：
 
-- `cargo test -p mc-tui`：84 个单元/渲染测试，覆盖 shell 命令、光标编辑、Enter 执行高亮补全、列表输出定位、transcript、completion popup、内联 `/logs`/`/cancel`、主题解析/枚举、史蒂夫像素头像帧差异、版本列表滚动和 classic 回归。
+- `cargo test -p mc-tui --color always`：89 个单元/渲染测试，覆盖 shell 命令、`/restart` 调度、光标编辑、Enter 执行高亮补全、列表输出定位、transcript、completion popup、内联 `/logs`/`/cancel`、主题解析/枚举、史蒂夫像素头像帧差异、版本列表滚动、属性编辑状态和 classic 回归。
 - 四个 PTY 脚本已改为 shell 入口：smoke 用 `/new` 打开向导；guided create 用 Ctrl-K 打开命令面板、`/task 1` 打开任务；task detail 用 `/task 1` 重开并保持事件游标；instance detail 用 `/open` 打开、`/quit` 退出。四者均通过。
 - 浏览器 80×24 截图覆盖 `shell-session-claude/mono/ocean`、命令补全、`/status`、F1 帮助、向导版本列表、任务进度和经典双面板。截图是视觉审查证据，交互和动画仍由状态测试与 PTY 字节流证明。
 
 ## 历史真实终端验收记录（2026-10-17）
 
-这条历史记录最初使用协议 v5 假 daemon，在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件；之后曾升级至协议 v6 并加入分页列表。当前假 daemon 和 PTY 回归已升级到协议 v9（daemon 同时接受 v8 请求），包含恢复计划、恢复任务、取消请求、整合包分析、玩家操作和扩展管理接口。
+这条历史记录最初使用协议 v5 假 daemon，在 macOS Terminal 的独立 80×24 窗口运行真实 `mc-server-tui` 可执行文件；之后曾升级至协议 v6 并加入分页列表。四个不依赖新配置/重启操作的 PTY 假 daemon 仍故意声明最高协议 9，以持续覆盖旧客户端路径；视觉假 daemon 和真实 daemon 协议检查使用 v11，并覆盖属性编辑和受控重启接口。
 
 复跑时先执行 `cargo build -p mc-tui`，然后在一个终端启动 `python3 -u scripts/tui_visual_fake_daemon.py --socket /tmp/mc-tui-visual.sock`，再在另一个终端运行 `./target/debug/mc-server-tui --socket /tmp/mc-tui-visual.sock`。结束 TUI 后用 Ctrl-C 停止假 daemon。
 
@@ -193,7 +194,7 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 - 包名、版本、Minecraft 版本和唯一加载器；
 - 安装/待确认/排除/Mod/server-overrides 数量与总大小；
 - 每条问题的严重级别、证据、下一步动作；
-- “当前只读检查不会下载 Mod，也不会创建或修改实例”的边界提示（该轮为只读检查；协议 v9 已加入预览后的停服导入）。
+- 分析阶段不下载 Mod、不创建或修改实例；确认后 `/import <path> --apply` 会取得停服租约，再暂存、校验和提交兼容文件。
 
 当前 TUI PTY 回归使用 fake daemon 覆盖选择与分析结果渲染；真实 `.mrpack` ZIP 解析由 `mc-modpack` 集成测试覆盖，包括 `env.server=required/optional/unsupported`、客户端资源排除、server-overrides 计数和 `../escape.jar` 路径越界阻断。
 
@@ -219,17 +220,17 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 - 玩家操作通过类型化控制台命令执行。在线模式下按玩家名执行 `op`/白名单需要 Mojang 档案查询，国内网络下可能等待约 10 秒或失败；TUI 会显示服务端响应或超时说明。
 - 取消由下载传输路径实际协作检查；未来新增的长时间任务必须同样定期检查 `TaskReporter::is_cancelled()`，不能仅依赖 UI 请求。
 
-## 协议 v9、工作区与玩家/扩展闭环（2026-10-19）
+## 协议 v9、工作区与玩家/扩展闭环（2026-10-19 历史记录）
 
 这一轮把日常管理从“单页仪表盘”扩展到多页面工作区，并补上玩家、日志、Fabric 和整合包操作。协议升到 v9，同时保留 v8 兼容窗口。
 
 ### 协议协商
 
-- 客户端第一次请求前用 `server_info` 在协议 8 上探测 daemon；双方取最高共同版本。daemon 接受 8–9，并用请求版本回包。
-- v9 独有的 `manage_instance` 在 v8 daemon 上由客户端本地拒绝，提示升级，不会发送未知操作。
-- v9 独有的任务 kind/phase/result 不会出现在 v8 的 `list_tasks` 中；v8 直接读取时返回 `PROTOCOL_INVALID`。
+- 客户端第一次请求前用 `server_info` 在协议 8 上探测 daemon；双方取最高共同版本。当前 daemon 接受 8–11，并用请求版本回包。
+- v9 的 `manage_instance`、v10 属性编辑和 v11 受控重启按协商版本本地拒绝，不会发送未知操作。
+- 高于请求版本的任务 kind/phase/result 不会出现在旧版 `list_tasks` 中；旧版直接读取时返回 `PROTOCOL_INVALID`。
 - runner 控制帧携带 `protocol: 1`，缺失字段按 v1 处理。
-- 四个 PTY 假 daemon 都实现了 `server_info` 协商探针；`scripts/check_protocol_window.py` 启动隔离的真实 daemon，验证 v8/v9 ping、v8 `manage_instance` 拒绝和越界版本错误，并已接入 CI 的 `Real daemon protocol window` 步骤。
+- 四个 PTY 假 daemon 都实现了 `server_info` 协商探针；`scripts/check_protocol_window.py` 启动隔离的真实 daemon，验证 v8–v11 ping、旧版本操作拒绝和越界版本错误，并已接入 CI 的 `Real daemon protocol window` 步骤。
 
 ### 工作区与日志
 
@@ -248,19 +249,25 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 
 ### 验证
 
-- `cargo test --workspace`：200 项通过（Linux 额外 `systemd-analyze` 为 201 项），其中 `mc-tui` 84、`mc-core` 13、`mc-daemon` 17、`mc-client` 2、`mc-supervisor` 11、`mc` 10。
-- 新增协议测试覆盖：服务端报告 state/runner 版本、旧 `ServerInfo` 缺字段默认值、daemon 接受 v8/v9 并拒绝越界版本、v8 请求过滤 v9 任务、v8 客户端拒绝 v9 操作、runner 旧帧兼容、`mc update rollback` symlink 交换与目标 `state_schema` 读取。
+- `cargo test --workspace --color always`：213 项通过，其中 `mc-tui` 89、`mc-core` 14、`mc-daemon` 17、`mc-client` 2、`mc-supervisor` 12、`mc` 10。
+- 协议测试覆盖服务端报告 state/runner 版本、旧 `ServerInfo` 缺字段默认值、daemon 接受 v8–v11 并拒绝越界版本、旧请求过滤新任务、客户端按协商版本拒绝新操作、runner 旧帧兼容，以及 `mc update rollback` symlink 交换与目标 `state_schema` 读取。
 - 四个 PTY 回归全部通过；假 daemon 先响应 `server_info`，再继续原有的实例/任务/备份/取消断言。
 
-## 本轮自动化回归
+## 本轮自动化回归（2026-10-20）
 
-- `cargo test --workspace`：通过，macOS 本地 200 项测试（Linux 额外运行 `systemd-analyze` 校验，为 201 项），其中 `mc-tui` 84 项、`mc-core` 13 项、`mc-daemon` 17 项、`mc-client` 2 项、`mc-supervisor` 11 项、`mc-backup` 19 项、`mc` 10 项（Linux 11 项）、`mc-config` 4 项、`mc-modpack` 2 项、`mc-task` 10 项、`mc-download` 8 项、`mc-instance` 6 项、`provider-paper` 8 项、`mc-cli` 4 项、`mc-system` 2 项。
-- `cargo clippy --workspace --all-targets -- -D warnings`：通过。
+- `cargo test --workspace --color always`：通过，macOS 本地 213 项测试，其中 `mc-tui` 89 项、`mc-core` 14 项、`mc-daemon` 17 项、`mc-client` 2 项、`mc-supervisor` 12 项、`mc-backup` 19 项、`mc` 10 项、`mc-config` 9 项、`mc-modpack` 2 项、`mc-task` 10 项、`mc-download` 8 项、`mc-instance` 6 项、`provider-paper` 8 项、`mc-cli` 5 项、`mc-system` 2 项。Linux 未在本次本机环境重跑；CI 矩阵仍包含 Ubuntu 22.04，额外的 `systemd-analyze` 测试只在 Linux 运行。
+- 本轮新增受控重启测试覆盖真实 fake-Java 子进程替换、新 PID、停止后拒绝重启、TUI `/restart` 调度、`R` 键和 CLI 命令映射；属性编辑测试继续覆盖字段校验、差异生成、冲突保留和 80×24/40×12 渲染。
+- `python3 scripts/check_protocol_window.py`：通过，实际 daemon 接受 v8–v11，旧版本分别拒绝管理、属性和重启操作，v7/v12 越界请求返回明确错误。
+- 四个 PTY 脚本全部重新通过：冒烟、命令面板向导、任务详情和实例详情。实例页覆盖启动、控制台、`R` 受控重启、优雅停止、备份/恢复流程与终端恢复；测试子进程固定 Claude 主题并移除 `NO_COLOR`，避免依赖用户当前主题。
+- `cargo clippy --workspace --all-targets --color always -- -D warnings`：通过。
+- `python3 -m py_compile scripts/check_protocol_window.py scripts/tui_visual_fake_daemon.py scripts/tui_pty_smoke.py scripts/tui_task_detail_pty.py scripts/tui_guided_create_pty.py scripts/tui_instance_detail_pty.py`：通过。
+
+以下为在此之前已有、本次文档同步未重跑的记录：
+
 - `./target/debug/mc version --json`、`mc service install --dry-run`、macOS launchd 临时配置安装/重启/停止/卸载：通过。
 - Phase 1 发布工具：`package_release.py` 生成 tar.gz/SHA-256/manifest，`install.sh` 安装到版本化目录，`mc uninstall` 清理服务/launcher/版本目录并保留数据；本机 file:// manifest 安装闭环、版本化 launcher + launchd `setup`/`uninstall` 已跑通。
 - `cargo fmt --all --check`：通过。
 - `python3 -m py_compile scripts/tui_visual_fake_daemon.py scripts/tui_pty_smoke.py scripts/tui_task_detail_pty.py scripts/tui_guided_create_pty.py scripts/tui_instance_detail_pty.py`：通过。
-- 四个 PTY 脚本全部通过：仪表盘及向导在 daemon 请求挂起时保持响应，Ctrl-C 在 0.00 秒内退出并恢复 alternate screen；命令面板新建流程验证稳定版本、推荐 Java、内存、端口和 EULA 参数；任务详情显示 50%、27/54 MiB、3.0 MiB/s 与真实来源，两次 `x` 后恰好发送一次取消请求并进入已取消状态；任务事件游标 `0 → 2 → 3` 且重开从最后游标继续，运行任务 spinner 输出至少两种帧；实例页 `b` 提交目标实例备份，`l` 打开备份管理器并轮询分页列表任务；随后 `v` 校验选中断点，Enter 生成恢复预览，输入 `RESTORE` 后恢复请求携带完整后端 token；返回实例详情后启动、日志增量、控制台命令、优雅停止和终端恢复均通过。实例 PTY 另外确认 TUI 发出了配置的 24 位 ANSI 品牌色，并观察到备份任务 spinner 至少两种不同帧。
 
 ### 浏览器投射视觉闭环（2026-10-17）
 

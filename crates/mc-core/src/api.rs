@@ -7,9 +7,9 @@ use crate::{
 
 /// Highest protocol version this build speaks. Clients negotiate down to the
 /// highest common version in `API_PROTOCOL_MIN..=API_PROTOCOL_MAX`.
-pub const API_PROTOCOL_VERSION: u16 = 10;
+pub const API_PROTOCOL_VERSION: u16 = 11;
 pub const API_PROTOCOL_MIN: u16 = 8;
-pub const API_PROTOCOL_MAX: u16 = 10;
+pub const API_PROTOCOL_MAX: u16 = 11;
 
 /// Control protocol spoken with a per-instance runner over its private socket.
 /// The field is additive: a peer that predates versioning is treated as v1.
@@ -91,6 +91,7 @@ impl ApiRequest {
     /// newer operation sent in an older envelope instead of guessing.
     pub fn minimum_protocol_version(&self) -> u16 {
         match self {
+            Self::RestartServer { .. } => 11,
             Self::ReadServerProperties { .. } | Self::SaveServerProperties { .. } => 10,
             Self::ManageInstance { .. } => 9,
             Self::Ping
@@ -210,6 +211,10 @@ pub enum ApiRequest {
         instance_id: uuid::Uuid,
     },
     StopServer {
+        instance_id: uuid::Uuid,
+        timeout_seconds: u16,
+    },
+    RestartServer {
         instance_id: uuid::Uuid,
         timeout_seconds: u16,
     },
@@ -403,8 +408,8 @@ mod tests {
         assert_eq!(info.state_schema, STATE_SCHEMA_VERSION);
         assert_eq!(info.runner_protocol, RUNNER_PROTOCOL_VERSION);
         assert_eq!(info.negotiated_version(8, 9), Some(9));
-        assert_eq!(info.negotiated_version(10, 12), Some(10));
-        assert_eq!(info.negotiated_version(11, 12), None);
+        assert_eq!(info.negotiated_version(10, 12), Some(11));
+        assert_eq!(info.negotiated_version(12, 12), None);
         assert_eq!(info.negotiated_version(7, 8), Some(8));
     }
 
@@ -450,6 +455,34 @@ mod tests {
             .minimum_protocol_version(),
             10
         );
+        assert_eq!(
+            ApiRequest::RestartServer {
+                instance_id: uuid::Uuid::nil(),
+                timeout_seconds: 20,
+            }
+            .minimum_protocol_version(),
+            11
+        );
+    }
+
+    #[test]
+    fn restart_request_round_trips_through_protocol_v11() {
+        let instance_id = uuid::Uuid::new_v4();
+        let envelope = ApiRequestEnvelope::current(ApiRequest::RestartServer {
+            instance_id,
+            timeout_seconds: 17,
+        });
+        let encoded = serde_json::to_string(&envelope).expect("serialize restart request");
+        let decoded: ApiRequestEnvelope =
+            serde_json::from_str(&encoded).expect("deserialize restart request");
+        assert_eq!(decoded.protocol_version, 11);
+        assert!(matches!(
+            decoded.payload,
+            ApiRequest::RestartServer {
+                instance_id: decoded_id,
+                timeout_seconds: 17,
+            } if decoded_id == instance_id
+        ));
     }
 
     #[test]

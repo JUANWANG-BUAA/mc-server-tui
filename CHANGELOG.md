@@ -22,8 +22,8 @@ All notable user-facing changes are recorded here. The format is based on
   metadata checks, client-only rejection, and stopped-instance enforcement.
 - MRPACK/ZIP server-pack preview and stopped-server import, plus export of
   server add-on/config bundles with SHA-256 manifests and archive limits.
-- API protocol 9 with N/N-1 negotiation: the daemon accepts protocols 8–9,
-  replies with the request's protocol, and hides v9-only task kinds/results from
+- API protocol 11 with compatibility negotiation: the daemon accepts protocols
+  8–11, replies with the request's protocol, and hides newer task kinds/results from
   v8 clients. `ServerInfo` and the release manifest now report `state_schema`
   and `runner_protocol`. CI starts an isolated real daemon (no Paper/Java) to
   check the window with `scripts/check_protocol_window.py`.
@@ -33,6 +33,13 @@ All notable user-facing changes are recorded here. The format is based on
   versioned `current`/`previous` symlinks, restart the user service, and refuse
   a state-schema downgrade when the target binary cannot read the running
   daemon's layout.
+- A limited `server.properties` editor for MOTD, max players, difficulty, and
+  view distance, with diff review, revision conflict detection, preservation of
+  unknown settings/comments, and atomic save. Saving does not restart the server.
+- Controlled restart through `/restart` or `R` in the instance detail, plus
+  `mc cli instance start/stop/restart`. A restart holds one coordination lock
+  across graceful stop and restart, requires a verified running process, and
+  aborts before starting if the old process did not stop cleanly.
 - Static GitHub Pages landing site with real TUI screenshots, interactive
   theme switching, pixel Steve, architecture/install/roadmap sections, SEO
   metadata, sitemap, and a custom 404 page.
@@ -53,10 +60,11 @@ All notable user-facing changes are recorded here. The format is based on
 ### Planned
 
 - Vanilla provider and takeover of existing server directories.
-- `server.properties` editing, Java compatibility rules, and structured
+- Broader `server.properties` editing (including raw mode), Java compatibility rules, and structured
   management results for the CLI.
 - State schema migration snapshots and update-time task draining.
-- Online/scheduled backups and a real Minecraft restore drill.
+- Online/scheduled backups and post-restore in-game world verification. A local
+  Paper backup/restore drill has been recorded; client-level validation remains.
 - Signed/notarized releases, Homebrew tap, and Linux packages.
 - Signed self-updater with health checks, plus mirrors/retries for constrained
   networks.

@@ -9,7 +9,8 @@ backups, and TUI work, but the feature set is intentionally incomplete. See
 ## What do I need?
 
 - macOS 13+ or Linux (x86_64/arm64);
-- Java 21+ for current Paper versions;
+- the Java release required by the selected Minecraft version (Java 21 for
+  1.21.x; newer releases may require newer Java);
 - a terminal of at least 80×24; smaller layouts degrade or hide the mascot;
 - internet access for the first Paper download.
 
@@ -56,9 +57,20 @@ backup.
 
 ## Does it support Vanilla, Fabric, or modpacks?
 
-Paper is the only installable provider today. `.mrpack` files can be analyzed
-read-only. Actual modpack materialization and Fabric installation are next-phase
-work.
+The published `v0.1.0` alpha is Paper-only and can analyze `.mrpack` files
+read-only. The current development branch adds Fabric, player actions, and
+stopped-instance import for `.mrpack` and server-pack ZIP files. Imports add
+compatible mods/plugins/config only and refuse conflicts. Vanilla,
+Forge/NeoForge, and CurseForge file-ID materialization are not implemented.
+
+## Can I edit server.properties?
+
+Not in `v0.1.0`. The current development branch adds `/config` for MOTD, max
+players, difficulty, and view distance. It shows a diff and refuses to overwrite
+a file changed outside the editor. Other settings, raw editing, and validation
+for every property are still follow-up work. A running server keeps its current
+values until it is restarted; use `/restart` or `R` after saving when the new
+values should be applied immediately.
 
 ## Are backups online?
 
@@ -68,10 +80,12 @@ confirmation.
 
 ## How do I update?
 
-There is no auto-updater yet. Install a newer release over the existing
-versioned install (the installer preserves `previous`), or use the package
-manager once packages exist. Phase 2 adds signed releases; Phase 3/4 add
-compatibility ranges and a safe updater.
+There is no automatic updater yet. The development branch provides manual
+`mc update status` and `mc update rollback` against the versioned
+`current`/`previous` directories. Install a newer release over the existing
+versioned install, or use the package manager once packages exist. Signed
+releases, task draining, and health-checked automatic update/rollback remain
+follow-up work.
 
 ## Why is the release unsigned?
 

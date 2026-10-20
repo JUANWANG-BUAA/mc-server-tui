@@ -23,7 +23,7 @@ documents below are the implementation contracts behind the current alpha.
 | [Instance schema](INSTANCE_SCHEMA.md) | `instance.toml`, `lock.json`, SQLite index, staging/recovery |
 | [Async concurrency](ASYNC_CONCURRENCY.md) | request path, bounded tasks, progress, cancellation |
 | [Backup and restore](BACKUP_RESTORE_DESIGN.md) | stopped-world backup, verification, restore transaction |
-| [Modpack analysis](MODPACK_IMPORT.md) | read-only `.mrpack` adapter boundary and next phase |
+| [Modpack import](MODPACK_IMPORT.md) | `.mrpack` analysis, verified materialization, staging, and conflict rules |
 
 ## TUI
 

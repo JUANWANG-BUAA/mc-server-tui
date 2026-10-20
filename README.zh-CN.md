@@ -27,14 +27,18 @@ Java 进程藏在多层封装之后。这个项目选择终端：
 
 ## 当前功能
 
+下表描述当前工作区，内容领先于已发布的 `v0.1.0`。发行版的实际范围以状态说明和
+release notes 为准。
+
 | 模块 | 当前状态 |
 | --- | --- |
 | 会话 TUI | transcript + composer + 状态坞、命令补全、命令面板、光标编辑、历史、内联 `/logs`/`/cancel` |
 | Paper 建服 | 版本/build 选择、滚动条、Java 绑定、内存/端口、EULA、计划预览 |
-| 生命周期 | 幂等启动、优雅停止、就绪识别、控制台、增量日志、CPU/RSS |
+| 生命周期 | 幂等启动、优雅停止、受控重启、就绪识别、控制台、增量日志、CPU/RSS |
 | 常驻监督 | per-instance runner、进程身份、daemon 重启重连 |
 | 持久任务 | SQLite 任务、字节进度、速度/来源、事件游标、协作取消 |
 | 世界备份 | 停服备份、预检、staging、校验、恢复计划/token、恢复 journal |
+| 服务端配置 | MOTD、人数上限、难度和视距编辑；差异预览、外部修改检测与原子保存 |
 | 整合包 | ZIP / MRPACK 预览与停服导入、校验导出；Paper / Fabric 兼容扩展下载及必需依赖 |
 | 分发 | `mc` 启动器、`config.toml`、launchd/systemd 用户服务、版本化安装器、release manifest、Homebrew formula 模板 |
 
@@ -83,7 +87,9 @@ cargo build --workspace
 | --- | --- |
 | `/create` | Paper 引导建服 |
 | `/open` | 实例详情：生命周期、控制台、日志、备份 |
+| `/config` | 编辑四类 `server.properties` 字段，保存前检查差异 |
 | `/start`、`/stop` | 启动 / 优雅停止 |
+| `/restart` | 优雅停止并等待旧进程退出，再启动同一实例 |
 | `/logs` | 在会话内查看最近日志 |
 | `/tasks`、`/task <n>` | 任务列表 / 详情 |
 | `/cancel [n]` | 取消下载，TUI 会二次确认 |
@@ -103,6 +109,10 @@ TUI 外：
 mc status --json
 mc doctor --json
 mc version --json
+mc cli instance list
+mc cli instance start <实例 ID>
+mc cli instance stop <实例 ID> --timeout-seconds 20
+mc cli instance restart <实例 ID> --timeout-seconds 20
 mc service status --json
 mc service restart
 mc uninstall          # 保留实例数据/配置/cache
@@ -182,24 +192,27 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 
 ## 状态
 
-`v0.1.0` 是 alpha。支持 Paper / Fabric 建服、兼容扩展管理、玩家操作和服务端整合包导入导出；
-Vanilla、接管现有目录、`server.properties` 编辑、在线/定时备份仍在路线图上。
+`v0.1.0` 是首个公开的 unsigned alpha；当前工作区包含尚未进入该发行版的后续改动。
+截至 2026-10-20，当前实现状态如下：
 
 | 已实现 | 下一步 |
 | --- | --- |
 | Paper / Fabric 安装、启停、控制台、日志 | Vanilla provider |
 | 常驻 runner + daemon 重连 | 接管现有服务端目录 |
 | 停服备份/校验/恢复 | 在线/定时备份 |
-| 持久任务、字节进度、取消 | `server.properties` 编辑 |
+| 持久任务、字节进度、取消 | 完整 `server.properties` 覆盖与原始编辑 |
 | 玩家操作（OP/白名单/封禁/踢出） | 结构化管理结果与 CLI 生命周期命令 |
 | `/rg` 日志搜索、实时过滤、CPU/RSS 趋势与告警 | TPS/MSPT 与 JVM 指标 |
 | 工作区多页面、稳定编号、日志状态保留 | 多实例调度与主机内存预算 |
 | Modrinth 扩展安装、MRPACK/ZIP 整合包预览/导入/导出 | Forge / NeoForge 与 CurseForge 文件 ID 授权导入 |
 | 会话 TUI、七主题、史蒂夫 | 签名/公证、Homebrew tap、deb/rpm |
-| API 协议 8–9 协商 + runner 协议握手 | 状态 schema 迁移与更新前任务排空 |
+| API 协议 8–11 协商 + runner 协议握手 | 状态 schema 迁移与更新前任务排空 |
+| 协调停服/启动的受控重启与 CLI 生命周期命令 | 更完整属性管理与启动失败诊断 |
+| 四字段 `server.properties` 编辑、差异预览与冲突检测 | 更多属性、原始编辑及重启操作 |
 | 版本化 `mc update status/rollback` | 带健康检查的签名自动更新器 |
 
 完整差距见 [Implementation gaps](docs/IMPLEMENTATION_GAPS.md)。
+下一里程碑仍需明确路线：产品评审建议先验证完整 Paper 服主旅程，较早的发布规划则优先签名和包管理分发。
 
 ## 文档
 
@@ -227,8 +240,8 @@ cargo test --workspace
 cargo build --workspace
 ```
 
-当前自动化证据：macOS **164** 项测试，Linux **165** 项（多一个
-`systemd-analyze` 单元校验），另有四个 PTY 脚本：
+当前本机自动化证据（macOS，2026-10-20）：workspace **213** 项测试，
+其中 `mc-tui` **89** 项。Linux 仍在 CI 矩阵内，但本次未在本机重跑；另有四个 PTY 脚本：
 
 ```sh
 python3 scripts/tui_pty_smoke.py
@@ -236,6 +249,8 @@ python3 scripts/tui_guided_create_pty.py
 python3 scripts/tui_task_detail_pty.py
 python3 scripts/tui_instance_detail_pty.py
 ```
+
+仓库的 Cargo 配置固定保留彩色编译与测试输出；TUI 本身仍尊重用户的 `NO_COLOR` 偏好。
 
 ## 贡献与安全
 

@@ -299,7 +299,7 @@ mod tests {
                     .await;
             assert!(
                 extra.is_err(),
-                "a v9-only operation must not be sent to a v8 daemon"
+                "a newer operation must not be sent to a v8 daemon"
             );
         });
 
@@ -321,6 +321,18 @@ mod tests {
             .evidence
             .as_deref()
             .is_some_and(|evidence| evidence.contains("requires API protocol 9")));
+        let error = client
+            .request(ApiRequest::RestartServer {
+                instance_id: Uuid::nil(),
+                timeout_seconds: 20,
+            })
+            .await
+            .expect_err("restart requires protocol 11");
+        assert_eq!(error.code, ErrorCode::ProtocolInvalid);
+        assert!(error
+            .evidence
+            .as_deref()
+            .is_some_and(|evidence| evidence.contains("requires API protocol 11")));
 
         server.await.expect("fake daemon task");
         cleanup(&socket);

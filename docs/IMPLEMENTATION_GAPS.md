@@ -1,17 +1,17 @@
 # 实现差距与发布阻塞项
 
-> 核对日期：2026-10-19  
+> 核对日期：2026-10-20
 > 代码版本：workspace `0.1.0`  
-> 协议版本：`API_PROTOCOL_MIN..=API_PROTOCOL_MAX = 8..=9`（runner 协议 v1）
+> 协议版本：`API_PROTOCOL_MIN..=API_PROTOCOL_MAX = 8..=11`（runner 协议 v1）
 > 核对方式：逐份阅读 `PRODUCT_DESIGN.md`、`BASE_IMPLEMENTATION_PLAN.md`、`MIRROR_ACCELERATION_DESIGN.md`、`UPSTREAM_DOWNLOAD_DESIGN.md` 和 `docs/` 契约，再对照 `crates/*` 的实际命令、API、测试和脚本。本文只记录可证实的状态；未来规划不当作已实现。
 
 ## 结论
 
 1. **基础闭环是真实的**：Paper 创建、下载校验、断点续传缓存、持久任务、常驻 runner、启停、控制台、日志、停机世界备份/恢复、TUI 会话 shell 和 CLI 查询都已经有代码和测试。
-2. **离文档定义的“第一个稳定版本”还有明显差距**：Vanilla、接管现有目录、`server.properties` 编辑、在线/定时备份、故障规则仍未实现；玩家管理、日志搜索、Fabric 建服和整合包导入本轮已落地。用户级服务安装完成了 Phase 0，但 Linux 实机验证和更新保护仍待补。其中 Vanilla 和接管目录属于首版承诺，不是可选项。
-3. **发布与分发仍处于起步**：已有基础 CI、Phase 0 的 `mc`/配置/服务安装，以及 Phase 1 的版本化安装器/manifest；但没有公开且签名的发布产物、Homebrew tap/apt/dnf 渠道、公证和更新器，当前仍是源码构建加本机打包。
-4. **热更新的关键底座已经具备，但仍缺状态迁移和更新保护**：per-instance runner 会独立于 daemon 存活，daemon 重启后可重连；本轮补上了 API N/N-1、runner 控制协议 v1 和 `mc update rollback`。仍缺状态 schema 迁移快照、更新前排空任务、签名自动更新器和健康检查式自动回退。
-5. **建议先做发布工程，而不是继续堆功能**：服务安装只到 Phase 0，更新保护还没有；功能越多，真实用户升级和排障成本越高。功能线可以并行补 Vanilla、接管目录和 `server.properties`。
+2. **离文档定义的“第一个稳定版本”还有明显差距**：Vanilla、接管现有目录、完整 `server.properties` 管理、在线/定时备份和故障规则仍未完成；玩家管理、日志搜索、Fabric 建服、整合包导入、四字段属性编辑和受控重启已经落地。属性编辑器目前只覆盖 MOTD、人数上限、难度和视距，不能算完整的分类/原始编辑能力。用户级服务安装完成了 Phase 0，但 Linux 实机服务验证和更新保护仍待补。
+3. **发布与分发仍处于起步**：已有基础 CI、Phase 0 的 `mc`/配置/服务安装，以及 Phase 1 的版本化安装器/manifest，并已公开 unsigned alpha 产物；但没有签名/公证、Homebrew tap/apt/dnf 渠道、合并后的多目标发布和自动更新器。
+4. **热更新的关键底座已经具备，但仍缺状态迁移和更新保护**：per-instance runner 会独立于 daemon 存活，daemon 重启后可重连；已实现 API 8–11 兼容窗口、runner 控制协议 v1 和 `mc update rollback`。仍缺状态 schema 迁移快照、更新前排空任务、签名自动更新器和健康检查式自动回退。
+5. **路线图需要显式选择**：较早的发布规划优先完成签名/包管理和更新保护；2026-10-19 产品评审则建议先验证一条完整 Paper 朋友服旅程，再把属性编辑和启动诊断做到可用，并在真实客户端验收受控重启。两条路线都成立，但当前文档没有正式决定哪个是下一里程碑，不能同时宣称二者都是“下一步优先项”。
 6. **Phase 0 与 Phase 1 发布工具已落地**（2026-10-19）：`mc` 启动器、`config.toml`、默认 User-Agent、`version --json`、`ServerInfo` 探针、launchd/systemd 用户服务管理；以及 tar.gz + SHA-256 + release manifest、版本化 `install.sh`、Homebrew formula 渲染、`mc uninstall`。macOS launchd 已做真实安装/重启/停止/卸载闭环；Linux systemd 有 `systemd-analyze` 测试和 CI 交叉编译，但还没有真实 Linux 主机安装证据。
 
 ## 状态图例
@@ -32,12 +32,12 @@
 | 下载中断续传、长度/SHA-256 校验、缓存、原子安装 | ✅ | `mc-download`、`mc-instance` staging/quarantine、PTY/单元测试 |
 | 持久任务、事件游标、字节进度、两次确认取消 | ✅ | `mc-task`、`task_presentation`、TUI 任务详情、PTY |
 | 停机世界备份、列表、校验、恢复预览、精确确认、事务恢复 | ✅ | `mc-backup`、`mc-daemon/backup*`、备份管理器和 PTY |
-| 真实 Minecraft 世界的备份/恢复演练 | ❌ | 文档明确仍待真实演练；当前只有 fake daemon/事务测试 |
+| 真实 Minecraft 世界的备份/恢复演练 | 🟡 | 2026-10-19 本机 Paper 演练实际完成停服备份、校验、恢复、再次启动和目录树检查；没有 Minecraft 客户端进入恢复后的世界，玩家可见内容仍未核验 |
 | **Vanilla 适配器** | ❌ | 只有 `provider-paper`；没有 Vanilla manifest/version JSON 解析 |
 | **接管现有服务器目录** | ❌ | 没有 scan/confirm/register API；`mc-instance` 只处理自己创建的实例 |
 | 实例重命名、收藏、归档、复制配置、删除前检查 | ❌ | 实例只支持 create/list/open；没有 update/rename/delete API |
-| **重启命令** | ❌ | 只有 start/stop；TUI 没有 restart；CLI 也没有生命周期命令 |
-| **`server.properties` 分类编辑、原始编辑、差异预览、外部修改冲突检测** | ❌ | 现有代码只在备份时读取 `level-name` 识别世界目录 |
+| **重启命令** | ✅ | 协议 v11 `RestartServer`、TUI `/restart`/`R`、CLI `instance restart`；同一协调锁覆盖优雅停服等待和再次启动，停止不干净时不会自动启动 |
+| **`server.properties` 分类编辑、原始编辑、差异预览、外部修改冲突检测** | 🟡 | `/config` 已实现 MOTD、人数上限、难度、视距四字段、范围校验、差异预览、SHA-256 修订冲突检测、未知键/注释保留、原子保存和 `/restart` 后续应用；缺完整分类字段、原始编辑和逐版本默认值/规则 |
 | JVM 参数/服务端参数/环境变量编辑器 | ❌ | 只有 `min_memory_mb`/`max_memory_mb`，没有完整启动参数模型 |
 | 托管 JDK 下载与校验 | ❌ | `mc-system/java` 只扫描本机；没有 Adoptium 下载/安装 |
 | Java 兼容规则按服务端与 MC 版本维护 | 🟡 | 向导优先 Java 21，其余只做“≥21”兜底；没有规则表、插件/mod 需求预检 |
@@ -51,7 +51,7 @@
 | 用户级监督服务安装/卸载/开机启动 | 🟡 | Phase 0 已实现 `mc service install/start/stop/restart/status/uninstall`；launchd 在本机做过真实闭环，systemd 生成/单测/systemd-analyze 覆盖、尚无 Linux 主机安装证据；登录启动由 RunAtLoad/enable 提供，开机前启动仍需 linger/LaunchDaemon |
 | 配置文件（User-Agent、数据目录、更新通道等） | ✅ | `mc-config` 提供 `config.toml`、默认 UA、state/socket/cache 解析；env/flag 可覆盖；服务单元注入配置路径。发布前仍需把默认项目 URL 换成真实联系方式 |
 | 版本化安装、卸载、发布清单 | 🟡 | `scripts/package_release.py`、`scripts/install.sh`、`mc uninstall`、Homebrew formula 模板/渲染脚本已实现；本轮新增 `mc update status/rollback`，切换 `current`/`previous` 并重启服务；仍缺签名/公证、tap、CI 多目标合并 manifest 和更新前排空任务 |
-| CLI 的 start/stop/logs 等日常命令 | 🟡 | CLI 有 doctor/status/paper/instance/backup/task/modpack；`status` 仍是 Ping，没有 start/stop/log/console；本轮新增的玩家/日志/扩展/整合包操作只走 TUI 的 `ManageInstance`，CLI 尚未接入 |
+| CLI 的 start/stop/logs 等日常命令 | 🟡 | CLI 已有 `instance start/stop/restart`，以及 doctor/status/paper/instance/backup/task/modpack；`status` 仍是 Ping，没有 log/console/config；玩家、日志、扩展、整合包和属性编辑只走 TUI |
 | 关闭终端后仍可管理 | ✅ | runner 不依赖终端；安装用户服务后 daemon 由 launchd/systemd 托管，未安装时仍需手工启动 |
 
 ## 2. P1：服务端专用优势
@@ -109,17 +109,17 @@
 ### `docs/BACKUP_RESTORE_DESIGN.md`
 
 - ✅ stopped-world 发现、空间预检、staging copy、SHA-256 manifest、分页、校验、restore plan/token、事务恢复、journal/recovery。
-- ❌ 在线备份（save-off/save-all）、定时备份、远端备份、真实世界恢复演练。
+- ❌ 在线备份（save-off/save-all）、定时备份、远端备份、恢复后客户端世界核验。
 - 🟡 恢复失败/断电/磁盘满等真实故障注入主要靠事务测试，缺真实主机演练记录。
 
 ### `docs/SUPERVISION.md`
 
 - ✅ per-instance runner、私有 Unix socket、进程标记、PID 身份核验、幂等启动、优雅停止、退出码、daemon 重启重连。
-- 🟡 Linux `/proc` 分支已实现，但文档要求 CI/主机验证；当前 CI 还没有 Linux 矩阵。
+- 🟡 Linux `/proc` 分支已在 Ubuntu CI 的 workspace 测试覆盖；仍缺真实 Linux 主机上的服务安装、终端交互和完整维护演练。
 - ✅ launchd/systemd 用户级服务安装、状态、启停、重启、卸载（`mc service`）；macOS 已真实验证，Linux 待主机/CI 安装验证。
 - 🟡 登录启动：launchd RunAtLoad、systemd `enable` 已生成；Linux 开机前启动需要 `loginctl enable-linger`，当前未自动开启。
 - ✅ runner 控制协议 v1：请求/响应携带 `protocol`，缺失字段按 v1 处理；新 daemon 拒绝高于自身版本的请求。
-- ✅ API N/N-1：daemon 接受协议 8–9，回包使用请求版本；v9 独有的管理任务不会出现在 v8 的 `ListTasks` 中。
+- ✅ API 兼容窗口：daemon 接受协议 8–11，回包使用请求版本；旧版请求看不到高于自身版本的任务结果。v10 属性编辑和 v11 受控重启按协商版本拒绝。
 - ❌ 更新期间的任务排空/守护进程优雅交接流程；状态 schema 迁移仍无快照。
 
 ### `docs/INSTANCE_SCHEMA.md`
@@ -144,8 +144,8 @@
 
 ### `docs/TUI_TESTING.md`
 
-- ✅ 74 个 `mc-tui` 测试、4 个 PTY 回归、80×24/40×12 渲染、浏览器截图、主题/Steve 证据。
-- 🟡 Linux 真实终端/Linux `/proc` 尚无 CI 证据；macOS 是主要验证环境。
+- ✅ 89 个 `mc-tui` 测试、4 个 PTY 回归、80×24/40×12 渲染、浏览器截图、主题/Steve 证据；受控重启已纳入实例详情 PTY，属性编辑仍只有状态/渲染测试。
+- 🟡 CI 在 Ubuntu 运行 workspace 测试和一项 PTY smoke，但 Linux 真实主机服务安装、终端手工验收和完整维护演练仍缺。
 - 🟡 真实 Minecraft 日志/真实世界/真实网络未纳入回归。
 
 ## 5. 文档与代码的漂移（本次已修正）
@@ -155,21 +155,23 @@
 | `docs/ASYNC_CONCURRENCY.md` | 进度只有阶段、下载无法报告字节 | `TaskProgress.transfer` 已有下载字节/总大小/速度/来源；TUI 显示真实进度 |
 | `docs/ASYNC_CONCURRENCY.md` | 取消未暴露 | `CancelTask`、`mc-task` 协作取消、TUI 两次 `x`、CLI/TUI 已有 |
 | `docs/INSTANCE_SCHEMA.md` | 进度只有阶段、无取消 | 同上 |
-| `docs/SUPERVISION.md` | API protocol 6 | 当前协议范围 8–9，runner 协议 v1 |
-| `docs/TUI_TESTING.md` | 旧测试总数 | 已更新为 workspace 200（Linux 201）/ `mc-tui` 84（2026-10-19；Linux 的 systemd-analyze 额外 1 项） |
-| `README*`、`docs/TUI_TESTING.md` | `.mrpack` 只读、没有玩家管理 | 已实现 ZIP/MRPACK 停服导入、`/players` 类型化操作、Fabric 建服和 Modrinth 扩展安装 |
+| `docs/SUPERVISION.md` | API protocol 8–9（current 9） | 当前协议范围 8–11（current 11），runner 协议 v1 |
+| `docs/TUI_TESTING.md`、`README*` | 旧测试总数 | 已更新为 macOS workspace 213 / `mc-tui` 89（2026-10-20 本地彩色测试运行） |
+| `README*`、`docs/FAQ.md`、`docs/MODPACK_IMPORT.md` | `.mrpack` 只读、只有 Paper | 已实现 Paper/Fabric、ZIP/MRPACK 停服导入、`/players` 类型化操作和 Modrinth 扩展安装 |
+| `docs/IMPLEMENTATION_GAPS.md`、`docs/INTERACTION_DESIGN.md` | 没有属性编辑入口 | `/config` 已提供四字段编辑、差异检查、冲突检测和原子保存；完整属性目录和原始编辑仍待补 |
+| `README*`、`docs/INTERACTION_DESIGN.md` | 只有 start/stop | 已加入受控重启、TUI `/restart`/`R` 和 CLI 生命周期命令 |
 
 ## 6. 发布与分发阻塞项（按严重度）
 
 1. **服务安装只完成了 Phase 0**：`mc service` 已有 launchd/systemd 实现，但 Linux 真实安装、登录/开机启动、更新时“不杀 runner”的服务级验证还没完成。
 2. **发布产物已有，但签名/渠道仍未完成**：`v0.1.0` 已作为 unsigned alpha pre-release 发布四个平台的 tar.gz、SHA-256、manifest、install.sh 和 Homebrew formula；仍没有签名/公证、实际 tap/apt/dnf 仓库、SBOM、changelog。
-3. ~~没有协议兼容窗口~~：已实现 API 8–9 协商、按请求版本回包和 v8 任务过滤；runner 控制协议为 v1。仍需自动更新器在切换前后做协议/状态检查。
+3. ~~没有协议兼容窗口~~：已实现 API 8–11 协商、按请求版本回包和旧版本任务过滤；runner 控制协议为 v1。仍需自动更新器在切换前后做协议/状态检查。
 4. **没有状态迁移/降级保护**：实例 schema 仅 v1；更新后无法安全回退，缺少迁移前快照。
 5. **没有更新保护**：下载/备份/恢复任务运行时重启 daemon 会把这些任务标记为 interrupted；没有“排空/拒绝/等待”策略。
 6. ~~没有 runner 协议版本~~：runner 控制协议 v1 已落地；旧帧缺少 `protocol` 时按 v1 处理，新 runner 拒绝更高版本请求。
 7. **Linux 发布验证不足**：CI 已加 macOS/Linux 构建测试，但 `/proc` 身份核验、`ps` 依赖、musl、systemd 实际安装还没有真实主机矩阵。
-8. **文档承诺的“稳定版验收”没有真实演练**：真实 Paper/Vanilla、真实存档、真实升级/回滚、干净环境安装。
-9. **没有安装/升级/卸载/支持文档**：PRODUCT_DESIGN 已明确这是公开发布门槛。
+8. **稳定版验收矩阵仍不完整**：本机 Paper 已完成建服、备份、恢复和再次启动，但缺客户端进入世界、Vanilla、真实升级/回滚和干净 Linux 环境安装。
+9. **安装/升级/卸载文档仍分散**：README、FAQ 和签名前的发布说明覆盖部分路径，但缺面向稳定版的统一支持矩阵、升级/回退说明和故障排查手册。
 10. **User-Agent 默认指向项目仓库**：这是一个真实项目联系方式；fork 或共享部署仍应设置自己的联系 URL。
 
 ## 7. 建议顺序
@@ -178,14 +180,14 @@
 
 1. ~~`mc` 稳定入口 + `config.toml`~~（已完成 Phase 0）。
 2. ~~`mc service install/uninstall/status/restart`~~（launchd 已真实验证；systemd 待 Linux 主机验证）。
-3. ~~版本/协议 `mc version --json` 与 `ServerInfo`~~（已完成；API 8–9 协商与 runner v1 握手已落地）。
+3. ~~版本/协议 `mc version --json` 与 `ServerInfo`~~（已完成；API 8–11 协商与 runner v1 握手已落地）。
 4. ~~CI 矩阵 + tarball + 校验和 + `install.sh`~~（Phase 1 已实现本机闭环；Homebrew tap 发布/多目标合并仍待完成）。
 5. ~~`mc update status/rollback`~~（已完成 symlink 切换 + 服务重启）；仍需更新前任务排空、状态迁移快照、签名 updater、健康检查自动回退。
 
 ### 并行补功能
 
 - Vanilla provider + 接管现有目录（首版承诺）。
-- `server.properties` 编辑 + Java 兼容规则 + 基础故障规则。
+- 完整 `server.properties` 分类/原始编辑 + Java 兼容规则 + 基础故障规则。
 - 在线/定时备份；玩家操作的 CLI 接入和结构化结果。
 - 镜像 Base 2、Forge/NeoForge 与 CurseForge 导入。
 

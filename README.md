@@ -41,14 +41,19 @@ the terminal:
 
 ## Features
 
+This table describes the current working tree, which is ahead of the published
+`v0.1.0` release. See the status section and release notes for the exact
+published scope.
+
 | Area | What is there today |
 | --- | --- |
 | **Session TUI** | Transcript + composer + persistent status dock, slash-command completion, command palette, cursor editing, history, inline `/logs` and `/cancel` |
 | **Guided Paper setup** | Version/build picker with scrollbar and paging, Java binding, memory/port presets, EULA confirmation, plan preview |
-| **Lifecycle** | Idempotent start, graceful stop, readiness detection, console input, incremental logs, CPU/RSS readouts |
+| **Lifecycle** | Idempotent start, graceful stop, controlled restart, readiness detection, console input, incremental logs, CPU/RSS readouts |
 | **Resident supervision** | Per-instance runner, process identity markers, daemon restarts reattach without killing Java |
 | **Durable tasks** | SQLite-backed queue, byte progress, speed/source, event cursors, cooperative cancellation |
 | **World backups** | Stopped-world discovery, preflight, staging copy, SHA-256 manifest, paged listing, verification, restore plan/token, rollback journal |
+| **Server configuration** | TUI editor for MOTD, max players, difficulty, and view distance; diff review, external-edit detection, and atomic save |
 | **Modpacks** | ZIP/MRPACK preview and stopped-instance import, verified export; compatible Paper/Fabric add-on downloads and required dependencies |
 | **Distribution** | `mc` launcher, `config.toml`, launchd/systemd user service, versioned installer, release manifest, Homebrew formula template |
 
@@ -120,7 +125,9 @@ send it to the selected instance's console.
 | --- | --- |
 | `/create` | Guided Paper server creation |
 | `/open` | Instance detail: lifecycle, console, logs, backups |
+| `/config` | Edit four `server.properties` fields and review the diff before saving |
 | `/start`, `/stop` | Start / graceful stop the selected instance |
+| `/restart` | Gracefully stop a running instance, wait for its process to exit, then start it again |
 | `/logs` | Tail the last console lines inline |
 | `/tasks`, `/task <n>` | Durable task list and detail |
 | `/cancel [n]` | Cancel a queued/running download (the TUI asks twice) |
@@ -141,6 +148,10 @@ Outside the TUI:
 mc status --json
 mc doctor --json
 mc version --json
+mc cli instance list
+mc cli instance start <instance-id>
+mc cli instance stop <instance-id> --timeout-seconds 20
+mc cli instance restart <instance-id> --timeout-seconds 20
 mc service status --json
 mc service restart
 mc uninstall          # preserves instance data/config/cache
@@ -216,25 +227,31 @@ for future hot updates. See [Supervision](docs/SUPERVISION.md).
 
 ## Status
 
-`v0.1.0` is an alpha. The current vertical slice:
+`v0.1.0` is the first public, unsigned alpha release. The working tree includes
+follow-up changes that are not part of that release. Current implementation
+status (2026-10-20):
 
 | Implemented | Next |
 | --- | --- |
 | Paper and Fabric install/start/stop/console/logs | Vanilla provider |
 | Resident runner + daemon reattachment | Takeover of existing server directories |
 | Stopped-world backup/verify/restore | Online/scheduled backups |
-| Durable tasks, byte progress, cancellation | `server.properties` editor |
+| Durable tasks, byte progress, cancellation | Full `server.properties` coverage and raw editor |
 | Player actions (OP/whitelist/ban/kick) over typed console commands | Structured management results and CLI lifecycle commands |
 | Log search (`/rg`), live filtering, CPU/RSS trends and alerts | TPS/MSPT and JVM metrics |
 | Workspace pages with stable IDs and preserved log state | Multi-instance scheduling and host memory budget |
 | Modrinth add-on install, MRPACK/ZIP server-pack preview/import/export | Forge/NeoForge and authorized CurseForge file-ID downloads |
 | Session TUI, seven themes, Steve | Signing/notarization, Homebrew tap, deb/rpm |
-| API protocol 8–9 negotiation + runner protocol handshake | State schema migration and update task draining |
+| API protocol 8–11 negotiation + runner protocol handshake | State schema migration and update task draining |
+| Controlled restart with coordinated shutdown/start and CLI lifecycle commands | Broader property coverage and startup-failure diagnostics |
+| Four-field `server.properties` editor with diff review and conflict detection | More properties, raw editing, and restart operation |
 | Versioned `mc update status/rollback` | Signed self-updater with health checks |
 
 The full documented-vs-implemented audit is in
-[Implementation gaps](docs/IMPLEMENTATION_GAPS.md). The next milestone is a
-signed, package-managed beta, not “more services at any cost.”
+[Implementation gaps](docs/IMPLEMENTATION_GAPS.md). The next milestone still
+needs a roadmap decision: product review prioritizes one verified Paper user
+journey, while earlier release planning prioritizes signed, package-managed
+distribution.
 
 ## Documentation
 
@@ -267,8 +284,9 @@ cargo test --workspace
 cargo build --workspace
 ```
 
-Current automated evidence: **164 tests on macOS**, **165 on Linux** (the Linux
-run adds a `systemd-analyze` unit check), plus four PTY scripts under
+Current automated evidence on macOS (2026-10-20): **213 workspace tests**,
+including **89 `mc-tui` tests**. Linux remains in the CI matrix but was not
+re-run in this local verification. Four PTY scripts are under
 [`scripts/`](scripts/):
 
 ```sh
@@ -277,6 +295,9 @@ python3 scripts/tui_guided_create_pty.py
 python3 scripts/tui_task_detail_pty.py
 python3 scripts/tui_instance_detail_pty.py
 ```
+
+The repository Cargo configuration keeps compiler and test output colored. The
+TUI itself still respects the user's `NO_COLOR` preference.
 
 Release tooling:
 
@@ -322,8 +343,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. The most useful
 contributions right now are:
 
 - Vanilla provider and existing-directory takeover;
-- `server.properties` editing and structured player management results;
-- online/scheduled backup design and a real-world restore drill;
+- broader `server.properties` editing, raw mode, and startup-failure diagnostics;
+- online/scheduled backups and post-restore in-game verification;
 - state migration, update draining, and isolated real-daemon E2E in CI;
 - Linux host validation and packaging;
 - focused TUI interaction fixes with before/after screenshots.

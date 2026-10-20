@@ -273,7 +273,7 @@ def response_for(request, state):
                 "product": "mc-server-tui",
                 "version": "0.1.0",
                 "api_protocol_min": 8,
-                "api_protocol_max": 10,
+                "api_protocol_max": 11,
                 "state_schema": 1,
                 "runner_protocol": 1,
             },
@@ -443,6 +443,16 @@ def response_for(request, state):
         return {
             "result": "server_status",
             "data": server_snapshot(state),
+        }
+    if operation == "restart_server":
+        state["server_state"] = "running"
+        state["message"] = "服务器已受控重启，正在等待就绪标记。"
+        state["logs"] += "Server closed.\nStarting minecraft server version 1.21.11\n"
+        return {
+            "result": "server_status",
+            "data": server_snapshot(
+                state, "starting", "旧进程已退出，新进程正在等待就绪标记。"
+            ),
         }
     if operation == "list_world_backups":
         if arguments.get("instance_id") != INSTANCE_ID or arguments.get("limit") != 3:

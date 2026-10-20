@@ -19,7 +19,7 @@ import time
 
 
 MIN_PROTOCOL = 8
-MAX_PROTOCOL = 9
+MAX_PROTOCOL = 11
 
 
 def request(path, protocol, payload):
@@ -124,6 +124,18 @@ def main():
                     9,
                     "pong",
                 )
+                expect(
+                    "v10 ping",
+                    request(socket_path, 10, {"operation": "ping"}),
+                    10,
+                    "pong",
+                )
+                expect(
+                    "v11 ping",
+                    request(socket_path, 11, {"operation": "ping"}),
+                    11,
+                    "pong",
+                )
                 info = request(socket_path, 8, {"operation": "server_info"})
                 expect("v8 server_info", info, 8, "server_info")
                 data = info["payload"]["data"]
@@ -152,6 +164,41 @@ def main():
                     "error",
                     evidence="requires API protocol 9",
                 )
+                properties = request(
+                    socket_path,
+                    9,
+                    {
+                        "operation": "read_server_properties",
+                        "arguments": {
+                            "instance_id": "00000000-0000-0000-0000-000000000000",
+                        },
+                    },
+                )
+                expect(
+                    "v9 read_server_properties rejected",
+                    properties,
+                    9,
+                    "error",
+                    evidence="requires API protocol 10",
+                )
+                restart = request(
+                    socket_path,
+                    10,
+                    {
+                        "operation": "restart_server",
+                        "arguments": {
+                            "instance_id": "00000000-0000-0000-0000-000000000000",
+                            "timeout_seconds": 20,
+                        },
+                    },
+                )
+                expect(
+                    "v10 restart_server rejected",
+                    restart,
+                    10,
+                    "error",
+                    evidence="requires API protocol 11",
+                )
                 expect(
                     "v7 rejected",
                     request(socket_path, 7, {"operation": "ping"}),
@@ -160,9 +207,9 @@ def main():
                     evidence="daemon protocol range",
                 )
                 expect(
-                    "v10 rejected",
-                    request(socket_path, 10, {"operation": "ping"}),
-                    9,
+                    "v12 rejected",
+                    request(socket_path, 12, {"operation": "ping"}),
+                    11,
                     "error",
                     evidence="daemon protocol range",
                 )

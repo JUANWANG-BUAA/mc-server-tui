@@ -1,13 +1,15 @@
 # macOS / Linux 分发与热更新设计
 
-> 版本：0.1 · 2026-10-19  
-> 状态：Phase 0/1 与首个 unsigned alpha 发布已完成；Phase 2–4 仍是方案（2026-10-19）  
+> 版本：0.1 · 2026-10-20
+>
+> 状态：Phase 0/1 与首个 unsigned alpha 发布已完成；开发分支协议窗口为 8–11；Phase 2–4 仍待完成
+>
 > 关联：[实现差距](IMPLEMENTATION_GAPS.md)、[监督契约](SUPERVISION.md)、[产品设计的发布要求](../PRODUCT_DESIGN.md)
 
 ## 0. 一句话结论
 
 当前代码已经具备做“无停机更新”的最关键基础：**Java 由 per-instance runner 持有，management daemon 退出后 runner 继续运行，新 daemon 可以重连**。  
-Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --json`、`ServerInfo` 探针和 launchd/systemd 用户服务管理；Phase 1 已补上 versioned tarball、SHA-256、release manifest、`install.sh`、`mc uninstall` 和 Homebrew formula 渲染。API 已支持 8–9 协议窗口，runner 控制协议为 v1，`mc update status/rollback` 已能切换 `current`/`previous` 并重启服务。仍然缺的是：公开发布/签名/公证、Homebrew tap 实际发布、状态迁移快照、更新前排空任务、签名自动更新器和健康检查式自动回退。
+Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --json`、`ServerInfo` 探针和 launchd/systemd 用户服务管理；Phase 1 已补上 versioned tarball、SHA-256、release manifest、`install.sh`、`mc uninstall` 和 Homebrew formula 渲染。API 已支持 8–11 协议窗口，runner 控制协议为 v1，`mc update status/rollback` 已能切换 `current`/`previous` 并重启服务。仍然缺的是：签名/公证、Homebrew tap 实际发布、状态迁移快照、更新前排空任务、签名自动更新器和健康检查式自动回退。
 
 ## 0.1 Phase 0 实装边界（2026-10-19）
 
@@ -23,8 +25,8 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 
 尚未落地（Phase 2+）：
 
-- 公开下载、签名/公证、实际 Homebrew tap、apt/dnf 仓库、多目标 manifest 合并、SBOM、changelog。
-- ~~daemon 接受 N/N-1 协议~~：已接受 8–9，并按请求版本回包；v8 客户端看不到 v9 管理任务。
+- 签名/公证、实际 Homebrew tap、apt/dnf 仓库、多目标 manifest 合并、SBOM、changelog。
+- ~~daemon 接受 N/N-1 协议~~：已接受 8–11，并按请求版本回包；旧客户端看不到高于自身版本的协议操作与任务结果。
 - ~~runner 协议握手~~：控制帧携带 `protocol: 1`，缺失字段按 v1 处理。
 - ~~手工回滚~~：`mc update status/rollback` 已切换 `current`/`previous` 并重启服务。
 - 状态 schema 迁移快照、更新前排空任务、签名自动更新器、健康检查式自动回退。
@@ -51,7 +53,7 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 ## 2. 现有架构与热更新的关系
 
 ```text
-TUI (client) ── Unix socket ──> daemon (API 8–9)
+TUI (client) ── Unix socket ──> daemon (API 8–11)
                                    │
                                    ├─ task manager / SQLite
                                    ├─ backup / restore
@@ -68,7 +70,7 @@ TUI (client) ── Unix socket ──> daemon (API 8–9)
 - runner 独立于 daemon，持有 Java stdin/stdout/stderr，绑定私有 Unix socket，写 `server/supervisor.json`。
 - daemon 重启后通过 `supervisor.json` 和 runner socket 重连；已有真实子进程测试。新 daemon 管理旧 runner 已通过 runner 协议 v1 握手表达，不再依赖“当前 JSON line 恰好兼容”。
 - TUI 只是客户端；关闭 TUI 不影响服务器。
-- daemon/TUI/CLI 已支持 **API 8–9 协商**；daemon 更新后旧 TUI 仍可按 v8 工作，v9 管理操作会在客户端本地被拒绝。
+- daemon/TUI/CLI 已支持 **API 8–11 协商**；daemon 更新后旧 TUI 仍可按自己的版本工作，超出协商版本的管理、配置编辑和重启操作会在客户端本地被拒绝。
 - 任务在 daemon 重启时从 queued/running 变成 `interrupted`，不会自动重放；下载有 `.part` 续传，但任务本身不恢复。
 - 实例数据 schema 目前只有 v1；没有 in-place migration。
 - runner 控制协议为 v1：控制帧携带 `protocol: 1`，缺失字段按 v1 处理。
@@ -400,7 +402,7 @@ xcrun stapler staple package.pkg
   "channel": "stable",
   "released_at": "2026-10-19T00:00:00Z",
   "min_supported_version": "0.1.0",
-  "api_protocol": { "min": 8, "max": 9 },
+  "api_protocol": { "min": 8, "max": 11 },
   "state_schema": 1,
   "runner_protocol": { "min": 1, "max": 1 },
   "notes_url": "https://github.com/ORG/REPO/releases/tag/v0.2.0",
@@ -434,8 +436,8 @@ xcrun stapler staple package.pkg
 
 ### 8.2 前置兼容改造（必须先做）
 
-1. ✅ **`ServerInfo`**：返回版本、api_protocol min/max、state_schema、runner_protocol。协议 8 以下的 daemon 不在兼容窗口内；`Ping` 仍保留为最小存活检查。
-2. ✅ **API 兼容窗口**：daemon 接受 `[8,9]` 内的客户端并按请求版本回包；客户端协商最高共同版本，v9 操作在 v8 daemon 上本地拒绝。
+1. ✅ **`ServerInfo`**：返回版本、api_protocol min/max、state_schema、runner_protocol。当前兼容窗口为 8–11，协议 8 以下的 daemon 不在窗口内；`Ping` 仍保留为最小存活检查。
+2. ✅ **API 兼容窗口**：daemon 接受 `[8,11]` 内的客户端并按请求版本回包；客户端协商最高共同版本，高于协商版本的操作用户端会本地拒绝。
 3. ✅ **runner 握手**：控制帧携带 `protocol: 1`；缺失字段按 v1 处理，新 runner 拒绝更高版本请求。
 4. ❌ **state schema 迁移**：`mc migrate --check`/`--apply`；迁移前备份 `index.sqlite3` 和所有 `instance.toml`；记录迁移版本。
 5. ❌ **更新保护**：`ListTasks` 有 queued/running 任务、或存在 restore journal/活动生命周期操作时，`mc update` 默认拒绝；`--wait` 等待完成，`--force` 显式警告。
@@ -618,12 +620,12 @@ TUI 首次运行如果发现 daemon 未运行，应显示一个 setup 引导，�
 | 阶段 | 交付 | 验收 | 规模 |
 | --- | --- | --- | --- |
 | Phase 0 | `config.toml` + 默认 User-Agent；`mc` 启动器；`mc version --json`；ServerInfo/协议范围；服务管理器抽象 | **已实现**：daemon 不再依赖 shell 环境；`mc` 能稳定 exec 三个二进制；launchd 真实验证 | M |
-| Phase 1 | tarball + checksums + install.sh + Homebrew formula；Linux systemd 验证；版本化目录 | **部分实现**：本机 file:// 安装/卸载闭环、SHA-256、manifest、launcher 切换完成；Homebrew tap 发布、真实 Linux 安装、多目标发布仍待 | M |
+| Phase 1 | tarball + checksums + install.sh + Homebrew formula；Linux systemd 验证；版本化目录 | **核心已实现**：公开 unsigned tarball、file:// 安装/卸载闭环、SHA-256、manifest 和 launcher 切换完成；Homebrew tap 发布、真实 Linux 安装、合并后的多目标 manifest 仍待 | M |
 | Phase 2 | macOS 签名/公证；deb/rpm + apt/dnf 仓库；minisign/SBOM；release manifest | Gatekeeper 通过；Linux 包可安装；所有产物可验证 | M-L |
-| Phase 3 | runner 握手；任务排空/更新保护；健康检查 + 自动回滚；在 Phase 1 版本化目录上接入更新器 | 运行中服务器热更新成功率；失败可回滚；不丢世界 | M |
-| Phase 4 | `mc update --check/--rollback`；TUI 更新提示；auto_check；包管理器来源识别；文档/支持 | 用户能自助更新；包管理器不冲突；回滚可操作 | S-M |
+| Phase 3 | runner 握手；任务排空/更新保护；健康检查 + 自动回滚；在 Phase 1 版本化目录上接入更新器 | **部分实现**：runner 握手与 API 兼容窗口已落地；状态迁移、任务排空、健康检查和自动回退仍缺 | M |
+| Phase 4 | `mc update --check/--rollback`；TUI 更新提示；auto_check；包管理器来源识别；文档/支持 | **部分实现**：手工 `status/rollback` 已完成；签名 updater、自动检查、TUI 提示和包管理器来源识别仍缺 | S-M |
 
-Phase 0/1 已提供稳定入口、服务安装、版本化目录和本机安装/卸载闭环；仍需公开产物、Homebrew tap、Linux 实机验证和签名，之后才适合做自动更新。
+Phase 0/1 已提供稳定入口、服务安装、公开 unsigned 产物、版本化目录和本机安装/卸载闭环；仍需签名/公证、Homebrew tap、Linux 实机验证和合并后的多目标 manifest，之后才适合做自动更新。
 
 ## 14. 待定决策
 

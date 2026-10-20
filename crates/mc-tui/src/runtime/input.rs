@@ -286,6 +286,7 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
                     KeyCode::Right => Action::LogRight,
                     KeyCode::Char('s') => Action::StartServer,
                     KeyCode::Char('x') => Action::StopServer,
+                    KeyCode::Char('R') => Action::RestartServer,
                     KeyCode::Char('c') => Action::OpenServerProperties,
                     KeyCode::Char('b') => Action::CreateBackup,
                     KeyCode::Char('l') => Action::OpenBackupManager,

@@ -66,7 +66,7 @@ impl AppState {
             .or(self.instance_detail_id)
     }
 
-    pub(super) fn queue_server_command(&mut self, stop: bool) {
+    pub(super) fn queue_server_command(&mut self, action: ServerLifecycleAction) {
         let Some(instance_id) = self.selected_instance_id() else {
             self.status = "当前没有选中的实例。".to_owned();
             return;
@@ -77,16 +77,22 @@ impl AppState {
             return;
         }
         self.instance_operation_pending = true;
-        self.instance_command_requested = Some(if stop {
-            InstanceCommand::Stop(instance_id)
-        } else {
-            InstanceCommand::Start(instance_id)
-        });
-        self.status = if stop {
-            "正在请求优雅停服…".to_owned()
-        } else {
-            "正在启动服务器…".to_owned()
+        let (command, status) = match action {
+            ServerLifecycleAction::Start => (
+                InstanceCommand::Start(instance_id),
+                "正在启动服务器…".to_owned(),
+            ),
+            ServerLifecycleAction::Stop => (
+                InstanceCommand::Stop(instance_id),
+                "正在请求优雅停服…".to_owned(),
+            ),
+            ServerLifecycleAction::Restart => (
+                InstanceCommand::Restart(instance_id),
+                "正在停止服务器，退出后将自动重新启动…".to_owned(),
+            ),
         };
+        self.instance_command_requested = Some(command);
+        self.status = status;
         if let Some(detail) = self.instance_detail.as_mut() {
             detail.notice = Some(self.status.clone());
         }
@@ -368,4 +374,11 @@ impl AppState {
     pub fn take_instance_command(&mut self) -> Option<InstanceCommand> {
         self.instance_command_requested.take()
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ServerLifecycleAction {
+    Start,
+    Stop,
+    Restart,
 }

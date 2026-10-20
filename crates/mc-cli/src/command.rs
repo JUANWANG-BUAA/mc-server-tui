@@ -50,6 +50,19 @@ pub(crate) enum Command {
 #[derive(Debug, Subcommand)]
 pub(crate) enum InstanceCommand {
     List,
+    Start {
+        instance_id: Uuid,
+    },
+    Stop {
+        instance_id: Uuid,
+        #[arg(long, default_value_t = 20)]
+        timeout_seconds: u16,
+    },
+    Restart {
+        instance_id: Uuid,
+        #[arg(long, default_value_t = 20)]
+        timeout_seconds: u16,
+    },
     Create {
         name: String,
         game_version: String,
@@ -159,6 +172,29 @@ impl Command {
             },
             Self::Instance { command } => match command {
                 InstanceCommand::List => (ApiRequest::ListInstances, false),
+                InstanceCommand::Start { instance_id } => {
+                    (ApiRequest::StartServer { instance_id }, false)
+                }
+                InstanceCommand::Stop {
+                    instance_id,
+                    timeout_seconds,
+                } => (
+                    ApiRequest::StopServer {
+                        instance_id,
+                        timeout_seconds,
+                    },
+                    false,
+                ),
+                InstanceCommand::Restart {
+                    instance_id,
+                    timeout_seconds,
+                } => (
+                    ApiRequest::RestartServer {
+                        instance_id,
+                        timeout_seconds,
+                    },
+                    false,
+                ),
                 InstanceCommand::Create {
                     name,
                     game_version,
@@ -275,6 +311,56 @@ mod tests {
         assert!(matches!(
             request,
             ApiRequest::CreateWorldBackup { instance_id: parsed_id } if parsed_id == instance_id
+        ));
+    }
+
+    #[test]
+    fn instance_lifecycle_commands_map_to_the_shared_api() {
+        let instance_id = Uuid::new_v4();
+        let id = instance_id.to_string();
+
+        let args = Args::try_parse_from(["mc-server-tui", "instance", "start", &id])
+            .expect("parse instance start");
+        let (request, _) = args.command.into_request();
+        assert!(matches!(
+            request,
+            ApiRequest::StartServer { instance_id: parsed } if parsed == instance_id
+        ));
+
+        let args = Args::try_parse_from([
+            "mc-server-tui",
+            "instance",
+            "stop",
+            &id,
+            "--timeout-seconds",
+            "9",
+        ])
+        .expect("parse instance stop");
+        let (request, _) = args.command.into_request();
+        assert!(matches!(
+            request,
+            ApiRequest::StopServer {
+                instance_id: parsed,
+                timeout_seconds: 9,
+            } if parsed == instance_id
+        ));
+
+        let args = Args::try_parse_from([
+            "mc-server-tui",
+            "instance",
+            "restart",
+            &id,
+            "--timeout-seconds",
+            "7",
+        ])
+        .expect("parse instance restart");
+        let (request, _) = args.command.into_request();
+        assert!(matches!(
+            request,
+            ApiRequest::RestartServer {
+                instance_id: parsed,
+                timeout_seconds: 7,
+            } if parsed == instance_id
         ));
     }
 

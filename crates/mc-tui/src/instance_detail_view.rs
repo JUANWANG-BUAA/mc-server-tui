@@ -349,29 +349,28 @@ fn action_help_line(
             | mc_core::ServerState::Failed
             | mc_core::ServerState::Unknown
     );
+    let can_restart = matches!(
+        state,
+        mc_core::ServerState::Starting | mc_core::ServerState::Running
+    );
     if compact {
-        Line::from(vec![
-            if can_start {
-                Span::styled("s", theme::key_hint())
-            } else {
-                Span::styled("x", theme::key_hint())
-            },
-            Span::raw(if can_start {
-                " 启动 · "
-            } else {
-                " 停止 · "
-            }),
-            Span::styled(":", theme::key_hint()),
-            Span::raw(" 控制台 · "),
-            Span::styled("c", theme::key_hint()),
-            Span::raw(" 配置 · "),
-            Span::styled("b", theme::key_hint()),
-            Span::raw(" 备份 · "),
-            Span::styled("l", theme::key_hint()),
-            Span::raw(" 备份页 · "),
-            Span::styled("/", theme::key_hint()),
-            Span::raw(" 命令"),
-        ])
+        let mut spans = Vec::new();
+        if can_restart {
+            spans.push(Span::styled("R", theme::key_hint()));
+            spans.push(Span::raw("重启 · "));
+        }
+        spans.push(Span::styled(
+            if can_start { "s" } else { "x" },
+            theme::key_hint(),
+        ));
+        spans.push(Span::raw(if can_start { "启动 · " } else { "停 · " }));
+        spans.push(Span::styled(":", theme::key_hint()));
+        spans.push(Span::raw("控制台 · "));
+        spans.push(Span::styled("c", theme::key_hint()));
+        spans.push(Span::raw("配置 · "));
+        spans.push(Span::styled("l", theme::key_hint()));
+        spans.push(Span::raw("备份"));
+        Line::from(spans)
     } else {
         Line::from(vec![
             if can_start {
@@ -384,6 +383,12 @@ fn action_help_line(
             } else {
                 " 优雅停止 · "
             }),
+            if can_restart {
+                Span::styled("R", theme::key_hint())
+            } else {
+                Span::raw("")
+            },
+            Span::raw(if can_restart { " 重启 · " } else { "" }),
             Span::styled(":", theme::key_hint()),
             Span::raw(" 控制台 · "),
             Span::styled("c", theme::key_hint()),

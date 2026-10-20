@@ -421,6 +421,7 @@ impl AppState {
             }
             "start" => self.shell_server_command(false),
             "stop" => self.shell_server_command(true),
+            "restart" => self.shell_restart_command(),
             "console" => {
                 if args.is_empty() {
                     self.push_transcript(TranscriptEntry::warning("用法：/console <命令>"));
@@ -536,6 +537,22 @@ impl AppState {
         }
         let status = self.status.clone();
         if status.contains("上一项") {
+            self.push_transcript(TranscriptEntry::warning(status));
+        }
+    }
+
+    fn shell_restart_command(&mut self) {
+        let Some(instance) = self.current_instance().cloned() else {
+            self.push_transcript(TranscriptEntry::error("当前没有选中的实例。"));
+            return;
+        };
+        self.push_transcript(TranscriptEntry::assistant(format!(
+            "正在受控重启「{}」：先优雅停止，确认旧进程退出后再启动…",
+            instance.name
+        )));
+        self.update(Action::RestartServer);
+        let status = self.status.clone();
+        if status.contains("上一项") || status.contains("当前没有") {
             self.push_transcript(TranscriptEntry::warning(status));
         }
     }

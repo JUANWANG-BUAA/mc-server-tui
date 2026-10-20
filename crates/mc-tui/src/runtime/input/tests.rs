@@ -59,6 +59,16 @@ fn maps_common_keyboard_actions_without_terminal_io() {
     );
     assert_eq!(
         action_for_key(
+            KeyCode::Char('R'),
+            KeyModifiers::NONE,
+            UiMode::InstanceDetail {
+                editing_console: false,
+            },
+        ),
+        Action::RestartServer
+    );
+    assert_eq!(
+        action_for_key(
             KeyCode::Char('b'),
             KeyModifiers::NONE,
             UiMode::InstanceDetail {

@@ -72,7 +72,7 @@ Color is never the only carrier of state. Selected rows use a cursor and backgro
 - Enter executes, Esc closes, Up/Down selects. Executing a command closes the palette before dispatching the shared `Action`.
 - The palette never bypasses the daemon API or writes instance files directly.
 
-Current contextual entries include new Paper instance, import modpack, refresh, panel switch, start, graceful stop, backup, open backup manager, verify, restore preview, load more, cancel download, back, and quit.
+Current contextual entries include new Paper instance, import modpack, refresh, panel switch, start, graceful stop, controlled restart, backup, open backup manager, verify, restore preview, load more, cancel download, back, and quit.
 
 ## Guided create flow
 
@@ -115,9 +115,49 @@ Cancellation is cooperative:
 4. The downloader checks it between network chunks and returns `TASK_CANCELLED`.
 5. The task reaches the distinct `cancelled` terminal state; its partial file and resume metadata remain available for a later identical artifact request.
 
+## Server lifecycle
+
+`/start` and `/stop` remain the primary lifecycle commands. `/restart` (or
+`R` on the instance detail) performs a controlled replacement:
+
+1. It requires an instance whose recorded Java process is verified and whose
+   observed state is starting or running.
+2. It sends the Minecraft `stop` command and waits for the verified process to
+   exit. It never escalates to a signal or force-kill.
+3. It starts a new process only after the old process reaches `stopped`.
+4. Start, stop, restart, and stopped-world reservations share one per-instance
+   coordination lock, so another lifecycle or world operation cannot enter the
+   stopped window. Detail and log reads remain available while shutdown is in
+   progress.
+5. A timeout, identity mismatch, failed exit, or unverified port leaves the
+   instance inspectable and reports the reason; the new process is not started.
+
+The CLI exposes the same typed API as `mc cli instance start <id>`,
+`mc cli instance stop <id>`, and `mc cli instance restart <id>`.
+
+## Server properties editor
+
+`/config` (alias `/properties`) opens the selected instance's
+`server/server.properties`. The editor exposes a deliberately limited first
+set: MOTD, max players, difficulty, and view distance.
+
+- It reads a snapshot with a SHA-256 revision and presents the four values as
+  fields with validation limits and inline explanation.
+- `Enter` moves to a diff review. Only changed fields are shown, together with
+  the guarantee that unknown keys, comments, and unrelated lines remain intact.
+- Another `Enter` atomically replaces the file only if the revision still
+  matches. An external edit produces a conflict state, preserves the draft, and
+  requires `F5` to reload or an explicit return.
+- The save result explains that a running server keeps the old values until its
+  next start. Saving does not restart the server; `/restart` or `R` is the
+  explicit follow-up when the user wants the new values applied immediately.
+- Decoding warnings for unsupported values and unsafe multi-line escapes are
+  visible. Raw editing and the rest of the property catalog remain follow-up
+  work.
+
 ## Modpack import entry
 
-“导入整合包” is a first-class palette entry. The current first phase is deliberately read-only:
+“导入整合包” is a first-class palette entry:
 
 - scans the current directory, Downloads, and Desktop for `.mrpack` files;
 - reads at most 4 MiB of `modrinth.index.json`;
@@ -126,9 +166,9 @@ Cancellation is cooperative:
 - classifies files into install / review / exclude using `env.server` and conservative directory rules;
 - verifies that install-required rows have an HTTPS download and a syntactically valid sha1/sha512 hash;
 - reports actual download hosts, unknown loader information, duplicate paths, and server override counts;
-- never extracts files, downloads Mods, or creates an instance in this phase.
+- analysis never extracts files, downloads Mods, or creates an instance.
 
-The report uses a single readiness vocabulary: `可以导入 / 需要确认 / 禁止导入`. A blocked report preserves the evidence and tells the user how to fix the package. The next phase will add dependency materialization, loader installation, file extraction, and first-start verification; those steps must consume this same report and remain visible before anything is written.
+The report uses a single readiness vocabulary: `可以导入 / 需要确认 / 禁止导入`. A blocked report preserves the evidence and tells the user how to fix the package. After review, `/import <path> --apply` holds the stopped-instance lease, stages and verifies eligible mods/plugins/config, then adds files without overwriting conflicts. First-start verification and automatic rollback after import remain follow-up work.
 
 ## Download-source policy boundary
 

@@ -37,6 +37,10 @@ const SERVER_READY_MARKER: &str = "Done (";
 pub struct ProcessSupervisor {
     instances: InstanceService,
     instance_locks: Arc<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>>,
+    /// Held for one complete user-visible lifecycle command. Status and log
+    /// reads deliberately do not acquire this lock, so a restart can wait for
+    /// Java to exit without making the instance uninspectable.
+    coordination_locks: Arc<Mutex<HashMap<Uuid, Arc<Mutex<()>>>>>,
 }
 
 /// Holds the per-instance lifecycle locks while a stopped-world operation runs.
@@ -47,6 +51,7 @@ pub struct ProcessSupervisor {
 #[must_use = "dropping this guard releases the stopped-instance reservation"]
 pub struct StoppedInstanceGuard {
     instance: InstanceSummary,
+    _coordination_guard: OwnedMutexGuard<()>,
     _operation_guard: OwnedMutexGuard<()>,
     _lifecycle_lock: std::fs::File,
 }
@@ -68,6 +73,7 @@ impl ProcessSupervisor {
         Self {
             instances,
             instance_locks: Arc::default(),
+            coordination_locks: Arc::default(),
         }
     }
 
@@ -86,6 +92,7 @@ impl ProcessSupervisor {
         &self,
         instance_id: Uuid,
     ) -> Result<StoppedInstanceGuard, AppError> {
+        let coordination_guard = self.lock_coordination(instance_id).await;
         let (instance, operation_guard, lifecycle_lock) = self.lock_instance(instance_id).await?;
         if let Some(record) = storage::read_record(&instance).await? {
             match process::inspect(&record).await? {
@@ -111,6 +118,7 @@ impl ProcessSupervisor {
         }
         Ok(StoppedInstanceGuard {
             instance,
+            _coordination_guard: coordination_guard,
             _operation_guard: operation_guard,
             _lifecycle_lock: lifecycle_lock,
         })
@@ -119,6 +127,11 @@ impl ProcessSupervisor {
     /// Start is idempotent. A live PID is reused only when its unique instance
     /// marker can be verified; otherwise the state is reported as unknown.
     pub async fn start(&self, instance_id: Uuid) -> Result<ServerSnapshot, AppError> {
+        let _coordination_guard = self.lock_coordination(instance_id).await;
+        self.start_inner(instance_id).await
+    }
+
+    async fn start_inner(&self, instance_id: Uuid) -> Result<ServerSnapshot, AppError> {
         let (instance, operation_guard, lifecycle_lock) = self.lock_instance(instance_id).await?;
         let prior = storage::read_record(&instance).await?;
         if let Some(record) = prior.as_ref() {
@@ -207,6 +220,15 @@ impl ProcessSupervisor {
         instance_id: Uuid,
         timeout: Option<Duration>,
     ) -> Result<ServerSnapshot, AppError> {
+        let _coordination_guard = self.lock_coordination(instance_id).await;
+        self.stop_inner(instance_id, timeout).await
+    }
+
+    async fn stop_inner(
+        &self,
+        instance_id: Uuid,
+        timeout: Option<Duration>,
+    ) -> Result<ServerSnapshot, AppError> {
         let (instance, operation_guard, lifecycle_lock) = self.lock_instance(instance_id).await?;
         let Some(mut record) = storage::read_record(&instance).await? else {
             return Err(AppError::new(
@@ -261,6 +283,41 @@ impl ProcessSupervisor {
                 ProcessIdentity::Matches => tokio::time::sleep(STOP_POLL_INTERVAL).await,
             }
         }
+    }
+
+    /// Gracefully stop a verified running server and start the same instance
+    /// again. One coordination lock covers the whole sequence, so another
+    /// start/stop/backup/restart command cannot slip into the stopped window.
+    pub async fn restart(
+        &self,
+        instance_id: Uuid,
+        timeout: Option<Duration>,
+    ) -> Result<ServerSnapshot, AppError> {
+        let _coordination_guard = self.lock_coordination(instance_id).await;
+        let current = self.detail(instance_id).await?;
+        if !matches!(
+            current.server.state,
+            ServerState::Starting | ServerState::Running
+        ) {
+            return Err(AppError::new(
+                ErrorCode::ServerNotRunning,
+                "Restart requires a running server.",
+            )
+            .with_action("Start the instance first, then retry the restart request."));
+        }
+        let stopped = self.stop_inner(instance_id, timeout).await?;
+        if stopped.state != ServerState::Stopped {
+            return Err(AppError::new(
+                ErrorCode::ServerStartFailed,
+                "The server did not stop cleanly; restart was aborted before starting.",
+            )
+            .with_action("Inspect the instance status and logs, then start it manually when safe.")
+            .with_evidence(format!(
+                "instance_id={instance_id}; state={:?}; last_exit_code={:?}",
+                stopped.state, stopped.last_exit_code
+            )));
+        }
+        self.start_inner(instance_id).await
     }
 
     pub async fn send_console_command(
@@ -485,6 +542,18 @@ impl ProcessSupervisor {
             }
         };
         Ok((instance, memory_guard, file_lock))
+    }
+
+    async fn lock_coordination(&self, instance_id: Uuid) -> OwnedMutexGuard<()> {
+        let lock = {
+            let mut locks = self.coordination_locks.lock().await;
+            Arc::clone(
+                locks
+                    .entry(instance_id)
+                    .or_insert_with(|| Arc::new(Mutex::new(()))),
+            )
+        };
+        lock.lock_owned().await
     }
 }
 

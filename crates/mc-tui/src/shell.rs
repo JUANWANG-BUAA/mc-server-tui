@@ -62,6 +62,12 @@ pub(crate) const SHELL_COMMANDS: &[ShellCommandSpec] = &[
         summary: "优雅停止当前实例",
     },
     ShellCommandSpec {
+        name: "restart",
+        aliases: &["reboot"],
+        args: "",
+        summary: "优雅停止后重新启动当前实例",
+    },
+    ShellCommandSpec {
         name: "console",
         aliases: &["cmd"],
         args: "<命令>",

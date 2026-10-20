@@ -266,7 +266,7 @@ fn render_saved(
         vec![
             Line::from(Span::styled("✓ 配置文件已安全保存。", theme::success())),
             Line::from(Span::styled(
-                "当前进程仍使用旧值；优雅停止后再启动，才会读取新配置。",
+                "当前进程仍使用旧值；输入 /restart 或按 R 受控重启后才会读取新配置。",
                 theme::warning(),
             )),
             Line::from(Span::styled(

@@ -33,6 +33,7 @@ fn instance_palette_exposes_lifecycle_and_backup_commands() {
     let ids: Vec<_> = palette.filtered_entries().map(|entry| entry.id).collect();
     assert!(ids.contains(&CommandId::StartServer));
     assert!(ids.contains(&CommandId::StopServer));
+    assert!(ids.contains(&CommandId::RestartServer));
     assert!(ids.contains(&CommandId::OpenBackupManager));
     assert!(ids.contains(&CommandId::CreateBackup));
 }

@@ -205,6 +205,19 @@ pub(crate) async fn dispatch(
             .await
             .map(ApiResponse::ServerStatus)
             .unwrap_or_else(ApiResponse::Error),
+        ApiRequest::RestartServer {
+            instance_id,
+            timeout_seconds,
+        } => state
+            .supervisor
+            .restart(
+                instance_id,
+                (timeout_seconds != 0)
+                    .then(|| std::time::Duration::from_secs(u64::from(timeout_seconds.min(60)))),
+            )
+            .await
+            .map(ApiResponse::ServerStatus)
+            .unwrap_or_else(ApiResponse::Error),
         ApiRequest::SendConsoleCommand {
             instance_id,
             command,

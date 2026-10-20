@@ -740,6 +740,40 @@ fn shell_free_text_queues_a_console_command() {
 }
 
 #[test]
+fn shell_restart_queues_the_controlled_restart_command() {
+    let instance_id = Uuid::new_v4();
+    let mut state = AppState {
+        instances: vec![InstanceSummary {
+            id: instance_id,
+            name: "生存服".to_owned(),
+            provider: "Paper".to_owned(),
+            game_version: "1.21.11".to_owned(),
+            build_id: 17,
+            java_path: "/opt/java/bin/java".into(),
+            min_memory_mb: 1024,
+            max_memory_mb: 2048,
+            port: 25565,
+            directory: "/tmp/server".into(),
+            created_at: Utc::now(),
+        }],
+        ..AppState::default()
+    };
+    state.shell_input = "/restart".to_owned();
+    state.update(Action::ShellSubmit);
+
+    assert!(state
+        .transcript
+        .iter()
+        .any(|entry| entry.text.contains("先优雅停止")));
+    assert!(matches!(
+        state.take_instance_command(),
+        Some(InstanceCommand::Restart(id)) if id == instance_id
+    ));
+    assert!(state.instance_operation_pending);
+    assert!(state.status.contains("自动重新启动"));
+}
+
+#[test]
 fn shell_history_completion_and_unknown_commands_are_actionable() {
     let mut state = AppState {
         shell_history: vec!["/status".to_owned()],

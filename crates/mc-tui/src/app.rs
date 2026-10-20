@@ -26,6 +26,8 @@ use crate::{
     wizard::{CreateInstanceInput, CreateWizard, WizardAction, WizardOutcome},
 };
 
+use self::instance::ServerLifecycleAction;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Panel {
     Instances,
@@ -108,6 +110,7 @@ pub(crate) enum Action {
     ServerPropertiesReload,
     StartServer,
     StopServer,
+    RestartServer,
     CreateBackup,
     OpenBackupManager,
     BackFromBackups,
@@ -376,8 +379,9 @@ impl AppState {
             Action::ServerPropertiesEnd => self.server_properties_cursor_end(),
             Action::ServerPropertiesAdjust(increase) => self.server_properties_adjust(increase),
             Action::ServerPropertiesReload => self.reload_server_properties(),
-            Action::StartServer => self.queue_server_command(false),
-            Action::StopServer => self.queue_server_command(true),
+            Action::StartServer => self.queue_server_command(ServerLifecycleAction::Start),
+            Action::StopServer => self.queue_server_command(ServerLifecycleAction::Stop),
+            Action::RestartServer => self.queue_server_command(ServerLifecycleAction::Restart),
             Action::CreateBackup => self.queue_backup(),
             Action::OpenBackupManager => self.open_backup_manager(),
             Action::BackFromBackups => self.close_backup_manager(),
@@ -1165,6 +1169,7 @@ impl AppState {
             CommandId::OpenBackupManager => self.update(Action::OpenBackupManager),
             CommandId::StartServer => self.update(Action::StartServer),
             CommandId::StopServer => self.update(Action::StopServer),
+            CommandId::RestartServer => self.update(Action::RestartServer),
             CommandId::CreateBackup => self.update(Action::CreateBackup),
             CommandId::VerifyBackup => self.update(Action::VerifyBackup),
             CommandId::PreviewRestore => self.update(Action::PreviewRestore),

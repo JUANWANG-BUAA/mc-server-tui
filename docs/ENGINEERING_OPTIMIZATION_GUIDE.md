@@ -29,7 +29,7 @@
 | 本机 workspace 测试与严格 clippy 通过 | 前一轮 `cargo test --workspace --locked`、`cargo clippy --workspace --all-targets --locked -- -D warnings` | 当前覆盖范围内没有失败；不能证明所有行为正确 |
 | 依赖扫描没有报告未使用项 | 前一轮 `cargo machete` | 没有工具识别出的候选；不证明所有公开 API 都有消费者 |
 | CI 配置了 macOS/Linux 测试和 release build | [ci.yml](../.github/workflows/ci.yml) | 平台任务已经配置；不等于本次查询了远端运行结果或完成实机验收 |
-| `mc-client` 的独立默认 socket 路径实现已从工作区移除 | 当前 diff；仓库消费者均使用 `mc-config` | 删除了重复模块及直接依赖；尚未提交，外部调用兼容性仍需发布前审查 |
+| `mc-client` 的独立默认 socket 路径实现已从工作区移除 | 提交 `81a37ca`；仓库消费者均使用 `mc-config` | 已删除重复模块及直接依赖；外部调用兼容性仍应在发布前审查 |
 
 历史设计与差距文档可能存在描述漂移。例如部分段落仍声称没有 Linux CI，而当前 workflow 已有对应矩阵。判断能力时依次核对：代码与配置、可复现测试、运行证据、文档说明；出现冲突时保留证据并修正文档。
 
@@ -118,7 +118,7 @@
 
 **决策**：若仅供 workspace 内使用，记录结论；若需要保持 Rust API 兼容，提供委托到配置层的弃用包装并给出迁移周期。判断时保留原 API 的“平台默认路径”语义，不随意改成读取环境配置。
 
-**验收**：全 workspace 编译通过；支持的外部调用方式有明确迁移说明；API 8–9 的 wire 协商及任务过滤不受 Rust 内部整理影响。删除一个直接依赖不等于整个 release 已移除该传递依赖，体积变化需要测量。
+**验收**：全 workspace 编译通过；支持的外部调用方式有明确迁移说明；API 8–11 的 wire 协商及任务过滤不受 Rust 内部整理影响。删除一个直接依赖不等于整个 release 已移除该传递依赖，体积变化需要测量。
 
 ### P1-A：TUI 状态归属与事件处理
 

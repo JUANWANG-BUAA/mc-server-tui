@@ -138,6 +138,55 @@ async fn starts_idempotently_accepts_console_input_and_stops_gracefully() {
 }
 
 #[tokio::test]
+async fn restart_replaces_the_verified_process_and_rejects_a_stopped_instance() {
+    let mut fixture = Fixture::create().await;
+    fixture.release_port();
+    let supervisor = ProcessSupervisor::new(fixture.instances.clone());
+
+    let first = supervisor
+        .start(fixture.instance.id)
+        .await
+        .expect("start fake server");
+    let first_pid = first.pid.expect("first Java PID");
+    wait_until_running(&supervisor, fixture.instance.id).await;
+
+    let restarted = supervisor
+        .restart(fixture.instance.id, Some(Duration::from_secs(3)))
+        .await
+        .expect("restart fake server");
+    let second_pid = restarted.pid.expect("second Java PID");
+    assert_ne!(first_pid, second_pid);
+    assert!(matches!(
+        restarted.state,
+        ServerState::Starting | ServerState::Running
+    ));
+    wait_until_running(&supervisor, fixture.instance.id).await;
+
+    let stopped = supervisor
+        .stop(fixture.instance.id, Some(Duration::from_secs(3)))
+        .await
+        .expect("stop restarted server");
+    assert_eq!(stopped.state, ServerState::Stopped);
+
+    let denied = supervisor
+        .restart(fixture.instance.id, Some(Duration::from_secs(1)))
+        .await
+        .expect_err("restarting a stopped instance must be rejected");
+    assert_eq!(denied.code, mc_core::ErrorCode::ServerNotRunning);
+    assert!(
+        supervisor
+            .detail(fixture.instance.id)
+            .await
+            .expect("read stopped detail")
+            .server
+            .state
+            == ServerState::Stopped
+    );
+
+    fixture.remove().await;
+}
+
+#[tokio::test]
 async fn unknown_pid_is_never_signalled_or_replaced() {
     let fixture = Fixture::create().await;
     let supervisor = ProcessSupervisor::new(fixture.instances.clone());
@@ -289,6 +338,20 @@ fn console_command_rejects_line_breaks_and_control_characters() {
     assert!(super::validate_console_command("stop\nkill").is_err());
     assert!(super::validate_console_command("say\u{1b}red").is_err());
     assert!(super::validate_console_command(&"x".repeat(513)).is_err());
+}
+
+async fn wait_until_running(supervisor: &ProcessSupervisor, instance_id: Uuid) {
+    for _ in 0..40 {
+        let detail = supervisor
+            .detail(instance_id)
+            .await
+            .expect("read instance detail");
+        if detail.server.state == ServerState::Running {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    panic!("fake server did not reach readiness");
 }
 
 async fn lifecycle_sequence(
