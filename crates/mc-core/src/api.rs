@@ -8,9 +8,9 @@ use crate::{
 /// Highest protocol version this build speaks. An N/N-1 daemon accepts every
 /// version in `API_PROTOCOL_MIN..=API_PROTOCOL_MAX`, and clients negotiate down
 /// to the highest version the daemon advertises.
-pub const API_PROTOCOL_VERSION: u16 = 9;
+pub const API_PROTOCOL_VERSION: u16 = 10;
 pub const API_PROTOCOL_MIN: u16 = 8;
-pub const API_PROTOCOL_MAX: u16 = 9;
+pub const API_PROTOCOL_MAX: u16 = 10;
 
 /// Control protocol spoken with a per-instance runner over its private socket.
 /// The field is additive: a peer that predates versioning is treated as v1.
@@ -92,6 +92,7 @@ impl ApiRequest {
     /// newer operation sent in an older envelope instead of guessing.
     pub fn minimum_protocol_version(&self) -> u16 {
         match self {
+            Self::ReadServerProperties { .. } | Self::SaveServerProperties { .. } => 10,
             Self::ManageInstance { .. } => 9,
             Self::Ping
             | Self::ServerInfo
@@ -148,6 +149,14 @@ impl ApiResponseEnvelope {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "operation", content = "arguments", rename_all = "snake_case")]
 pub enum ApiRequest {
+    ReadServerProperties {
+        instance_id: uuid::Uuid,
+    },
+    SaveServerProperties {
+        instance_id: uuid::Uuid,
+        expected_revision: String,
+        values: crate::ServerPropertiesValues,
+    },
     ManageInstance {
         instance_id: uuid::Uuid,
         action: crate::InstanceOperation,
@@ -235,6 +244,7 @@ pub enum ApiRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "result", content = "data", rename_all = "snake_case")]
 pub enum ApiResponse {
+    ServerProperties(crate::ServerPropertiesSnapshot),
     ManagementReport(String),
     Pong,
     ServerInfo(ServerInfo),

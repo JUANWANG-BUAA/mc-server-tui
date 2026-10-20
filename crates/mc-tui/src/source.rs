@@ -15,6 +15,26 @@ const BACKUP_PREVIEW_PAGE_LIMIT: u16 = 3;
 
 #[async_trait]
 pub(crate) trait ManagementSource: Send + Sync {
+    async fn load_server_properties(
+        &self,
+        _instance_id: uuid::Uuid,
+    ) -> Result<mc_core::ServerPropertiesSnapshot, AppError> {
+        Err(AppError::new(
+            ErrorCode::InvalidInput,
+            "此数据源不支持读取服务端配置。",
+        ))
+    }
+    async fn save_server_properties(
+        &self,
+        _instance_id: uuid::Uuid,
+        _expected_revision: String,
+        _values: mc_core::ServerPropertiesValues,
+    ) -> Result<mc_core::ServerPropertiesSnapshot, AppError> {
+        Err(AppError::new(
+            ErrorCode::InvalidInput,
+            "此数据源不支持保存服务端配置。",
+        ))
+    }
     async fn manage_instance(
         &self,
         _instance_id: uuid::Uuid,
@@ -97,6 +117,45 @@ impl DaemonDashboardSource {
 
 #[async_trait]
 impl ManagementSource for DaemonDashboardSource {
+    async fn load_server_properties(
+        &self,
+        instance_id: uuid::Uuid,
+    ) -> Result<mc_core::ServerPropertiesSnapshot, AppError> {
+        match self
+            .client
+            .request(ApiRequest::ReadServerProperties { instance_id })
+            .await?
+        {
+            ApiResponse::ServerProperties(snapshot) if snapshot.instance_id == instance_id => {
+                Ok(snapshot)
+            }
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("server properties")),
+        }
+    }
+
+    async fn save_server_properties(
+        &self,
+        instance_id: uuid::Uuid,
+        expected_revision: String,
+        values: mc_core::ServerPropertiesValues,
+    ) -> Result<mc_core::ServerPropertiesSnapshot, AppError> {
+        match self
+            .client
+            .request(ApiRequest::SaveServerProperties {
+                instance_id,
+                expected_revision,
+                values,
+            })
+            .await?
+        {
+            ApiResponse::ServerProperties(snapshot) if snapshot.instance_id == instance_id => {
+                Ok(snapshot)
+            }
+            ApiResponse::Error(error) => Err(error),
+            _ => Err(unexpected_response("saved server properties")),
+        }
+    }
     async fn load_tasks(&self) -> Result<Vec<mc_core::TaskSnapshot>, AppError> {
         match self
             .client

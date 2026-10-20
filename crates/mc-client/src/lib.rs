@@ -1,7 +1,5 @@
 //! Async local daemon client shared by the CLI and TUI.
 
-mod paths;
-
 use std::{
     io,
     path::{Path, PathBuf},
@@ -18,8 +16,6 @@ use tokio::{
     net::UnixStream,
     sync::OnceCell,
 };
-
-pub use paths::default_socket_path;
 
 const MAX_FRAME_BYTES: u64 = 1024 * 1024;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);

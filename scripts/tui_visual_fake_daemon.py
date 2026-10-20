@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve deterministic protocol-v8 responses for real TUI visual runs."""
+"""Serve deterministic API responses for real TUI visual runs."""
 
 import argparse
 import json
@@ -273,7 +273,7 @@ def response_for(request, state):
                 "product": "mc-server-tui",
                 "version": "0.1.0",
                 "api_protocol_min": 8,
-                "api_protocol_max": 9,
+                "api_protocol_max": 10,
                 "state_schema": 1,
                 "runner_protocol": 1,
             },
@@ -335,6 +335,40 @@ def response_for(request, state):
         }
     if operation == "list_instances":
         return {"result": "instances", "data": [instance_summary()]}
+    if operation == "read_server_properties":
+        return {
+            "result": "server_properties",
+            "data": {
+                "instance_id": INSTANCE_ID,
+                "revision": state["properties_revision"],
+                "values": state["properties"],
+                "warnings": [],
+            },
+        }
+    if operation == "save_server_properties":
+        if arguments["expected_revision"] != state["properties_revision"]:
+            return {
+                "result": "error",
+                "data": {
+                    "code": "CONCURRENT_MODIFICATION",
+                    "reason": "server.properties 在编辑期间发生了变化；尚未写入。",
+                    "next_action": "按 F5 重新读取后再修改。",
+                    "evidence": None,
+                    "retryable": True,
+                },
+            }
+        state["properties"] = arguments["values"]
+        state["properties_revision"] = f"visual-{state['properties_version'] + 1}"
+        state["properties_version"] += 1
+        return {
+            "result": "server_properties",
+            "data": {
+                "instance_id": INSTANCE_ID,
+                "revision": state["properties_revision"],
+                "values": state["properties"],
+                "warnings": [],
+            },
+        }
     if operation == "list_tasks":
         if state.get("idle"):
             return {"result": "tasks", "data": []}
@@ -521,6 +555,14 @@ def main():
     args.socket.unlink(missing_ok=True)
     state = {
         "server_state": "running",
+        "properties": {
+            "motd": "视觉验收服",
+            "max_players": 20,
+            "difficulty": "easy",
+            "view_distance": 10,
+        },
+        "properties_revision": "visual-0",
+        "properties_version": 0,
         "message": "Paper 已就绪，监听 25565 端口。",
         "logs": 'Starting minecraft server version 1.21.11\n'
         'Preparing level "world"\n'

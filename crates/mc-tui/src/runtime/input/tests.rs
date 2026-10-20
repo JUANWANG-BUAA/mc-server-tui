@@ -236,6 +236,34 @@ fn slash_and_ctrl_k_open_the_discoverable_command_palette() {
 }
 
 #[test]
+fn command_palette_keeps_j_and_k_for_search_and_uses_arrows_for_navigation() {
+    assert_eq!(
+        action_for_key(
+            KeyCode::Char('j'),
+            KeyModifiers::NONE,
+            UiMode::CommandPalette,
+        ),
+        Action::PaletteInsert('j')
+    );
+    assert_eq!(
+        action_for_key(
+            KeyCode::Char('k'),
+            KeyModifiers::NONE,
+            UiMode::CommandPalette,
+        ),
+        Action::PaletteInsert('k')
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Up, KeyModifiers::NONE, UiMode::CommandPalette),
+        Action::PalettePrevious
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Down, KeyModifiers::NONE, UiMode::CommandPalette),
+        Action::PaletteNext
+    );
+}
+
+#[test]
 fn modpack_import_maps_selection_analysis_and_report_navigation() {
     let browsing = UiMode::ModpackImport {
         report: false,

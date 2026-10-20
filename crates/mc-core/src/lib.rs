@@ -10,6 +10,7 @@ mod management;
 pub use management::InstanceOperation;
 mod modpack;
 mod provider;
+mod server_properties;
 mod task;
 
 pub use api::{
@@ -33,6 +34,7 @@ pub use modpack::{
     ModpackSeverity, ModpackStatus,
 };
 pub use provider::ServerProvider;
+pub use server_properties::{ServerDifficulty, ServerPropertiesSnapshot, ServerPropertiesValues};
 pub use task::{
     TaskEvent, TaskKind, TaskPhase, TaskProgress, TaskResult, TaskSnapshot, TaskStatus,
     TransferProgress,

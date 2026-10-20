@@ -172,7 +172,7 @@ fn render_summary(
         .as_ref()
         .and_then(|progress| progress.transfer.as_ref());
     if let Some(transfer) = transfer {
-        lines.push(transfer_progress_line(transfer, compact, animation_frame));
+        lines.push(transfer_progress_line(transfer, compact));
         if !compact {
             lines.push(Line::from(vec![
                 Span::styled("来源  ", theme::muted()),
@@ -404,7 +404,6 @@ mod tests;
 fn transfer_progress_line(
     progress: &mc_core::TransferProgress,
     compact: bool,
-    animation_frame: u8,
 ) -> Line<'static> {
     let ratio = if progress.total_bytes == 0 {
         0.0
@@ -442,12 +441,7 @@ fn transfer_progress_line(
             })
             .unwrap_or_default();
         let mut spans = vec![Span::styled("下载  ", theme::muted())];
-        spans.extend(ui::animated_progress(
-            ratio,
-            width,
-            animation_frame,
-            ratio < 1.0,
-        ));
+        spans.extend(ui::progress_bar(ratio, width, theme::progress()));
         spans.push(Span::styled(format!(" {percent:>3}%"), theme::accent()));
         spans.push(Span::styled(
             format!(

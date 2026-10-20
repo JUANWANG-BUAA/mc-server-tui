@@ -9,6 +9,7 @@ use ratatui::{
 use crate::{
     app::AppState,
     hit::{HitMap, HitTarget},
+    shell,
     task_presentation::{kind_short, phase_label, status_label, status_style},
     theme, ui,
 };
@@ -72,11 +73,10 @@ fn render_activity(frame: &mut Frame<'_>, area: Rect, task: &mc_core::TaskSnapsh
         task.status,
         mc_core::TaskStatus::Queued | mc_core::TaskStatus::Running
     );
-    let mut bar = ui::animated_progress(
+    let mut bar = ui::progress_bar(
         ui::task_ratio(task),
         area.width.saturating_sub(10) as usize,
-        tick,
-        active,
+        theme::progress(),
     );
     bar.push(Span::styled(
         if active && task.progress.as_ref().is_none_or(|p| p.transfer.is_none()) {
@@ -254,7 +254,11 @@ fn transcript_lines(app: &AppState, width: usize) -> Vec<Line<'static>> {
 fn render_composer(frame: &mut Frame<'_>, area: Rect, app: &AppState, compact: bool) {
     let input = &app.shell_input;
     let hint = if input.starts_with('/') {
-        " Enter 执行 · Tab 补全 "
+        if needs_completion_confirmation(app) {
+            " Enter 补全后再次确认 · Tab 填入 "
+        } else {
+            " Enter 执行 · Tab 填入 "
+        }
     } else if input.is_empty() {
         " Enter 发送 "
     } else {
@@ -328,6 +332,16 @@ fn visible_input(input: &str, cursor: usize, available: usize) -> (String, Strin
     (visible_before, visible_after)
 }
 
+fn needs_completion_confirmation(app: &AppState) -> bool {
+    let input = app.shell_input.trim();
+    let Some(name) = input.strip_prefix('/') else {
+        return false;
+    };
+    !name.contains(char::is_whitespace)
+        && shell::find(name).is_none()
+        && !app.shell_suggestions().is_empty()
+}
+
 fn render_suggestions(frame: &mut Frame<'_>, composer: Rect, app: &AppState, hits: &mut HitMap) {
     let suggestions = app.shell_suggestions();
     if suggestions.is_empty() {
@@ -339,6 +353,11 @@ fn render_suggestions(frame: &mut Frame<'_>, composer: Rect, app: &AppState, hit
     let y = composer.y.saturating_sub(height);
     let area = Rect::new(x, y, width, height);
     frame.render_widget(Clear, area);
+    let enter_hint = if needs_completion_confirmation(app) {
+        "先补全；再次 Enter 执行  "
+    } else {
+        "执行  "
+    };
     let block = Block::default()
         .borders(Borders::ALL)
         .border_type(theme::border_type())
@@ -348,7 +367,7 @@ fn render_suggestions(frame: &mut Frame<'_>, composer: Rect, app: &AppState, hit
         .title_bottom(
             Line::from(vec![
                 Span::styled(" Enter ", theme::key_hint()),
-                Span::styled("执行  ", theme::muted()),
+                Span::styled(enter_hint, theme::muted()),
                 Span::styled(" Tab ", theme::key_hint()),
                 Span::styled("填入  ", theme::muted()),
                 Span::styled(" ↑↓ ", theme::key_hint()),
@@ -518,12 +537,7 @@ fn task_line(task: &mc_core::TaskSnapshot, width: u16, animation_frame: u8) -> L
         Span::styled(format!("{}  ", phase_label(task.phase)), theme::muted()),
     ];
     let bar_width = if width < 90 { 8 } else { 14 };
-    spans.extend(ui::animated_progress(
-        ratio,
-        bar_width,
-        animation_frame,
-        task.status == mc_core::TaskStatus::Running,
-    ));
+    spans.extend(ui::progress_bar(ratio, bar_width, theme::progress()));
     spans.push(Span::styled(
         format!("  {percent:>3}%  "),
         if percent >= 100 {

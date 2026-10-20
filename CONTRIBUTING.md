@@ -6,6 +6,8 @@ Thanks for helping make local Minecraft server management less painful.
 
 - Read [docs/IMPLEMENTATION_GAPS.md](docs/IMPLEMENTATION_GAPS.md) for the current
   slice and known missing behavior.
+- For refactoring and cleanup, follow the [engineering optimization guide](docs/ENGINEERING_OPTIMIZATION_GUIDE.md)
+  for module boundaries, evidence requirements, compatibility review, and acceptance criteria.
 - For user-visible TUI work, read [docs/INTERACTION_DESIGN.md](docs/INTERACTION_DESIGN.md)
   and update the screenshots/tests described in [docs/TUI_TESTING.md](docs/TUI_TESTING.md).
 - For lifecycle changes, read [docs/SUPERVISION.md](docs/SUPERVISION.md); process

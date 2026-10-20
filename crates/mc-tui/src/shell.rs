@@ -38,6 +38,12 @@ pub(crate) const SHELL_COMMANDS: &[ShellCommandSpec] = &[
         summary: "打开实例详情：完整日志与交互式控制台",
     },
     ShellCommandSpec {
+        name: "config",
+        aliases: &["properties"],
+        args: "",
+        summary: "编辑 MOTD、人数上限、难度和视距；查看差异后保存",
+    },
+    ShellCommandSpec {
         name: "logs",
         aliases: &["tail"],
         args: "",

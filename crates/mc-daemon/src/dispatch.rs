@@ -28,6 +28,22 @@ pub(crate) async fn dispatch(
     protocol_version: u16,
 ) -> ApiResponse {
     let response = match request {
+        ApiRequest::ReadServerProperties { instance_id } => {
+            crate::management::read_server_properties(state, instance_id)
+                .await
+                .map(ApiResponse::ServerProperties)
+                .unwrap_or_else(ApiResponse::Error)
+        }
+        ApiRequest::SaveServerProperties {
+            instance_id,
+            expected_revision,
+            values,
+        } => {
+            crate::management::save_server_properties(state, instance_id, expected_revision, values)
+                .await
+                .map(ApiResponse::ServerProperties)
+                .unwrap_or_else(ApiResponse::Error)
+        }
         ApiRequest::ManageInstance {
             instance_id,
             action,

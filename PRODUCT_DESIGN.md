@@ -2,6 +2,8 @@
 
 > 版本：0.7 · 2026-10-17 · 面向 macOS / Linux 的 Minecraft Java 版服务端部署与运维工具
 
+近期范围收敛与质量门槛建议见 [严格产品化评审](docs/PRODUCTIZATION_REVIEW.md)（2026-10-19）。该评审提出冻结扩张、完成朋友服主旅程的建议；本文保留完整愿景，建议尚不代表既有路线图已被自动替换。
+
 落地顺序与实现契约见 [Base 版落地方案](BASE_IMPLEMENTATION_PLAN.md)；官方元数据和下载策略见 [上游数据与下载设计](UPSTREAM_DOWNLOAD_DESIGN.md)，镜像切换见 [镜像源与下载加速设计](MIRROR_ACCELERATION_DESIGN.md)。
 
 当前的开工判断与尚待验证的进程监督方案见 [Base 开工审查](BASE_READINESS_REVIEW.md)。

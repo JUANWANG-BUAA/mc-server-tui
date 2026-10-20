@@ -233,6 +233,47 @@ def main():
 
             if not wait_for("F1帮助".encode()):
                 raise AssertionError("dashboard did not render")
+
+            if not wait_for("输入/命令，或直接输入控制台命令".encode()):
+                raise AssertionError("session composer did not open")
+            os.write(master, b"/sto\r")
+            if not wait_for("补全为/stop；再次按Enter执行".encode()):
+                recent = re.sub(
+                    rb"\s+", b"", ANSI_SEQUENCE.sub(b"", captured[-5000:])
+                )
+                raise AssertionError(
+                    f"partial stop command was not completed for review; recent={recent!r}"
+                )
+            with lock:
+                operations = [
+                    request.get("payload", {}).get("operation")
+                    for request in state["requests"]
+                ]
+            if "stop_server" in operations:
+                raise AssertionError("partial stop command executed before a second Enter")
+            os.write(master, b"\x1b")
+            if not wait_for("输入/命令，或直接输入控制台命令".encode()):
+                raise AssertionError("partial command could not be cleared for the paste check")
+
+            paste_offset = len(captured)
+            os.write(master, b"\x1b[200~say hello\n/stop\x1b[201~")
+            if not wait_for("sayhello/stop".encode(), start_offset=paste_offset):
+                raise AssertionError("multi-line paste was not kept in the composer")
+            if not wait_for(
+                "多行粘贴已合并为单行输入".encode(), start_offset=paste_offset
+            ):
+                raise AssertionError("multi-line paste did not explain the submit boundary")
+            with lock:
+                operations = [
+                    request.get("payload", {}).get("operation")
+                    for request in state["requests"]
+                ]
+            if "send_console_command" in operations:
+                raise AssertionError("paste submitted console text without explicit Enter")
+            os.write(master, b"\x1b")
+            if not wait_for("输入/命令，或直接输入控制台命令".encode()):
+                raise AssertionError("pasted text could not be cleared before palette testing")
+
             os.write(master, b"\x0b")
             if not wait_for("命令面板".encode()):
                 raise AssertionError("slash command palette did not open")
@@ -334,6 +375,8 @@ def main():
                 raise AssertionError(f"TUI exited with status {status}")
             if b"\x1b[?1049l" not in captured:
                 raise AssertionError("alternate screen was not restored")
+            print("Bracketed multi-line paste remains an unsubmitted single line: passed")
+            print("Partial command execution requires review: passed")
             print("Guided command palette create flow: passed")
             print("Stable version and Java pickers: passed")
             print("Explicit EULA and guided review: passed")

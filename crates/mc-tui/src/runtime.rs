@@ -15,6 +15,7 @@ use crate::{
     instance_detail::{
         InstanceCommand, InstanceCommandResult, InstanceDetailQuery, InstanceDetailUpdate,
     },
+    server_properties::{ServerPropertiesOperation, ServerPropertiesUpdate},
     source::ManagementSource,
     task_detail::{TaskDetailQuery, TaskDetailUpdate},
     view::render,
@@ -78,6 +79,8 @@ pub(crate) async fn run_app(
         mpsc::channel::<Result<mc_core::TaskSnapshot, AppError>>(1);
     let (modpack_tx, mut modpack_rx) =
         mpsc::channel::<Result<mc_core::ModpackAnalysisReport, AppError>>(1);
+    let (server_properties_tx, mut server_properties_rx) =
+        mpsc::channel::<ServerPropertiesUpdate>(1);
     let mut refresh_in_flight = true;
     let mut create_in_flight = false;
     let mut create_options_in_flight = false;
@@ -88,6 +91,7 @@ pub(crate) async fn run_app(
     let mut backup_task_in_flight = false;
     let mut task_cancel_in_flight = false;
     let mut modpack_in_flight = false;
+    let mut server_properties_in_flight = false;
     let mut refresh_pending = false;
     let mut detail_pending = false;
     let mut instance_detail_pending = false;
@@ -107,6 +111,7 @@ pub(crate) async fn run_app(
                     };
                     state.update(action);
                 }
+                Some(Ok(Event::Paste(text))) => state.paste_text(&text),
                 Some(Ok(Event::Mouse(mouse))) => match mouse.kind {
                     MouseEventKind::ScrollUp => state.mouse_wheel(mouse.column, mouse.row, false),
                     MouseEventKind::ScrollDown => state.mouse_wheel(mouse.column, mouse.row, true),
@@ -141,9 +146,9 @@ pub(crate) async fn run_app(
                 None => break,
             },
             _ = refresh_timer.tick(), if (state.task_detail_visible && !detail_in_flight)
-                || (!state.task_detail_visible && !state.backup_manager_visible && state.instance_detail_visible && !instance_detail_in_flight
+                || (!state.task_detail_visible && !state.backup_manager_visible && !state.server_properties_visible && state.instance_detail_visible && !instance_detail_in_flight
                     && !state.instance_detail.as_ref().is_some_and(|detail| detail.editing_console))
-                || (!state.task_detail_visible && !state.backup_manager_visible && !state.instance_detail_visible && !refresh_in_flight) => {
+                || (!state.task_detail_visible && !state.backup_manager_visible && !state.server_properties_visible && !state.instance_detail_visible && !refresh_in_flight) => {
                 if state.task_detail_visible {
                     state.update(Action::RefreshTaskDetail);
                 } else if state.instance_detail_visible {
@@ -181,6 +186,7 @@ pub(crate) async fn run_app(
                 state.update(Action::RefreshTaskDetail);
             }
             _ = shell_detail_timer.tick(), if state.shell_visible
+                && !state.server_properties_visible
                 && !state.instance_detail_visible
                 && !instance_detail_in_flight
                 && state.instance_detail_id.is_some() => {
@@ -247,6 +253,12 @@ pub(crate) async fn run_app(
                     state.apply_modpack_analysis_result(result);
                 }
             }
+            result = server_properties_rx.recv(), if server_properties_in_flight => {
+                server_properties_in_flight = false;
+                if let Some(update) = result {
+                    state.apply_server_properties_result(update.request_id, update.result);
+                }
+            }
         }
 
         if !state.task_detail_visible {
@@ -311,6 +323,18 @@ pub(crate) async fn run_app(
             if !modpack_in_flight {
                 modpack_in_flight = true;
                 start_modpack_analysis(Arc::clone(&source), modpack_tx.clone(), path);
+            }
+        }
+
+        if !server_properties_in_flight {
+            if let Some(request) = state.take_server_properties_request() {
+                server_properties_in_flight = true;
+                start_server_properties(
+                    Arc::clone(&source),
+                    server_properties_tx.clone(),
+                    request.request_id,
+                    request.operation,
+                );
             }
         }
 
@@ -420,6 +444,33 @@ fn start_instance_command(
             ),
         };
         let _ = sender.send(result).await;
+    });
+}
+
+fn start_server_properties(
+    source: Arc<dyn ManagementSource>,
+    sender: mpsc::Sender<ServerPropertiesUpdate>,
+    request_id: uuid::Uuid,
+    operation: ServerPropertiesOperation,
+) {
+    tokio::spawn(async move {
+        let result = match operation {
+            ServerPropertiesOperation::Read { instance_id } => {
+                source.load_server_properties(instance_id).await
+            }
+            ServerPropertiesOperation::Save {
+                instance_id,
+                expected_revision,
+                values,
+            } => {
+                source
+                    .save_server_properties(instance_id, expected_revision, values)
+                    .await
+            }
+        };
+        let _ = sender
+            .send(ServerPropertiesUpdate { request_id, result })
+            .await;
     });
 }
 

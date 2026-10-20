@@ -67,6 +67,7 @@ fn slash_input_opens_command_completion() {
     assert!(text.contains("命令补全"));
     assert!(text.contains("/status"));
     assert!(text.contains("Tab填入"));
+    assert!(text.contains("先补全；再次Enter执行"));
 }
 
 fn populated_state() -> AppState {

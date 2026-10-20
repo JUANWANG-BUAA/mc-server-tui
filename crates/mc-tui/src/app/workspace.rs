@@ -7,6 +7,7 @@ pub(crate) enum PageKind {
     Session,
     Dashboard,
     Instance(uuid::Uuid),
+    Properties(uuid::Uuid),
     Task(uuid::Uuid),
     Create,
     Import,
@@ -22,6 +23,11 @@ impl AppState {
             PageKind::Create
         } else if self.modpack_import_visible {
             PageKind::Import
+        } else if self.server_properties_visible {
+            self.server_properties
+                .as_ref()
+                .map(|editor| PageKind::Properties(editor.instance_id))
+                .unwrap_or(PageKind::Session)
         } else if self.task_detail_visible {
             self.task_detail
                 .as_ref()
@@ -52,6 +58,14 @@ impl AppState {
             PageKind::Dashboard => "实例总览".to_owned(),
             PageKind::Create => "新建服务器".to_owned(),
             PageKind::Import => "整合包".to_owned(),
+            PageKind::Properties(id) => format!(
+                "实例:{} / 配置",
+                self.instances
+                    .iter()
+                    .find(|instance| instance.id == id)
+                    .map(|instance| instance.name.as_str())
+                    .unwrap_or("未知")
+            ),
             PageKind::Instance(id) => format!(
                 "实例:{}{}",
                 self.instances
@@ -83,6 +97,7 @@ impl AppState {
         self.command_palette = None;
         self.help_visible = false;
         self.modpack_import_visible = false;
+        self.server_properties_visible = false;
         self.task_detail_visible = false;
         self.instance_detail_visible = false;
         self.backup_manager_visible = false;
@@ -103,6 +118,7 @@ impl AppState {
                 }
             }
             PageKind::Instance(instance_id) => {
+                self.shell_visible = false;
                 if let Some(index) = self.instances.iter().position(|v| v.id == instance_id) {
                     self.selected_instance = index;
                 }
@@ -120,6 +136,10 @@ impl AppState {
                 self.instance_detail_visible = true;
                 self.instance_detail_refresh_requested = true;
                 self.focused_panel = Panel::Instances;
+            }
+            PageKind::Properties(instance_id) => {
+                self.shell_visible = false;
+                self.open_server_properties_for(instance_id);
             }
             PageKind::Task(task_id) => {
                 if self
@@ -220,6 +240,15 @@ impl AppState {
             PageKind::Create => self.parked_wizard = None,
             PageKind::Instance(id) => {
                 self.instance_cache.remove(&id);
+            }
+            PageKind::Properties(id) => {
+                if self
+                    .server_properties
+                    .as_ref()
+                    .is_some_and(|editor| editor.instance_id == id)
+                {
+                    self.server_properties = None;
+                }
             }
             PageKind::Task(id) => {
                 self.task_cache.remove(&id);

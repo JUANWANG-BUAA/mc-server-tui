@@ -6,9 +6,15 @@
 //! where a binary exposes them.
 
 use std::{
-    env, fs, io,
+    env,
+    fs::{self, File, OpenOptions},
+    io::{self, Write},
     path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
 };
+
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
@@ -17,6 +23,7 @@ use thiserror::Error;
 const PROJECT_QUALIFIER: &str = "org";
 const PROJECT_ORGANIZATION: &str = "mc-server-tui";
 const PROJECT_APPLICATION: &str = "mc-server-tui";
+static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// Project contact URL used in Paper's User-Agent. Forks should replace it.
 const DEFAULT_PROJECT_URL: &str = "https://github.com/JUANWANG-BUAA/mc-server-tui";
@@ -161,22 +168,25 @@ impl Config {
     /// discarding user choices.
     pub fn load() -> Result<Self, ConfigError> {
         let path = config_path()?;
-        let mut config = if path.is_file() {
-            let text = fs::read_to_string(&path)?;
-            toml::from_str(&text)?
-        } else {
-            Self::default()
-        };
-        config.apply_env();
-        Ok(config)
+        Self::load_from(&path)
     }
 
     pub fn load_from(path: &Path) -> Result<Self, ConfigError> {
-        let mut config = if path.is_file() {
-            let text = fs::read_to_string(path)?;
-            toml::from_str(&text)?
-        } else {
-            Self::default()
+        let path = resolve_config_path(path)?;
+        let mut config = match fs::metadata(&path) {
+            Ok(metadata) if metadata.is_file() => {
+                let text = fs::read_to_string(path)?;
+                toml::from_str(&text)?
+            }
+            Ok(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "configuration path is not a regular file",
+                )
+                .into());
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Self::default(),
+            Err(error) => return Err(error.into()),
         };
         config.apply_env();
         Ok(config)
@@ -190,19 +200,40 @@ impl Config {
         Ok(path)
     }
 
+    /// Atomically replace a config file with owner-only Unix permissions.
+    ///
+    /// A directory-sync error is reported after the rename commit point, so
+    /// the new file may already be visible even when this returns an error.
     pub fn save_to(&self, path: &Path) -> Result<(), ConfigError> {
-        if let Some(parent) = path.parent() {
-            let existed = parent.is_dir();
-            fs::create_dir_all(parent)?;
-            if !existed {
-                set_dir_mode(parent)?;
-            }
+        let path = resolve_config_path(path)?;
+        let parent = parent_directory(&path);
+        let parent_existed = parent.is_dir();
+        fs::create_dir_all(parent)?;
+        if !parent_existed {
+            set_dir_mode(parent)?;
         }
+
         let text = toml::to_string_pretty(self)?;
-        let temporary = path.with_extension("toml.tmp");
-        fs::write(&temporary, text)?;
-        set_file_mode(&temporary)?;
-        fs::rename(&temporary, path)?;
+        let mut temporary = create_temporary_file(parent)?;
+        let file = temporary
+            .file
+            .as_mut()
+            .expect("new temporary config file is open");
+        file.write_all(text.as_bytes())?;
+        file.flush()?;
+        file.sync_all()?;
+        drop(temporary.file.take());
+
+        fs::rename(&temporary.path, &path)?;
+        temporary.committed = true;
+        sync_directory(parent).map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!(
+                    "configuration was replaced, but directory durability could not be confirmed: {error}"
+                ),
+            )
+        })?;
         Ok(())
     }
 
@@ -284,6 +315,71 @@ impl Config {
     }
 }
 
+fn resolve_config_path(path: &Path) -> Result<PathBuf, ConfigError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => Ok(fs::canonicalize(path)?),
+        Ok(_) => Ok(path.to_path_buf()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(path.to_path_buf()),
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn parent_directory(path: &Path) -> &Path {
+    path.parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
+}
+
+struct TemporaryConfigFile {
+    path: PathBuf,
+    file: Option<File>,
+    committed: bool,
+}
+
+impl Drop for TemporaryConfigFile {
+    fn drop(&mut self) {
+        if !self.committed {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+
+fn create_temporary_file(parent: &Path) -> Result<TemporaryConfigFile, ConfigError> {
+    loop {
+        let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let path = parent.join(format!(
+            ".mc-server-tui-config-{}-{sequence}.tmp",
+            std::process::id()
+        ));
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+
+        match options.open(&path) {
+            Ok(file) => {
+                return Ok(TemporaryConfigFile {
+                    path,
+                    file: Some(file),
+                    committed: false,
+                });
+            }
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+}
+
+#[cfg(unix)]
+fn sync_directory(path: &Path) -> io::Result<()> {
+    File::open(path)?.sync_all()
+}
+
+#[cfg(not(unix))]
+fn sync_directory(_path: &Path) -> io::Result<()> {
+    Ok(())
+}
+
 fn non_empty_env(name: &str) -> Option<String> {
     env::var_os(name)
         .filter(|value| !value.is_empty())
@@ -299,18 +395,6 @@ fn set_dir_mode(path: &Path) -> Result<(), ConfigError> {
 
 #[cfg(not(unix))]
 fn set_dir_mode(_path: &Path) -> Result<(), ConfigError> {
-    Ok(())
-}
-
-#[cfg(unix)]
-fn set_file_mode(path: &Path) -> Result<(), ConfigError> {
-    use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn set_file_mode(_path: &Path) -> Result<(), ConfigError> {
     Ok(())
 }
 
@@ -372,5 +456,135 @@ mod tests {
         let state = config.resolved_state_dir().expect("state");
         let socket = config.resolved_socket().expect("socket");
         assert_eq!(socket, state.join("run").join("daemon.sock"));
+    }
+
+    #[test]
+    fn loading_defaults_only_for_a_missing_file() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let missing = directory.path().join("missing.toml");
+        let mut expected = Config::default();
+        expected.apply_env();
+        assert_eq!(
+            Config::load_from(&missing).expect("missing defaults"),
+            expected
+        );
+
+        let error = Config::load_from(directory.path()).expect_err("directory is not a config");
+        assert!(matches!(error, ConfigError::Io(_)));
+
+        let malformed = directory.path().join("malformed.toml");
+        fs::write(&malformed, "[daemon\n").expect("write malformed config");
+        assert!(matches!(
+            Config::load_from(&malformed),
+            Err(ConfigError::Parse(_))
+        ));
+    }
+
+    #[test]
+    fn saving_replaces_config_and_leaves_no_temporary_file() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let config_path = directory.path().join("config.toml");
+        let config = Config {
+            install: InstallConfig {
+                source: "self-managed".to_owned(),
+            },
+            ..Config::default()
+        };
+
+        config.save_to(&config_path).expect("save config");
+        let saved = fs::read_to_string(&config_path).expect("read saved config");
+        assert_eq!(
+            Config::from_toml(&saved).expect("parse saved config"),
+            config
+        );
+        assert_eq!(
+            fs::read_dir(directory.path())
+                .expect("read config directory")
+                .count(),
+            1
+        );
+
+        let blocked_path = directory.path().join("blocked.toml");
+        fs::create_dir(&blocked_path).expect("create directory at config path");
+        assert!(config.save_to(&blocked_path).is_err());
+        assert_eq!(
+            fs::read_dir(directory.path())
+                .expect("read config directory after failure")
+                .count(),
+            2
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn config_file_and_new_parent_have_private_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let parent = directory.path().join("private").join("config");
+        let path = parent.join("config.toml");
+        Config::default().save_to(&path).expect("save config");
+
+        assert_eq!(
+            fs::metadata(&parent).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn loading_and_saving_a_symlink_use_its_target() {
+        use std::os::unix::fs::symlink;
+
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let target = directory.path().join("target.toml");
+        let link = directory.path().join("config.toml");
+        let original = Config {
+            install: InstallConfig {
+                source: "brew".to_owned(),
+            },
+            ..Config::default()
+        };
+        fs::write(&target, original.to_toml().expect("serialize config"))
+            .expect("write target config");
+        symlink(&target, &link).expect("create config symlink");
+
+        let mut expected = original.clone();
+        expected.apply_env();
+        assert_eq!(Config::load_from(&link).expect("load symlink"), expected);
+
+        let updated = Config {
+            install: InstallConfig {
+                source: "apt".to_owned(),
+            },
+            ..Config::default()
+        };
+        updated.save_to(&link).expect("save through symlink");
+        assert!(fs::symlink_metadata(&link)
+            .expect("symlink remains")
+            .file_type()
+            .is_symlink());
+        assert_eq!(
+            Config::from_toml(&fs::read_to_string(&target).expect("read target"))
+                .expect("parse target"),
+            updated
+        );
+
+        let missing_target = directory.path().join("missing-target.toml");
+        let dangling_link = directory.path().join("dangling.toml");
+        symlink(&missing_target, &dangling_link).expect("create dangling symlink");
+        assert!(matches!(
+            Config::load_from(&dangling_link),
+            Err(ConfigError::Io(error)) if error.kind() == io::ErrorKind::NotFound
+        ));
+    }
+
+    #[test]
+    fn relative_config_paths_use_the_current_directory() {
+        assert_eq!(parent_directory(Path::new("config.toml")), Path::new("."));
     }
 }

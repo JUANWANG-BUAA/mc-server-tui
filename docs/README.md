@@ -8,10 +8,12 @@ documents below are the implementation contracts behind the current alpha.
 | Document | What it covers |
 | --- | --- |
 | [Product design](../PRODUCT_DESIGN.md) | product scope, P0/P1/P2 features, release gates |
+| [Productization review (中文)](PRODUCTIZATION_REVIEW.md) | Apple-inspired product critique, scope freeze, complete user journeys, proposed release vetoes and acceptance gates |
 | [Base implementation plan](../BASE_IMPLEMENTATION_PLAN.md) | original vertical-slice decisions and milestones |
 | [Base readiness review](../BASE_READINESS_REVIEW.md) | risks and prerequisites identified before implementation |
 | [Interaction design](INTERACTION_DESIGN.md) | shell/overlay/drill-in hierarchy, themes, mascot, copy rules |
 | [Implementation gaps](IMPLEMENTATION_GAPS.md) | documented-vs-implemented audit and release blockers |
+| [Engineering optimization guide (中文)](ENGINEERING_OPTIMIZATION_GUIDE.md) | evidence-based refactoring, module ownership, prioritized work packages, validation and metrics |
 
 ## Runtime contracts
 
@@ -28,6 +30,7 @@ documents below are the implementation contracts behind the current alpha.
 | Document | What it covers |
 | --- | --- |
 | [Interaction design](INTERACTION_DESIGN.md) | user-facing interaction contract |
+| [UI and interaction review (中文)](UI_UX_REVIEW.md) | visual hierarchy, input and focus defects, async feedback, key-screen redesign briefs and validation gates |
 | [TUI testing](TUI_TESTING.md) | renderer/PTY tests, screenshots, visual review history |
 | [FAQ](FAQ.md) | common setup, service, backup, and alpha questions |
 

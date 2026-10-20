@@ -5,6 +5,7 @@ use crate::{
     instance_detail::InstanceDetailState,
     shell::{self, ShellCommandSpec},
     transcript::TranscriptEntry,
+    wizard::{WizardAction, WizardStep},
 };
 
 use super::{Action, AppState, Panel};
@@ -13,6 +14,77 @@ const MAX_TRANSCRIPT_ENTRIES: usize = 300;
 const MAX_HISTORY: usize = 100;
 
 impl AppState {
+    pub(crate) fn paste_text(&mut self, text: &str) {
+        if self.help_visible {
+            return;
+        }
+
+        let characters = normalize_pasted_text(text);
+        if characters.is_empty() {
+            return;
+        }
+
+        let mut pasted = false;
+        if let Some(palette) = self.command_palette.as_mut() {
+            for character in characters.iter().copied() {
+                palette.insert(character);
+            }
+            pasted = true;
+        } else if self.modpack_import_visible || self.task_detail_visible {
+            return;
+        } else if let Some(wizard) = self.wizard.as_mut() {
+            if matches!(
+                (wizard.step, wizard.focused_field),
+                (WizardStep::Server, 0) | (WizardStep::Runtime, 2)
+            ) {
+                for character in characters.iter().copied() {
+                    wizard.handle(WizardAction::Insert(character));
+                }
+                pasted = true;
+            }
+        } else if self.backup_manager_visible {
+            if let Some(manager) = self
+                .backup_manager
+                .as_mut()
+                .filter(|manager| manager.editing_confirmation)
+            {
+                for character in characters.iter().copied() {
+                    manager.insert_confirmation_char(character);
+                }
+                pasted = true;
+            }
+        } else if self.server_properties_visible {
+            if let Some(editor) = self.server_properties.as_mut() {
+                if editor.phase == crate::server_properties::EditorPhase::Edit {
+                    for character in characters.iter().copied() {
+                        editor.insert(character);
+                    }
+                    pasted = true;
+                }
+            }
+        } else if self.instance_detail_visible {
+            if let Some(detail) = self
+                .instance_detail
+                .as_mut()
+                .filter(|detail| detail.editing_console || detail.editing_filter)
+            {
+                for character in characters.iter().copied() {
+                    detail.insert_console_char(character);
+                }
+                pasted = true;
+            }
+        } else if self.shell_visible {
+            for character in characters.iter().copied() {
+                self.shell_insert(character);
+            }
+            pasted = true;
+        }
+
+        if pasted && has_line_break(text) {
+            self.status = "多行粘贴已合并为单行输入，请检查当前目标和内容后再提交。".to_owned();
+        }
+    }
+
     pub(crate) fn shell_suggestions(&self) -> Vec<&'static ShellCommandSpec> {
         shell::suggestions(&self.shell_input)
     }
@@ -133,7 +205,7 @@ impl AppState {
     }
 
     pub(super) fn shell_submit(&mut self) {
-        let mut raw = self.shell_input.trim().to_owned();
+        let raw = self.shell_input.trim().to_owned();
         if raw.is_empty() {
             return;
         }
@@ -145,7 +217,12 @@ impl AppState {
                     self.shell_suggestion_index
                         .min(suggestions.len().saturating_sub(1)),
                 ) {
-                    raw = format!("/{}", command.name);
+                    self.shell_input = format!("/{}", command.name);
+                    self.shell_cursor = self.shell_input.len();
+                    self.shell_suggestion_index = 0;
+                    self.shell_history_pos = None;
+                    self.status = format!("已补全为 {}；再次按 Enter 执行。", self.shell_input);
+                    return;
                 }
             }
         }
@@ -332,11 +409,9 @@ impl AppState {
                     return;
                 }
                 self.focused_panel = Panel::Instances;
-                self.push_transcript(TranscriptEntry::assistant(
-                    "正在打开实例详情；Esc 返回会话终端。",
-                ));
                 self.update(Action::OpenInstanceDetail);
             }
+            "config" => self.update(Action::OpenServerProperties),
             "logs" => {
                 if args.is_empty() {
                     self.shell_tail_logs()
@@ -359,19 +434,9 @@ impl AppState {
             }
             "task" => self.shell_open_task(args),
             "cancel" => self.shell_cancel_task(args),
-            "create" => {
-                self.push_transcript(TranscriptEntry::assistant(
-                    "正在打开 Paper 创建向导；Esc 可取消并回到会话。",
-                ));
-                self.update(Action::OpenCreate);
-            }
+            "create" => self.update(Action::OpenCreate),
             "import" if !args.is_empty() => self.manage_shell("import", args),
-            "import" => {
-                self.push_transcript(TranscriptEntry::assistant(
-                    "正在扫描 Downloads、桌面和当前目录中的 .mrpack。",
-                ));
-                self.update(Action::OpenModpackImport);
-            }
+            "import" => self.update(Action::OpenModpackImport),
             "backup" => {
                 if self.current_instance().is_none() {
                     self.push_transcript(TranscriptEntry::error("当前没有选中的实例。"));
@@ -687,6 +752,33 @@ impl AppState {
         text.push_str("用 /task <序号> 打开任务详情。");
         text
     }
+}
+
+const MAX_PASTED_CHARACTERS: usize = 512;
+
+fn normalize_pasted_text(text: &str) -> Vec<char> {
+    let mut source = text.chars().take(MAX_PASTED_CHARACTERS).peekable();
+    let mut normalized = Vec::with_capacity(MAX_PASTED_CHARACTERS.min(text.len()));
+    while let Some(character) = source.next() {
+        let character = match character {
+            '\r' => {
+                if source.peek() == Some(&'\n') {
+                    source.next();
+                }
+                ' '
+            }
+            '\n' | '\t' | '\u{2028}' | '\u{2029}' => ' ',
+            character if character.is_control() => continue,
+            character => character,
+        };
+        normalized.push(character);
+    }
+    normalized
+}
+
+fn has_line_break(text: &str) -> bool {
+    text.chars()
+        .any(|character| matches!(character, '\r' | '\n' | '\u{2028}' | '\u{2029}'))
 }
 
 fn is_active(status: TaskStatus) -> bool {

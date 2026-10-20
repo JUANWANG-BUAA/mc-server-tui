@@ -294,3 +294,9 @@ Run `cargo build -p mc-tui && python3 scripts/tui_pty_smoke.py && python3 script
 ![80×24 整合包选择](../output/playwright/theme-modpack-picker-80x24.png)
 
 ![80×24 整合包适配报告](../output/playwright/theme-modpack-report-80x24.png)
+
+## 输入安全回归（2026-10-19）
+
+当前输入契约已更新：不完整 slash 命令第一次按 Enter 只填入完整候选，第二次 Enter 才执行；完整 slash 命令可直接执行。`TerminalSession` 启用 bracketed paste 后，多行粘贴会折叠成一个待检查的单行输入，不会因换行自动提交。旧截图和 2026-10-18 的会话记录保留当时“Enter 执行高亮补全”的历史行为，不代表当前契约。
+
+相关回归：`app::tests::shell_enter_completes_a_partial_command_before_dispatching_it`、多行粘贴状态测试、`runtime::input::tests::command_palette_keeps_j_and_k_for_search_and_uses_arrows_for_navigation`、`wizard_view::tests::name_cursor_uses_terminal_columns_for_wide_characters`，以及四个 fake-daemon PTY 脚本 `tui_pty_smoke.py`、`tui_task_detail_pty.py`、`tui_guided_create_pty.py`、`tui_instance_detail_pty.py`。PTY 不模拟各宿主终端自身对普通剪贴板粘贴的处理；I-03/I-05 的真实终端验收仍需覆盖目标用户使用的终端。

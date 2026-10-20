@@ -861,11 +861,59 @@ fn shell_cursor_edits_mid_line_and_home_end() {
 }
 
 #[test]
-fn shell_enter_executes_highlighted_completion_for_a_prefix() {
+fn multiline_paste_stays_in_one_inspectable_shell_input() {
     let mut state = AppState::default();
-    state.shell_input = "/sta".to_owned();
+    state.paste_text("say hello\r\n/stop\nsecond line");
+
+    assert_eq!(state.shell_input, "say hello /stop second line");
+    assert!(state
+        .transcript
+        .iter()
+        .all(|entry| entry.role != crate::transcript::TranscriptRole::User));
+    assert_eq!(
+        state.status,
+        "多行粘贴已合并为单行输入，请检查当前目标和内容后再提交。"
+    );
+}
+
+#[test]
+fn paste_text_is_applied_to_the_active_command_palette_or_wizard_field() {
+    let mut palette_state = AppState::default();
+    palette_state.update(Action::OpenCommandPalette);
+    palette_state.paste_text("jk");
+    assert_eq!(
+        palette_state
+            .command_palette
+            .as_ref()
+            .map(|palette| palette.query.as_str()),
+        Some("jk")
+    );
+
+    let mut wizard_state = AppState::default();
+    wizard_state.update(Action::OpenCreate);
+    wizard_state.paste_text("Friend\nServer");
+    assert_eq!(
+        wizard_state
+            .wizard
+            .as_ref()
+            .map(|wizard| wizard.name.as_str()),
+        Some("Friend Server")
+    );
+}
+
+#[test]
+fn shell_enter_completes_a_partial_command_before_dispatching_it() {
+    let mut state = AppState::default();
+    state.shell_input = "/sto".to_owned();
     state.shell_cursor = state.shell_input.len();
-    state.shell_suggestion_index = 1;
+    state.update(Action::ShellSubmit);
+    assert_eq!(state.shell_input, "/stop");
+    assert!(state
+        .transcript
+        .iter()
+        .all(|entry| entry.role != crate::transcript::TranscriptRole::User));
+    assert!(state.take_instance_command().is_none());
+
     state.update(Action::ShellSubmit);
     let user = state
         .transcript
@@ -873,7 +921,7 @@ fn shell_enter_executes_highlighted_completion_for_a_prefix() {
         .rev()
         .find(|entry| entry.role == crate::transcript::TranscriptRole::User)
         .expect("user command entry");
-    assert_eq!(user.text, "/start");
+    assert_eq!(user.text, "/stop");
 
     let mut exact = AppState::default();
     exact.shell_input = "/stop".to_owned();

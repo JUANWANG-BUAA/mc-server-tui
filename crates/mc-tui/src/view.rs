@@ -61,6 +61,10 @@ fn render_primary(
         }
         return;
     }
+    if app.server_properties_visible {
+        crate::server_properties_view::render(frame, area, app);
+        return;
+    }
     if app.instance_detail_visible {
         if let Some(detail) = &app.instance_detail {
             crate::instance_detail_view::render(frame, area, detail, animation_frame, hits);

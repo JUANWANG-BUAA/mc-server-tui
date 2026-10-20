@@ -1099,7 +1099,6 @@ dependencies = [
 name = "mc-client"
 version = "0.1.0"
 dependencies = [
- "directories",
  "mc-core",
  "serde_json",
  "tokio",
@@ -1112,6 +1111,7 @@ version = "0.1.0"
 dependencies = [
  "directories",
  "serde",
+ "tempfile",
  "thiserror",
  "toml",
 ]

@@ -108,7 +108,11 @@ fn help_lines() -> Vec<Line<'static>> {
 
     section(&mut lines, "会话终端");
     item(&mut lines, "Enter", "发送输入；以 / 开头则执行命令");
-    item(&mut lines, "Tab", "补全 / 命令；Enter 执行高亮补全");
+    item(
+        &mut lines,
+        "Tab / Enter",
+        "Tab 填入补全；前缀 Enter 先补全，再次 Enter 执行",
+    );
     item(
         &mut lines,
         "← →  /  Home End",

@@ -10,6 +10,8 @@ mod instance_detail_view;
 mod modpack_import;
 mod modpack_import_view;
 mod runtime;
+mod server_properties;
+mod server_properties_view;
 mod shell;
 mod shell_view;
 mod source;

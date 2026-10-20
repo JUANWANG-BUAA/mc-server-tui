@@ -8,7 +8,6 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-directories.workspace = true
 mc-core = { path = "../mc-core" }
 serde_json.workspace = true
 tokio.workspace = true

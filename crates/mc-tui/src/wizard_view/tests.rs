@@ -40,6 +40,18 @@ fn loading_wizard_explains_what_is_happening() {
     assert!(text.contains("正在读取Paper稳定版本"));
 }
 
+#[test]
+fn name_cursor_uses_terminal_columns_for_wide_characters() {
+    let mut wizard = sample_wizard();
+    wizard.name = "abc".to_owned();
+    let ascii_cursor = render_cursor_x(&wizard);
+
+    wizard.name = "中文服".to_owned();
+    let wide_cursor = render_cursor_x(&wizard);
+
+    assert_eq!(wide_cursor - ascii_cursor, 3);
+}
+
 fn sample_wizard() -> CreateWizard {
     let mut wizard = CreateWizard::default();
     wizard.apply_options(CreateOptions {
@@ -88,4 +100,13 @@ fn render_to_text(wizard: &CreateWizard, width: u16, height: u16) -> String {
         .map(|cell| cell.symbol())
         .filter(|symbol| !symbol.chars().all(char::is_whitespace))
         .collect()
+}
+
+fn render_cursor_x(wizard: &CreateWizard) -> u16 {
+    let backend = TestBackend::new(80, 24);
+    let mut terminal = Terminal::new(backend).expect("test terminal");
+    terminal
+        .draw(|frame| render(frame, frame.area(), wizard, 0, &mut HitMap::default()))
+        .expect("render");
+    terminal.get_cursor_position().expect("cursor position").x
 }

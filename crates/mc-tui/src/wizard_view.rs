@@ -150,7 +150,8 @@ fn render_server_step(
     if name_focused {
         let x = name_row
             .x
-            .saturating_add(13 + wizard.name.chars().count() as u16)
+            .saturating_add(13)
+            .saturating_add(ui::display_width(&wizard.name).min(u16::MAX as usize) as u16)
             .min(name_row.right().saturating_sub(1));
         frame.set_cursor_position((x, name_row.y));
     }
@@ -313,6 +314,34 @@ fn render_runtime_step(
         return;
     }
 
+    let context_height = u16::from(inner.height > 6);
+    if context_height > 0 {
+        let version = wizard
+            .selected_version()
+            .map(|version| version.id.as_str())
+            .unwrap_or("未选择");
+        let name = if wizard.name.trim().is_empty() {
+            "未命名"
+        } else {
+            wizard.name.as_str()
+        };
+        let name_width = (inner.width as usize).saturating_sub(
+            ui::display_width("实例 ")
+                + ui::display_width(" · Paper ")
+                + ui::display_width(version),
+        );
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("实例 ", label_style()),
+                Span::styled(ui::truncate(name, name_width), theme::text()),
+                Span::styled(" · Paper ", theme::dim()),
+                Span::styled(version, theme::accent().add_modifier(Modifier::BOLD)),
+            ])),
+            Rect::new(inner.x, inner.y, inner.width, 1),
+        );
+    }
+
+    let content_y = inner.y + context_height;
     let java_header = Line::from(vec![
         Span::styled(
             if wizard.focused_field == 0 {
@@ -335,7 +364,7 @@ fn render_runtime_step(
     ]);
     frame.render_widget(
         Paragraph::new(java_header),
-        Rect::new(inner.x, inner.y, inner.width, 1),
+        Rect::new(inner.x, content_y, inner.width, 1),
     );
 
     let java_list_height = if compact {
@@ -343,7 +372,7 @@ fn render_runtime_step(
     } else {
         4.min(inner.height.saturating_sub(6))
     };
-    let java_area = Rect::new(inner.x, inner.y + 1, inner.width, java_list_height);
+    let java_area = Rect::new(inner.x, content_y + 1, inner.width, java_list_height);
     let java_items: Vec<ListItem<'_>> = wizard
         .java_runtimes
         .iter()

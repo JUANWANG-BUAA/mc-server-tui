@@ -2,6 +2,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::{
     app::{Action, AppState, Panel},
+    server_properties::EditorPhase,
     wizard::{WizardAction, WizardStep},
 };
 
@@ -23,6 +24,7 @@ pub(super) enum UiMode {
     InstanceDetail {
         editing_console: bool,
     },
+    ServerProperties(EditorPhase),
     Shell,
 }
 
@@ -47,6 +49,14 @@ pub(super) fn mode_for_state(state: &AppState) -> UiMode {
             editing_confirmation: manager.is_some_and(|manager| manager.editing_confirmation),
             reviewing_plan: manager.is_some_and(|manager| manager.is_reviewing_plan()),
         }
+    } else if state.server_properties_visible {
+        UiMode::ServerProperties(
+            state
+                .server_properties
+                .as_ref()
+                .map(|editor| editor.phase)
+                .unwrap_or(EditorPhase::Loading),
+        )
     } else if state.instance_detail_visible {
         UiMode::InstanceDetail {
             editing_console: state
@@ -164,8 +174,8 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
         },
         UiMode::CommandPalette => match code {
             KeyCode::Esc => Action::BackFromCommandPalette,
-            KeyCode::Up | KeyCode::Char('k') => Action::PalettePrevious,
-            KeyCode::Down | KeyCode::Char('j') => Action::PaletteNext,
+            KeyCode::Up => Action::PalettePrevious,
+            KeyCode::Down => Action::PaletteNext,
             KeyCode::PageUp => Action::PagePrevious,
             KeyCode::PageDown => Action::PageNext,
             KeyCode::Home => Action::First,
@@ -276,6 +286,7 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
                     KeyCode::Right => Action::LogRight,
                     KeyCode::Char('s') => Action::StartServer,
                     KeyCode::Char('x') => Action::StopServer,
+                    KeyCode::Char('c') => Action::OpenServerProperties,
                     KeyCode::Char('b') => Action::CreateBackup,
                     KeyCode::Char('l') => Action::OpenBackupManager,
                     KeyCode::Char(':') => Action::BeginConsoleInput,
@@ -286,6 +297,41 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
                 }
             }
         }
+        UiMode::ServerProperties(EditorPhase::Loading | EditorPhase::Saving) => match code {
+            KeyCode::Esc => Action::BackFromServerProperties,
+            _ => Action::Ignore,
+        },
+        UiMode::ServerProperties(EditorPhase::LoadFailed) => match code {
+            KeyCode::Esc | KeyCode::Backspace => Action::BackFromServerProperties,
+            KeyCode::F(5) | KeyCode::Enter => Action::ServerPropertiesReload,
+            _ => Action::Ignore,
+        },
+        UiMode::ServerProperties(EditorPhase::Review) => match code {
+            KeyCode::Esc | KeyCode::Backspace => Action::ServerPropertiesEdit,
+            KeyCode::Enter => Action::ServerPropertiesSubmit,
+            _ => Action::Ignore,
+        },
+        UiMode::ServerProperties(EditorPhase::Saved) => match code {
+            KeyCode::Esc | KeyCode::Backspace | KeyCode::Enter => Action::BackFromServerProperties,
+            _ => Action::Ignore,
+        },
+        UiMode::ServerProperties(EditorPhase::Edit) => match code {
+            KeyCode::Esc => Action::BackFromServerProperties,
+            KeyCode::Enter => Action::ServerPropertiesSubmit,
+            KeyCode::Tab => Action::ServerPropertiesFocusNext,
+            KeyCode::BackTab => Action::ServerPropertiesFocusPrevious,
+            KeyCode::Backspace => Action::ServerPropertiesBackspace,
+            KeyCode::Delete => Action::ServerPropertiesDelete,
+            KeyCode::Left => Action::ServerPropertiesLeft,
+            KeyCode::Right => Action::ServerPropertiesRight,
+            KeyCode::Home => Action::ServerPropertiesHome,
+            KeyCode::End => Action::ServerPropertiesEnd,
+            KeyCode::Up => Action::ServerPropertiesAdjust(true),
+            KeyCode::Down => Action::ServerPropertiesAdjust(false),
+            KeyCode::F(5) => Action::ServerPropertiesReload,
+            KeyCode::Char(character) => Action::ServerPropertiesInsert(character),
+            _ => Action::Ignore,
+        },
         UiMode::Dashboard(panel) => match code {
             KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
             KeyCode::Enter if panel == Panel::Tasks => Action::OpenTaskDetail,

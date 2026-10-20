@@ -2,6 +2,7 @@
 mod addons;
 mod fabric;
 mod packs;
+mod properties;
 
 use crate::state::DaemonState;
 use mc_core::{
@@ -37,6 +38,28 @@ pub(crate) fn invalid(reason: impl Into<String>) -> AppError {
 }
 pub(crate) fn io_error(error: impl std::fmt::Display) -> AppError {
     AppError::new(ErrorCode::Internal, format!("文件操作失败：{error}"))
+}
+
+pub(crate) async fn read_server_properties(
+    state: &DaemonState,
+    instance_id: Uuid,
+) -> Result<mc_core::ServerPropertiesSnapshot, AppError> {
+    let instance = state.instances.get_async(instance_id).await?;
+    tokio::task::spawn_blocking(move || properties::read(&instance))
+        .await
+        .map_err(io_error)?
+}
+
+pub(crate) async fn save_server_properties(
+    state: &DaemonState,
+    instance_id: Uuid,
+    expected_revision: String,
+    values: mc_core::ServerPropertiesValues,
+) -> Result<mc_core::ServerPropertiesSnapshot, AppError> {
+    let instance = state.instances.get_async(instance_id).await?;
+    tokio::task::spawn_blocking(move || properties::save(&instance, &expected_revision, values))
+        .await
+        .map_err(io_error)?
 }
 
 /// Resolve only regular files beneath the managed server directory.
