@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,6 +39,26 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def runtime_versions(binary_dir: Path) -> dict[str, int]:
+    try:
+        output = subprocess.check_output(
+            [str(binary_dir / "mc"), "version", "--json"],
+            text=True,
+            stderr=subprocess.STDOUT,
+        )
+        data = json.loads(output)
+        return {
+            "api_protocol_min": int(data["api_protocol_min"]),
+            "api_protocol_max": int(data["api_protocol_max"]),
+            "state_schema": int(data["state_schema"]),
+            "runner_protocol": int(data["runner_protocol"]),
+        }
+    except (OSError, subprocess.CalledProcessError, ValueError, KeyError) as error:
+        raise SystemExit(
+            f"could not read release protocol metadata from {binary_dir / 'mc'}: {error}"
+        ) from error
+
+
 def package(args: argparse.Namespace) -> tuple[Path, Path]:
     binary_dir = args.binary_dir
     if binary_dir is None:
@@ -52,6 +73,7 @@ def package(args: argparse.Namespace) -> tuple[Path, Path]:
             f"missing release binaries in {binary_dir}: {', '.join(missing)}\n"
             "run `cargo build --workspace --release` first"
         )
+    versions = runtime_versions(binary_dir)
 
     output_dir = args.output_dir / args.version
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -110,9 +132,15 @@ def package(args: argparse.Namespace) -> tuple[Path, Path]:
             .isoformat()
             .replace("+00:00", "Z"),
             "min_supported_version": args.min_supported_version or args.version,
-            "api_protocol": {"min": args.api_min, "max": args.api_max},
-            "state_schema": 1,
-            "runner_protocol": {"min": 1, "max": 1},
+            "api_protocol": {
+                "min": args.api_min or versions["api_protocol_min"],
+                "max": args.api_max or versions["api_protocol_max"],
+            },
+            "state_schema": versions["state_schema"],
+            "runner_protocol": {
+                "min": versions["runner_protocol"],
+                "max": versions["runner_protocol"],
+            },
             "notes_url": args.notes_url,
             "targets": {},
         }
@@ -145,8 +173,8 @@ def main() -> None:
         help="public directory containing the tarball; URLs are written into the manifest",
     )
     parser.add_argument("--min-supported-version")
-    parser.add_argument("--api-min", type=int, default=8)
-    parser.add_argument("--api-max", type=int, default=8)
+    parser.add_argument("--api-min", type=int)
+    parser.add_argument("--api-max", type=int)
     parser.add_argument(
         "--notes-url",
         default="https://github.com/JUANWANG-BUAA/mc-server-tui/releases",
