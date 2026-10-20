@@ -3,7 +3,7 @@
   <h1>mc-server-tui</h1>
   <p><a href="README.zh-CN.md">简体中文</a> · <strong>English</strong></p>
   <p><strong>A terminal-first Minecraft Java server manager for macOS and Linux.</strong></p>
-  <p>Guided Paper setup · resident supervisor · live console · verified downloads · world backups · a Claude Code-style shell · seven themes</p>
+  <p>Guided Paper setup · Fabric creation · resident supervisor · live console · verified downloads · world backups · a Claude Code-style shell · seven themes</p>
 
   <p>
     <a href="https://juanwang-buaa.github.io/mc-server-tui/"><img src="https://img.shields.io/badge/website-live-d97757?style=flat-square" alt="Website"></a>
@@ -17,7 +17,7 @@
 </div>
 
 > [!WARNING]
-> **v0.1.0 is an unsigned alpha pre-release.** The installer verifies the release
+> **v0.2.0 is an unsigned alpha pre-release.** The installer verifies the release
 > manifest's SHA-256 and file size, but there is no code signature or macOS
 > notarization yet. Keep independent backups of any world you care about.
 
@@ -41,14 +41,12 @@ the terminal:
 
 ## Features
 
-This table describes the current working tree, which is ahead of the published
-`v0.1.0` release. See the status section and release notes for the exact
-published scope.
+This table describes the `v0.2.0` alpha release and its exact published scope.
 
 | Area | What is there today |
 | --- | --- |
 | **Session TUI** | Transcript + composer + persistent status dock, slash-command completion, command palette, cursor editing, history, inline `/logs` and `/cancel` |
-| **Guided Paper setup** | Version/build picker with scrollbar and paging, Java binding, memory/port presets, EULA confirmation, plan preview |
+| **Server creation** | Guided Paper version/build setup plus Fabric creation with Java/port checks and explicit EULA acceptance |
 | **Lifecycle** | Idempotent start, graceful stop, controlled restart, readiness detection, startup-failure diagnosis, console input, incremental logs, CPU/RSS readouts |
 | **Resident supervision** | Per-instance runner, process identity markers, daemon restarts reattach without killing Java |
 | **Durable tasks** | SQLite-backed queue, byte progress, speed/source, event cursors, cooperative cancellation |
@@ -79,11 +77,11 @@ lives in [`output/playwright/`](output/playwright/).
 
 ### Install a release
 
-`v0.1.0` is a pre-release, so GitHub's `/latest/` URL does not select it yet.
+`v0.2.0` is a pre-release, so GitHub's `/latest/` URL does not select it yet.
 Use the tag-specific installer:
 
 ```sh
-TAG=v0.1.0
+TAG=v0.2.0
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -227,8 +225,7 @@ for future hot updates. See [Supervision](docs/SUPERVISION.md).
 
 ## Status
 
-`v0.1.0` is the first public, unsigned alpha release. The working tree includes
-follow-up changes that are not part of that release. Current implementation
+`v0.2.0` is the current public, unsigned alpha release. Current implementation
 status (2026-10-20):
 
 | Implemented | Next |
@@ -237,14 +234,14 @@ status (2026-10-20):
 | Resident runner + daemon reattachment | Takeover of existing server directories |
 | Stopped-world backup/verify/restore | Online/scheduled backups |
 | Durable tasks, byte progress, cancellation | Full `server.properties` coverage and raw editor |
-| Player actions (OP/whitelist/ban/kick) over typed console commands | Structured management results and CLI lifecycle commands |
+| Player actions (OP/whitelist/ban/kick) over typed console commands | Structured player-management results |
 | Log search (`/rg`), live filtering, CPU/RSS trends and alerts | TPS/MSPT and JVM metrics |
 | Workspace pages with stable IDs and preserved log state | Multi-instance scheduling and host memory budget |
 | Modrinth add-on install, MRPACK/ZIP server-pack preview/import/export | Forge/NeoForge and authorized CurseForge file-ID downloads |
 | Session TUI, seven themes, Steve | Signing/notarization, Homebrew tap, deb/rpm |
 | API protocol 8–11 negotiation + runner protocol handshake | State schema migration and update task draining |
 | Controlled restart and actionable startup-failure diagnosis | Broader property coverage and a real client join drill |
-| Four-field `server.properties` editor with diff review and conflict detection | More properties, raw editing, and restart operation |
+| Four-field `server.properties` editor with diff review and conflict detection | More properties and raw editing |
 | Versioned `mc update status/rollback` | Signed self-updater with health checks |
 
 The full documented-vs-implemented audit is in
@@ -268,6 +265,7 @@ distribution.
 | [Distribution](docs/DISTRIBUTION.md) | macOS/Linux packaging, services, signing, hot update |
 | [Release process](docs/RELEASING.md) | Tag → CI → draft release → review |
 | [Changelog](CHANGELOG.md) | User-facing changes and known alpha limitations |
+| [0.2.0 release notes](docs/releases/0.2.0.md) | Current unsigned alpha |
 | [0.1.0 release notes](docs/releases/0.1.0.md) | First public unsigned alpha |
 | [TUI testing](docs/TUI_TESTING.md) | Renderer, PTY, screenshots, visual review |
 | [Product design](PRODUCT_DESIGN.md) | Scope and release gates |
@@ -309,9 +307,9 @@ Release tooling:
 cargo build --workspace --release
 # macOS Apple Silicon; use the matching target for other hosts
 python3 scripts/package_release.py \
-  --version 0.1.0 --target aarch64-apple-darwin \
-  --base-url "file://$PWD/dist/0.1.0"
-./scripts/install.sh --manifest-url "file://$PWD/dist/0.1.0/release-manifest.json" \
+  --version 0.2.0 --target aarch64-apple-darwin \
+  --base-url "file://$PWD/dist/0.2.0"
+./scripts/install.sh --manifest-url "file://$PWD/dist/0.2.0/release-manifest.json" \
   --prefix /tmp/mcst-prefix --root /tmp/mcst-root
 /tmp/mcst-prefix/bin/mc uninstall
 ```

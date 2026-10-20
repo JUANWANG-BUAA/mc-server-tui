@@ -3,11 +3,11 @@
   <img src="output/playwright/themes-overview.png" alt="mc-server-tui 七套主题与像素史蒂夫" width="100%">
   <h1>mc-server-tui</h1>
   <p><strong>面向 macOS / Linux 的终端优先 Minecraft Java 服务端管理器。</strong></p>
-  <p>Paper 引导建服 · 常驻 runner · 实时控制台 · 校验下载 · 世界备份 · Claude Code 风格会话 · 七套主题</p>
+  <p>Paper 引导建服 · Fabric 建服 · 常驻 runner · 实时控制台 · 校验下载 · 世界备份 · Claude Code 风格会话 · 七套主题</p>
 </div>
 
 > [!WARNING]
-> **v0.1.0 是未签名的 alpha pre-release。** 安装器只校验 release manifest 的
+> **v0.2.0 是未签名的 alpha pre-release。** 安装器只校验 release manifest 的
 > SHA-256 和文件大小，没有代码签名或 macOS 公证。请始终为重要世界保留独立备份。
 
 ## 为什么做这个项目
@@ -27,13 +27,12 @@ Java 进程藏在多层封装之后。这个项目选择终端：
 
 ## 当前功能
 
-下表描述当前工作区，内容领先于已发布的 `v0.1.0`。发行版的实际范围以状态说明和
-release notes 为准。
+下表描述 `v0.2.0` alpha 发行版的实际范围。
 
 | 模块 | 当前状态 |
 | --- | --- |
 | 会话 TUI | transcript + composer + 状态坞、命令补全、命令面板、光标编辑、历史、内联 `/logs`/`/cancel` |
-| Paper 建服 | 版本/build 选择、滚动条、Java 绑定、内存/端口、EULA、计划预览 |
+| 建服 | Paper 版本/build 向导，以及带 Java/端口检查和明确 EULA 的 Fabric 建服 |
 | 生命周期 | 幂等启动、优雅停止、受控重启、就绪识别、启动失败诊断、控制台、增量日志、CPU/RSS |
 | 常驻监督 | per-instance runner、进程身份、daemon 重启重连 |
 | 持久任务 | SQLite 任务、字节进度、速度/来源、事件游标、协作取消 |
@@ -48,8 +47,8 @@ release notes 为准。
 Paper 需要网络。
 
 ```sh
-# v0.1.0 是 pre-release，/latest/ 暂时不会选中它，使用 tag-specific URL
-TAG=v0.1.0
+# v0.2.0 是 pre-release，/latest/ 暂时不会选中它，使用 tag-specific URL
+TAG=v0.2.0
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -192,8 +191,7 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 
 ## 状态
 
-`v0.1.0` 是首个公开的 unsigned alpha；当前工作区包含尚未进入该发行版的后续改动。
-截至 2026-10-20，当前实现状态如下：
+`v0.2.0` 是当前公开的 unsigned alpha。截至 2026-10-20，实现状态如下：
 
 | 已实现 | 下一步 |
 | --- | --- |
@@ -201,14 +199,14 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 | 常驻 runner + daemon 重连 | 接管现有服务端目录 |
 | 停服备份/校验/恢复 | 在线/定时备份 |
 | 持久任务、字节进度、取消 | 完整 `server.properties` 覆盖与原始编辑 |
-| 玩家操作（OP/白名单/封禁/踢出） | 结构化管理结果与 CLI 生命周期命令 |
+| 玩家操作（OP/白名单/封禁/踢出） | 结构化玩家管理结果 |
 | `/rg` 日志搜索、实时过滤、CPU/RSS 趋势与告警 | TPS/MSPT 与 JVM 指标 |
 | 工作区多页面、稳定编号、日志状态保留 | 多实例调度与主机内存预算 |
 | Modrinth 扩展安装、MRPACK/ZIP 整合包预览/导入/导出 | Forge / NeoForge 与 CurseForge 文件 ID 授权导入 |
 | 会话 TUI、七主题、史蒂夫 | 签名/公证、Homebrew tap、deb/rpm |
 | API 协议 8–11 协商 + runner 协议握手 | 状态 schema 迁移与更新前任务排空 |
 | 受控重启与可执行的启动失败诊断 | 更完整属性管理与真实客户端加入演练 |
-| 四字段 `server.properties` 编辑、差异预览与冲突检测 | 更多属性、原始编辑及重启操作 |
+| 四字段 `server.properties` 编辑、差异预览与冲突检测 | 更多属性与原始编辑 |
 | 版本化 `mc update status/rollback` | 带健康检查的签名自动更新器 |
 
 完整差距见 [Implementation gaps](docs/IMPLEMENTATION_GAPS.md)。
@@ -226,6 +224,7 @@ runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daem
 - [备份恢复](docs/BACKUP_RESTORE_DESIGN.md)
 - [分发设计](docs/DISTRIBUTION.md)
 - [发布流程](docs/RELEASING.md)
+- [0.2.0 发布说明](docs/releases/0.2.0.md)
 - [TUI 测试](docs/TUI_TESTING.md)
 - [实现差距](docs/IMPLEMENTATION_GAPS.md)
 

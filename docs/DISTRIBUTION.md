@@ -2,7 +2,7 @@
 
 > 版本：0.1 · 2026-10-20
 >
-> 状态：Phase 0/1 与首个 unsigned alpha 发布已完成；开发分支协议窗口为 8–11；Phase 2–4 仍待完成
+> 状态：Phase 0/1 与 `v0.2.0` unsigned alpha 发布已完成；协议窗口为 8–11；Phase 2–4 仍待完成
 >
 > 关联：[实现差距](IMPLEMENTATION_GAPS.md)、[监督契约](SUPERVISION.md)、[产品设计的发布要求](../PRODUCT_DESIGN.md)
 
@@ -21,11 +21,11 @@ Phase 0 已补上 `mc` 启动器、`config.toml`/默认 User-Agent、`version --
 - launchd LaunchAgent / systemd user unit：`install/start/stop/restart/status/uninstall`，`--dry-run` 输出生成内容；launchd 已在 macOS 做过临时配置真实闭环。
 - Phase 1：`scripts/package_release.py` 生成 tar.gz + SHA-256 + manifest；`scripts/install.sh` 安装到 `versions/<version>`、切换 `current`、写稳定 launcher；`mc uninstall` 清理服务/launcher/版本目录并保留数据；`packaging/homebrew/` 模板与渲染脚本。
 - 基础 CI：macOS 14 / Ubuntu 22.04，fmt、clippy、test、build、launcher/PTY smoke；release job 打包并执行本地 installer/uninstaller smoke。
-- 首个发布：`v0.1.0`（unsigned alpha pre-release）已包含四个 target、manifest、install.sh 和 Homebrew formula；CI/Release 两个 workflow 均为绿色。
+- 发布历史：`v0.1.0` 是首个 public alpha；当前 `v0.2.0`（unsigned alpha pre-release）包含四个 target、合并 manifest、install.sh 和 Homebrew formula。
 
 尚未落地（Phase 2+）：
 
-- 签名/公证、实际 Homebrew tap、apt/dnf 仓库、多目标 manifest 合并、SBOM、changelog。
+- 签名/公证、实际 Homebrew tap、apt/dnf 仓库、SBOM。
 - ~~daemon 接受 N/N-1 协议~~：已接受 8–11，并按请求版本回包；旧客户端看不到高于自身版本的协议操作与任务结果。
 - ~~runner 协议握手~~：控制帧携带 `protocol: 1`，缺失字段按 v1 处理。
 - ~~手工回滚~~：`mc update status/rollback` 已切换 `current`/`previous` 并重启服务。
@@ -113,11 +113,11 @@ Phase 0/1 实际可用的子命令是 `tui`、`daemon run`、`cli`、`version`�
 ```text
 ~/.local/share/mc-server-tui/
   versions/
-    0.1.0/bin/mc
-    0.1.0/bin/mc-server-tui
-    0.1.0/bin/mc-server-tui-daemon
-    0.1.0/bin/mc-server-tui-cli
-    0.2.0/...
+    0.1.0/...
+    0.2.0/bin/mc
+    0.2.0/bin/mc-server-tui
+    0.2.0/bin/mc-server-tui-daemon
+    0.2.0/bin/mc-server-tui-cli
   current -> versions/0.2.0
   previous -> versions/0.1.0
 ```
@@ -400,7 +400,7 @@ xcrun stapler staple package.pkg
   "product": "mc-server-tui",
   "version": "0.2.0",
   "channel": "stable",
-  "released_at": "2026-10-19T00:00:00Z",
+  "released_at": "2026-10-20T00:00:00Z",
   "min_supported_version": "0.1.0",
   "api_protocol": { "min": 8, "max": 11 },
   "state_schema": 1,
@@ -526,7 +526,7 @@ mc
 ### macOS / Linux（tarball）
 
 ```sh
-TAG=v0.1.0
+TAG=v0.2.0
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -620,12 +620,12 @@ TUI 首次运行如果发现 daemon 未运行，应显示一个 setup 引导，�
 | 阶段 | 交付 | 验收 | 规模 |
 | --- | --- | --- | --- |
 | Phase 0 | `config.toml` + 默认 User-Agent；`mc` 启动器；`mc version --json`；ServerInfo/协议范围；服务管理器抽象 | **已实现**：daemon 不再依赖 shell 环境；`mc` 能稳定 exec 三个二进制；launchd 真实验证 | M |
-| Phase 1 | tarball + checksums + install.sh + Homebrew formula；Linux systemd 验证；版本化目录 | **核心已实现**：公开 unsigned tarball、file:// 安装/卸载闭环、SHA-256、manifest 和 launcher 切换完成；Homebrew tap 发布、真实 Linux 安装、合并后的多目标 manifest 仍待 | M |
+| Phase 1 | tarball + checksums + install.sh + Homebrew formula；Linux systemd 验证；版本化目录 | **核心已实现**：公开 unsigned tarball、合并 manifest、file:// 安装/卸载闭环、SHA-256 和 launcher 切换完成；Homebrew tap 发布与真实 Linux 安装仍待 | M |
 | Phase 2 | macOS 签名/公证；deb/rpm + apt/dnf 仓库；minisign/SBOM；release manifest | Gatekeeper 通过；Linux 包可安装；所有产物可验证 | M-L |
 | Phase 3 | runner 握手；任务排空/更新保护；健康检查 + 自动回滚；在 Phase 1 版本化目录上接入更新器 | **部分实现**：runner 握手与 API 兼容窗口已落地；状态迁移、任务排空、健康检查和自动回退仍缺 | M |
 | Phase 4 | `mc update --check/--rollback`；TUI 更新提示；auto_check；包管理器来源识别；文档/支持 | **部分实现**：手工 `status/rollback` 已完成；签名 updater、自动检查、TUI 提示和包管理器来源识别仍缺 | S-M |
 
-Phase 0/1 已提供稳定入口、服务安装、公开 unsigned 产物、版本化目录和本机安装/卸载闭环；仍需签名/公证、Homebrew tap、Linux 实机验证和合并后的多目标 manifest，之后才适合做自动更新。
+Phase 0/1 已提供稳定入口、服务安装、公开 unsigned 产物、版本化目录和本机安装/卸载闭环；仍需签名/公证、Homebrew tap 和 Linux 实机验证，之后才适合做自动更新。
 
 ## 14. 待定决策
 

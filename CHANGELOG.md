@@ -5,6 +5,21 @@ All notable user-facing changes are recorded here. The format is based on
 
 ## [Unreleased]
 
+### Planned
+
+- Vanilla provider and takeover of existing server directories.
+- Broader `server.properties` editing (including raw mode), Java compatibility
+  rules, and structured management results for the CLI.
+- State schema migration snapshots and update-time task draining.
+- Online/scheduled backups and post-restore in-game world verification.
+- Signed/notarized releases, Homebrew tap, Linux packages, and a signed
+  self-updater with health checks.
+- Mirrors and retry policy for constrained networks.
+
+## [0.2.0] - 2026-10-20
+
+Second public **unsigned alpha** pre-release.
+
 ### Added
 
 - Workspace pages with stable IDs, keyboard/mouse switching, and preserved
@@ -60,18 +75,6 @@ All notable user-facing changes are recorded here. The format is based on
   clipped, and supervisor status text stayed English in the UI.
 - Port selection and `server-port`/`--port` now agree on the assigned listener.
 
-### Planned
-
-- Vanilla provider and takeover of existing server directories.
-- Broader `server.properties` editing (including raw mode), Java compatibility rules, and structured
-  management results for the CLI.
-- State schema migration snapshots and update-time task draining.
-- Online/scheduled backups and post-restore in-game world verification. A local
-  Paper backup/restore drill has been recorded; client-level validation remains.
-- Signed/notarized releases, Homebrew tap, and Linux packages.
-- Signed self-updater with health checks, plus mirrors/retries for constrained
-  networks.
-
 ## [0.1.0] - 2026-10-19
 
 First public **unsigned alpha** pre-release.
@@ -109,5 +112,6 @@ First public **unsigned alpha** pre-release.
 - Linux systemd is generated/tested in CI but has not had a full real-host
   install drill.
 
-[Unreleased]: https://github.com/JUANWANG-BUAA/mc-server-tui/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/JUANWANG-BUAA/mc-server-tui/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.2.0
 [0.1.0]: https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.1.0

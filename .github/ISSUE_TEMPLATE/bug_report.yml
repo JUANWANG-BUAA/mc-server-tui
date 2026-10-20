@@ -37,7 +37,7 @@ body:
     attributes:
       label: mc-server-tui version
       description: Output of `mc version --json`.
-      placeholder: '{"version":"0.1.0",...}'
+      placeholder: '{"version":"0.2.0",...}'
     validations:
       required: true
   - type: input

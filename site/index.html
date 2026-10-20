@@ -10,8 +10,8 @@
     }, true);
   </script>
   <title>mc-server-tui — Minecraft servers without the browser</title>
-  <meta name="description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Guided Paper setup, a resident supervisor, live console, verified downloads, world backups, and a Claude Code-style TUI.">
-  <meta name="keywords" content="Minecraft server manager, PaperMC, Rust TUI, Ratatui, macOS, Linux, self-hosted, Minecraft backup, terminal UI, server supervisor">
+  <meta name="description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Guided Paper and Fabric setup, a resident supervisor, live console, verified downloads, world backups, and a Claude Code-style TUI.">
+  <meta name="keywords" content="Minecraft server manager, PaperMC, Fabric, Rust TUI, Ratatui, macOS, Linux, self-hosted, Minecraft backup, terminal UI, server supervisor">
   <meta name="author" content="JUANWANG-BUAA">
   <meta name="theme-color" content="#0b0b0c">
   <link rel="canonical" href="https://juanwang-buaa.github.io/mc-server-tui/">
@@ -20,7 +20,7 @@
   <noscript><style>[data-reveal]{opacity:1!important;transform:none!important}</style></noscript>
   <meta property="og:type" content="website">
   <meta property="og:title" content="mc-server-tui — Minecraft servers without the browser">
-  <meta property="og:description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Paper setup, resident runner, live console, verified downloads, backups.">
+  <meta property="og:description" content="A terminal-first Minecraft Java server manager for macOS and Linux. Paper and Fabric setup, resident runner, live console, verified downloads, backups.">
   <meta property="og:url" content="https://juanwang-buaa.github.io/mc-server-tui/">
   <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/themes-overview.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -34,7 +34,7 @@
     "name": "mc-server-tui",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "macOS, Linux",
-    "softwareVersion": "0.1.0",
+    "softwareVersion": "0.2.0",
     "license": "MIT OR Apache-2.0",
     "url": "https://juanwang-buaa.github.io/mc-server-tui/",
     "codeRepository": "https://github.com/JUANWANG-BUAA/mc-server-tui",
@@ -72,7 +72,7 @@
       <div class="hero-copy" data-reveal>
         <div class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span> Terminal-first · macOS + Linux</div>
         <h1>Minecraft servers,<br><em>without the browser.</em></h1>
-        <p class="lede">A control room for Paper servers that lives in your shell. Guide a new server from zero, watch every byte, tail the console, and restore a world without opening a web panel.</p>
+        <p class="lede">A control room for Paper and Fabric servers that lives in your shell. Guide a new server from zero, watch every byte, tail the console, and restore a world without opening a web panel.</p>
         <div class="hero-actions">
           <a class="button button-primary" href="#install">Install the alpha <span aria-hidden="true">→</span></a>
           <a class="button button-ghost" href="https://github.com/JUANWANG-BUAA/mc-server-tui" target="_blank" rel="noreferrer">View source <span aria-hidden="true">↗</span></a>
@@ -272,7 +272,7 @@
         <div class="requirements">
           <span>macOS 13+</span><span>Linux x86_64/arm64</span><span>Java 21+</span><span>80×24 terminal</span>
         </div>
-        <a class="text-link" href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.1.0" target="_blank" rel="noreferrer">Release notes and checksums <span aria-hidden="true">↗</span></a>
+        <a class="text-link" href="https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.2.0" target="_blank" rel="noreferrer">Release notes and checksums <span aria-hidden="true">↗</span></a>
       </div>
       <div class="install-panel" data-reveal>
         <div class="terminal-window">
@@ -281,7 +281,7 @@
             <span class="terminal-path">install.sh <span>/ unsigned alpha</span></span>
             <button class="copy-button" type="button" id="copy-install" aria-label="Copy install commands">Copy</button>
           </div>
-          <pre class="install-code" id="install-snippet"><span class="prompt">$</span> TAG=v0.1.0
+          <pre class="install-code" id="install-snippet"><span class="prompt">$</span> TAG=v0.2.0
 <span class="prompt">$</span> curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 <span class="prompt">$</span> mc setup
 <span class="prompt">$</span> mc</pre>
@@ -291,7 +291,7 @@
             <span>tag-specific install</span>
           </div>
         </div>
-        <p class="install-note"><strong>Alpha note:</strong> v0.1.0 is a pre-release, so GitHub's <code>/latest/</code> URL does not select it yet. The installer checks the manifest hash and size, but not a code signature. Keep an independent world backup.</p>
+        <p class="install-note"><strong>Alpha note:</strong> v0.2.0 is a pre-release, so GitHub's <code>/latest/</code> URL does not select it yet. The installer checks the manifest hash and size, but not a code signature. Keep an independent world backup.</p>
         <details class="source-build">
           <summary>Prefer to build from source?</summary>
           <pre><code>git clone https://github.com/JUANWANG-BUAA/mc-server-tui.git
@@ -314,7 +314,7 @@ cargo build --workspace
         <article class="roadmap-item done" data-reveal>
           <span class="phase">Phase 0–1</span>
           <h3>Shipped foundation</h3>
-          <p>Paper lifecycle, resident runner, durable tasks, backup/restore, session TUI, seven themes, user service, versioned installer, four-platform release.</p>
+          <p>Paper and Fabric lifecycle, resident runner, durable tasks, backup/restore, workspace TUI, players, pack import, properties editor, controlled restart, startup diagnosis, user service and versioned four-platform releases.</p>
           <span class="status-pill">shipped</span>
         </article>
         <article class="roadmap-item next" data-reveal>
@@ -330,9 +330,9 @@ cargo build --workspace
           <span class="status-pill">partial</span>
         </article>
         <article class="roadmap-item" data-reveal>
-          <span class="phase">Development branch</span>
+          <span class="phase">Next product work</span>
           <h3>Broader server management</h3>
-          <p>Player actions, Fabric, stopped pack import, a four-field server.properties editor, controlled restart and startup-failure diagnosis are present in the development branch. Vanilla, takeover, broader property management and online/scheduled backups remain.</p>
+          <p>Vanilla, existing-directory takeover, broader property management, online/scheduled backups, and a real Minecraft-client join/restore drill remain.</p>
           <span class="status-pill">planned</span>
         </article>
       </div>

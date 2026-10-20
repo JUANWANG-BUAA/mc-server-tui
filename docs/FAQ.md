@@ -2,7 +2,7 @@
 
 ## Is this stable?
 
-No. `v0.1.0` is an **unsigned alpha pre-release**. The core Paper lifecycle,
+No. `v0.2.0` is an **unsigned alpha pre-release**. The core Paper/Fabric lifecycle,
 backups, and TUI work, but the feature set is intentionally incomplete. See
 [Implementation gaps](IMPLEMENTATION_GAPS.md).
 
@@ -16,10 +16,10 @@ backups, and TUI work, but the feature set is intentionally incomplete. See
 
 ## How do I install it?
 
-Release installer (tag-specific while `v0.1.0` is a pre-release):
+Release installer (tag-specific while `v0.2.0` is a pre-release):
 
 ```sh
-TAG=v0.1.0
+TAG=v0.2.0
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -57,20 +57,18 @@ backup.
 
 ## Does it support Vanilla, Fabric, or modpacks?
 
-The published `v0.1.0` alpha is Paper-only and can analyze `.mrpack` files
-read-only. The current development branch adds Fabric, player actions, and
-stopped-instance import for `.mrpack` and server-pack ZIP files. Imports add
-compatible mods/plugins/config only and refuse conflicts. Vanilla,
-Forge/NeoForge, and CurseForge file-ID materialization are not implemented.
+`v0.2.0` supports Paper and Fabric, player actions, and stopped-instance import
+for `.mrpack` and server-pack ZIP files. Imports add compatible
+mods/plugins/config only and refuse conflicts. Vanilla, Forge/NeoForge, and
+CurseForge file-ID materialization are not implemented.
 
 ## Can I edit server.properties?
 
-Not in `v0.1.0`. The current development branch adds `/config` for MOTD, max
-players, difficulty, and view distance. It shows a diff and refuses to overwrite
-a file changed outside the editor. Other settings, raw editing, and validation
-for every property are still follow-up work. A running server keeps its current
-values until it is restarted; use `/restart` or `R` after saving when the new
-values should be applied immediately.
+`/config` edits MOTD, max players, difficulty, and view distance. It shows a
+diff and refuses to overwrite a file changed outside the editor. Other settings,
+raw editing, and validation for every property are still follow-up work. A
+running server keeps its current values until it is restarted; use `/restart`
+or `R` after saving when the new values should be applied immediately.
 
 ## Are backups online?
 

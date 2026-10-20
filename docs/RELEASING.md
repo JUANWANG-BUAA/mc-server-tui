@@ -21,8 +21,8 @@ unsigned.
 ## Cut a release
 
 ```sh
-git tag -a v0.1.0 -m "mc-server-tui 0.1.0"
-git push origin v0.1.0
+git tag -a v0.2.0 -m "mc-server-tui 0.2.0"
+git push origin v0.2.0
 ```
 
 The `Release` workflow then:
@@ -42,8 +42,8 @@ build before tagging.
 ## Review and publish
 
 ```sh
-gh release view v0.1.0
-gh release download v0.1.0 --pattern 'release-manifest.json' --dir /tmp/mcst-release
+gh release view v0.2.0
+gh release download v0.2.0 --pattern 'release-manifest.json' --dir /tmp/mcst-release
 ```
 
 Check:
@@ -58,7 +58,7 @@ Check:
 Then publish the draft, optionally as a pre-release:
 
 ```sh
-gh release edit v0.1.0 --draft=false --prerelease
+gh release edit v0.2.0 --draft=false --prerelease
 ```
 
 Do not describe unsigned artifacts as production-ready. Phase 2 adds signing,
