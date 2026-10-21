@@ -201,3 +201,55 @@ UUIDs and journal/token evidence are secondary information behind F3.
 The restore preview explains replacements, additions, removals, retained rollback
 copies and that progress after the backup is not merged. Explicit RESTORE confirmation
 is unchanged. Completion asks the operator to start and verify the world in game.
+
+## First-time experience
+
+> Added in v0.2.2 · 2026-10-21
+
+### Welcome screen
+
+When the dashboard has zero instances and zero tasks, and the terminal is at least 60×15, the welcome screen replaces the empty dashboard:
+
+1. **Steve pixel art header** (full mode only, ≥70 wide and ≥20 tall): An 8×8 pixel representation of the Minecraft Steve character head using Unicode block characters, centered above the action cards.
+2. **Three primary entry points**, presented as clickable cards:
+   - **Create Paper server** (`n` key): "版本和 Java 都会自动准备"
+   - **Create Fabric server** (`f` key, reserved): "自动下载稳定 Loader" (placeholder for future implementation)
+   - **Import modpack** (`i` key): "先检查 .mrpack 整合包"
+3. **Quick access shortcuts**: `/` (command palette), `?` (help), `t` (shell), `F2` (theme), `q` (quit)
+4. **Compact mode** (<70 wide or <20 tall): Omits pixel art, shows title text instead, maintains the three action cards and shortcuts.
+
+The welcome screen is intentionally minimal: it shows only the most common first actions and directs advanced workflows to the command palette. It disappears automatically once the user creates their first instance or an async task appears, never blocking experienced users.
+
+### Contextual guidance
+
+The footer and instance/task empty states adapt their guidance text to the current application state:
+
+- **No instances, no tasks**: "按 n 新建 Paper，版本和 Java 都会自动准备"
+- **Server stopped**: "按 Enter 查看详情 · 按 s 启动"
+- **Server running**: "按 l 查看日志 · 按 c 打开控制台"
+- **Server starting**: "按 l 查看日志 · 正在加载世界..."
+- **Server failed**: "按 l 查看错误日志 · 按 j 检查 Java"
+- **Task running**: "后台任务进行中 · 按 Tab 切换到任务 · 按 Enter 查看详情"
+
+Each state shows the 3–5 most relevant actions for that context. The guidance is state-driven, not layout-driven: the same instance can show different hints when its server transitions from stopped to running.
+
+### Mouse interaction enhancement
+
+The welcome screen cards are click targets:
+
+- Single click on a card selects it (visual feedback)
+- The card immediately triggers its associated action (open create wizard, open modpack import, etc.)
+- Double-click is not required; single click is sufficient for these high-intent actions
+- Click targets match the visual card boundaries
+
+This follows the existing mouse interaction pattern: lists require double-click to open details, but dedicated action buttons/cards use single click.
+
+### Design rationale
+
+The welcome screen design follows three principles:
+
+1. **Zero-to-running in one flow**: A new user should be able to go from empty dashboard to a running server by pressing `n`, selecting a version, accepting EULA, and waiting for download—without reading documentation or knowing daemon internals.
+2. **No dead ends**: Every screen state shows the next logical action. Empty states are never just "no data"; they explain what to do next.
+3. **Progressive disclosure**: The welcome screen shows 3 primary paths and defers the full command catalog to `/`. Advanced users can skip directly to shell or palette without reading the welcome cards.
+
+The pixel art Steve head is decorative and cultural (recognizable Minecraft iconography) but not load-bearing: the compact mode proves the UI remains functional without it.

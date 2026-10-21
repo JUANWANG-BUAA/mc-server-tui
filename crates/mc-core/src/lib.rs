@@ -5,6 +5,7 @@ mod backup;
 mod doctor;
 mod domain;
 mod error;
+mod error_message;
 mod lifecycle;
 mod management;
 pub use management::InstanceOperation;
@@ -28,6 +29,7 @@ pub use domain::{
     ServerSnapshot, ServerState, ServerVersion,
 };
 pub use error::{AppError, ErrorCode};
+pub use error_message::{ErrorMessage, ErrorTemplates, Language};
 pub use lifecycle::StoppedInstanceLease;
 pub use modpack::{
     ModpackAnalysisReport, ModpackFileDisposition, ModpackFilePlan, ModpackIssue, ModpackLoader,

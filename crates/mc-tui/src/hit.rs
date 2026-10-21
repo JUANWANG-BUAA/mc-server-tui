@@ -31,6 +31,9 @@ pub(crate) enum HitTarget {
     ToggleEula,
     HelpClose,
     ShellSuggestion(usize),
+    WelcomeCreatePaper,
+    WelcomeCreateFabric,
+    WelcomeImportModpack,
 }
 
 /// Regions recorded during the last draw pass. Input handling reads this map

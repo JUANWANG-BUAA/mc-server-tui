@@ -87,6 +87,12 @@ fn render_dashboard(
     animation_frame: u8,
     hits: &mut HitMap,
 ) {
+    // 显示欢迎界面（仅在没有实例且没有任务时）
+    if app.instances.is_empty() && app.tasks.is_empty() && area.width >= 60 && area.height >= 15 {
+        crate::welcome_view::render(frame, area, app, hits);
+        return;
+    }
+
     let root = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

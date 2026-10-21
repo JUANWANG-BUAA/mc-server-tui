@@ -1,0 +1,5 @@
+[     119ms] [LOG] [ttyd] websocket connection opened @ http://127.0.0.1:7681/:1
+[     140ms] [LOG] [ttyd] WebGL renderer loaded @ http://127.0.0.1:7681/:1
+[     140ms] [LOG] [ttyd] setting Unicode version: 11 @ http://127.0.0.1:7681/:1
+[     141ms] [LOG] [ttyd] option: fontSize=17 @ http://127.0.0.1:7681/:1
+[  166608ms] [LOG] [ttyd] websocket connection closed with code: 1000 @ http://127.0.0.1:7681/:1

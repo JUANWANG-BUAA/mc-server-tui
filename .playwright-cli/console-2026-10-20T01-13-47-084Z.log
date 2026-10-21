@@ -1,0 +1,10 @@
+[     115ms] [LOG] [ttyd] websocket connection opened @ http://127.0.0.1:7682/:1
+[     149ms] [LOG] [ttyd] WebGL renderer loaded @ http://127.0.0.1:7682/:1
+[     149ms] [LOG] [ttyd] setting Unicode version: 11 @ http://127.0.0.1:7682/:1
+[   64159ms] [LOG] [ttyd] websocket connection closed with code: 1006 @ http://127.0.0.1:7682/:1
+[   64161ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:7682/token:0
+[   64161ms] [ERROR] [ttyd] fetch http://127.0.0.1:7682/token:  TypeError: Failed to fetch
+    at p.refreshToken (http://127.0.0.1:7682/:2:580167)
+    at p.onSocketClose (http://127.0.0.1:7682/:2:583243) @ http://127.0.0.1:7682/:1
+[   64163ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:7682/ws' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:7682/:1
+[   64163ms] [LOG] [ttyd] websocket connection closed with code: 1006 @ http://127.0.0.1:7682/:1

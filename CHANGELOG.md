@@ -16,6 +16,27 @@ All notable user-facing changes are recorded here. The format is based on
   self-updater with health checks.
 - Mirrors and retry policy for constrained networks.
 
+### Upcoming optimizations
+
+Based on the productization review and implementation gaps analysis, the next
+development phases focus on:
+
+1. **Core feature completeness (P0)**: Vanilla provider, existing-directory
+   takeover, online backups, complete `server.properties` editing, and
+   real-client connection validation.
+2. **Distribution & installation (P0)**: macOS signing/notarization, Homebrew
+   tap, Linux packages (deb/rpm), and simplified installation documentation.
+3. **Interaction improvements (P1)**: First-use experience, simplified navigation,
+   human-readable error messages with actionable fixes, and improved information
+   visibility.
+4. **Linux support (P1)**: Real-host validation on Ubuntu/Debian/Fedora/Arch,
+   complete systemd testing, and Linux-specific deployment documentation.
+5. **Documentation alignment (P1)**: Unified language strategy, updated value
+   proposition for technical server operators, and full documentation sync.
+
+See [`OPTIMIZATION_TODOLIST.md`](OPTIMIZATION_TODOLIST.md) for the complete
+optimization roadmap and execution plan.
+
 ## [0.2.1] - 2026-10-20
 
 Unsigned alpha pre-release; API 8–11, state schema 1 and runner protocol 1 unchanged.

@@ -1,0 +1,368 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "mc-server-tui home" [ref=e5] [cursor=pointer]:
+        - /url: "#top"
+        - generic [ref=e6]: mc-server-tui
+        - generic [ref=e7]: ALPHA
+      - navigation "Main navigation" [ref=e8]:
+        - link "Features" [ref=e9] [cursor=pointer]:
+          - /url: "#features"
+        - link "Themes" [ref=e10] [cursor=pointer]:
+          - /url: "#themes"
+        - link "Inside" [ref=e11] [cursor=pointer]:
+          - /url: "#inside"
+        - link "Install" [ref=e12] [cursor=pointer]:
+          - /url: "#install"
+        - link "Docs" [ref=e13] [cursor=pointer]:
+          - /url: docs/
+      - link "GitHub" [ref=e14] [cursor=pointer]:
+        - /url: https://github.com/JUANWANG-BUAA/mc-server-tui
+        - text: GitHub
+        - generic [aria-hidden] [ref=e15]: ↗
+  - main [ref=e16]:
+    - generic [ref=e17]:
+      - generic [ref=e18]:
+        - generic [ref=e19]: Terminal-first · macOS + Linux
+        - heading [level=1] [ref=e21]:
+          - text: Minecraft servers,
+          - emphasis [ref=e22]: without the browser.
+        - paragraph [ref=e23]: Keep the right server in view. Create a Paper or Fabric instance, follow its logs, and review a world restore from your terminal. Clear console targets and focused details make everyday work easier.
+        - generic [ref=e24]:
+          - link "Install the alpha" [ref=e25] [cursor=pointer]:
+            - /url: "#install"
+            - text: Install the alpha
+            - generic [aria-hidden] [ref=e26]: →
+          - link "View source" [ref=e27] [cursor=pointer]:
+            - /url: https://github.com/JUANWANG-BUAA/mc-server-tui
+            - text: View source
+            - generic [aria-hidden] [ref=e28]: ↗
+        - generic [ref=e29]:
+          - generic [ref=e30]: Unsigned alpha
+          - generic [ref=e31]: /
+          - generic [ref=e32]: SHA-256 verified
+          - generic [ref=e33]: /
+          - generic [ref=e34]: 3 release targets
+      - generic [ref=e35]:
+        - generic [ref=e36]:
+          - generic [ref=e37]:
+            - generic [ref=e42]: mc-server-tui / session
+            - generic [ref=e43]: CLAUDE
+          - img "mc-server-tui Claude theme screenshot" [ref=e45]
+          - generic [ref=e46]:
+            - generic [ref=e47]: v0.2.1 · demonstration data
+            - generic [ref=e49]: 80×24
+            - generic [ref=e50]: no browser required
+        - paragraph [ref=e75]:
+          - strong [ref=e76]: The UI is disposable.
+          - text: Java keeps running when the daemon restarts.
+        - group "Preview a terminal theme" [ref=e77]:
+          - button "Claude" [pressed] [ref=e78] [cursor=pointer]
+          - button "DeepSeek" [ref=e80] [cursor=pointer]
+          - button "Codex" [ref=e82] [cursor=pointer]
+          - button "Kimi" [ref=e84] [cursor=pointer]
+          - button "PCL2" [ref=e86] [cursor=pointer]
+          - button "Mono" [ref=e88] [cursor=pointer]
+          - button "Ocean" [ref=e90] [cursor=pointer]
+    - region "Project facts" [ref=e92]:
+      - generic [ref=e93]:
+        - strong [ref=e94]: "03"
+        - generic [ref=e95]: release targets
+      - generic [ref=e96]:
+        - strong [ref=e97]: "07"
+        - generic [ref=e98]: terminal themes
+      - generic [ref=e99]:
+        - strong [ref=e100]: "01"
+        - generic [ref=e101]: resident runner per instance
+      - generic [ref=e102]:
+        - strong [ref=e103]: "00"
+        - generic [ref=e104]: browser tabs
+    - generic [ref=e105]:
+      - generic [ref=e106]:
+        - paragraph [ref=e107]: Why it feels different
+        - heading [level=2] [ref=e108]:
+          - text: Less dashboard.
+          - emphasis [ref=e109]: More control room.
+        - paragraph [ref=e110]: "Every screen is designed around the job: get a server running, see what it is doing, and keep the world safe when something goes wrong."
+      - generic [ref=e111]:
+        - article [ref=e112]:
+          - generic [ref=e113]: "01"
+          - heading "Your server, always in view." [level=3] [ref=e114]
+          - paragraph [ref=e115]: The selected server, next action and resources stay visible. Console drafts show their destination and stay bound to it when you switch instances. One compact summary follows background work.
+          - generic [ref=e116]: · session shell
+        - article [ref=e117]:
+          - generic [ref=e118]: "02"
+          - heading "The UI is disposable." [level=3] [ref=e119]
+          - paragraph [ref=e120]: A per-instance runner owns Java's console. Close the TUI or restart the daemon; the Minecraft process keeps running and reattaches.
+          - generic [ref=e121]: · resident supervisor
+        - article [ref=e122]:
+          - generic [ref=e123]: "03"
+          - heading "Downloads with receipts." [level=3] [ref=e124]
+          - paragraph [ref=e125]: Paper builds are locked to an exact build, size, and SHA-256. Resume is only used when the source proves the range; the installed bytes are verified before they become an instance.
+          - generic [ref=e126]: · verified downloads
+        - article [ref=e127]:
+          - generic [ref=e128]: "04"
+          - heading "See what a restore will change." [level=3] [ref=e129]
+          - paragraph [ref=e130]: Choose a verified snapshot by local time. Review which worlds will be replaced before typing RESTORE. Later progress is not merged; technical evidence is available with F3.
+          - generic [ref=e131]: · transactional restore
+        - article [ref=e132]:
+          - generic [ref=e133]: "05"
+          - heading "Tasks that survive." [level=3] [ref=e134]
+          - paragraph [ref=e135]: Durable SQLite tasks, byte-level progress, speed and source, event cursors, and cooperative cancellation. The TUI can disconnect without losing the transition history.
+          - generic [ref=e136]: · durable task queue
+        - article [ref=e137]:
+          - generic [ref=e138]: "06"
+          - heading "A terminal with taste." [level=3] [ref=e139]
+          - paragraph [ref=e140]: Seven near-black palettes, a clear composer, and details that open with F3. Logs get room to breathe; pixel Steve welcomes you when the workspace is empty.
+          - generic [ref=e141]: · terminal UI
+    - generic [ref=e142]:
+      - generic [ref=e143]:
+        - paragraph [ref=e144]: Make it yours
+        - heading [level=2] [ref=e145]:
+          - text: Seven themes.
+          - emphasis [ref=e146]: Same quiet shell.
+        - paragraph [ref=e147]:
+          - text: Near-black backgrounds, one accent color, and the same focused layout in every theme. Switch with
+          - code [ref=e148]: F2
+          - text: ","
+          - code [ref=e149]: /theme <name>
+          - text: ", or the picker here."
+        - group "Theme preview" [ref=e150]:
+          - button "Claude terracotta" [pressed] [ref=e151] [cursor=pointer]:
+            - generic [ref=e153]: Claude
+            - generic [ref=e154]: terracotta
+          - button "DeepSeek signal blue" [ref=e155] [cursor=pointer]:
+            - generic [ref=e157]: DeepSeek
+            - generic [ref=e158]: signal blue
+          - button "Codex mint" [ref=e159] [cursor=pointer]:
+            - generic [ref=e161]: Codex
+            - generic [ref=e162]: mint
+          - button "Kimi violet" [ref=e163] [cursor=pointer]:
+            - generic [ref=e165]: Kimi
+            - generic [ref=e166]: violet
+          - button "PCL2 launcher blue" [ref=e167] [cursor=pointer]:
+            - generic [ref=e169]: PCL2
+            - generic [ref=e170]: launcher blue
+          - button "Mono paper white" [ref=e171] [cursor=pointer]:
+            - generic [ref=e173]: Mono
+            - generic [ref=e174]: paper white
+          - button "Ocean sea glass" [ref=e175] [cursor=pointer]:
+            - generic [ref=e177]: Ocean
+            - generic [ref=e178]: sea glass
+      - generic [ref=e179]:
+        - generic [ref=e180]:
+          - generic [ref=e181]:
+            - generic [ref=e186]: theme preview / terminal capture
+            - generic [ref=e187]: CLAUDE
+          - img "mc-server-tui Claude theme screenshot" [ref=e189]
+        - paragraph [ref=e190]: Actual v0.2.1 TUI at 80×24, using deterministic demonstration data. Theme preference persists across launches.
+    - generic [ref=e191]:
+      - generic [ref=e192]:
+        - paragraph [ref=e193]: Inside the shell
+        - heading [level=2] [ref=e194]:
+          - text: Structured when it matters.
+          - emphasis [ref=e195]: Inline by default.
+        - paragraph [ref=e196]: Everyday work stays in the session. The wizard, backup manager, and task detail only take over when a decision or a safe recovery needs your full attention.
+      - generic [ref=e197]:
+        - figure "01 / Guided create Review the defaults. Expand settings when you need them." [ref=e198]:
+          - img "Paper runtime summary retaining instance name and game version" [ref=e199]
+          - generic [ref=e200]:
+            - generic [ref=e201]: 01 / Guided create
+            - strong [ref=e202]: Review the defaults. Expand settings when you need them.
+        - figure "02 / Backup manager Verify, preview impact, then type the exact confirmation." [ref=e203]:
+          - img "World backup manager with paged backups and verification status" [ref=e204]
+          - generic [ref=e205]:
+            - generic [ref=e206]: 02 / Backup manager
+            - strong [ref=e207]: Verify, preview impact, then type the exact confirmation.
+        - figure "03 / Byte progress Know what is downloading, from where, and how fast." [ref=e208]:
+          - img "Download task with byte progress, speed, and source" [ref=e209]
+          - generic [ref=e210]:
+            - generic [ref=e211]: 03 / Byte progress
+            - strong [ref=e212]: Know what is downloading, from where, and how fast.
+    - generic [ref=e213]:
+      - generic [ref=e214]:
+        - paragraph [ref=e215]: Architecture
+        - heading [level=2] [ref=e216]:
+          - text: The UI is disposable.
+          - emphasis [ref=e217]: The server isn't.
+        - paragraph [ref=e218]: The TUI and CLI are clients. A local daemon owns tasks and supervision. Each instance has a detached runner that holds Java's stdin/stdout/stderr and a private control socket.
+        - list [ref=e219]:
+          - listitem [ref=e220]: ✓ Daemon restart → reattach, don't kill Java
+          - listitem [ref=e221]: ✓ Process identity must match before any signal
+          - listitem [ref=e222]: ✓ World writes go through leases and recovery journals
+          - listitem [ref=e223]: ✓ Unix socket is per-user, mode 0600
+        - link "Read about lifecycle and supervision" [ref=e224] [cursor=pointer]:
+          - /url: docs/#lifecycle-readiness
+          - text: Read about lifecycle and supervision
+          - generic [aria-hidden] [ref=e225]: →
+      - generic "Architecture diagram" [ref=e226]:
+        - generic [ref=e227]:
+          - generic [ref=e228]:
+            - generic [ref=e229]: TUI
+            - generic [ref=e230]: client
+          - generic [ref=e231]:
+            - generic [ref=e232]: CLI
+            - generic [ref=e233]: client
+        - generic [ref=e234]: ↓ Unix socket · 0600
+        - generic [ref=e235]:
+          - generic [ref=e236]: management daemon
+          - generic [ref=e237]: API · durable tasks · leases
+        - generic [ref=e238]: ↓ supervises
+        - generic [ref=e239]:
+          - generic [ref=e240]:
+            - generic [ref=e241]: runner A
+            - generic [ref=e242]: detached process
+          - generic [ref=e243]:
+            - generic [ref=e244]: runner B
+            - generic [ref=e245]: detached process
+        - generic [ref=e246]: ↓ owns pipes
+        - generic [ref=e247]:
+          - generic [ref=e248]:
+            - generic [ref=e249]: Paper / Java
+            - generic [ref=e250]: instance A
+          - generic [ref=e251]:
+            - generic [ref=e252]: Paper / Java
+            - generic [ref=e253]: instance B
+    - generic [ref=e254]:
+      - generic [ref=e255]:
+        - paragraph [ref=e256]: Get started
+        - heading [level=2] [ref=e257]:
+          - text: One command.
+          - emphasis [ref=e258]: Then it's yours.
+        - paragraph [ref=e259]: Install the alpha user-local, write a config, verify Java, and install a launchd/systemd user service. No browser, no root, no daemon left in a random terminal.
+        - generic [ref=e260]:
+          - generic [ref=e261]: macOS 13+ Apple Silicon
+          - generic [ref=e262]: Linux x86_64/arm64
+          - generic [ref=e263]: Java matched to game version
+          - generic [ref=e264]: 80×24 terminal
+        - link "Release notes and checksums" [ref=e265] [cursor=pointer]:
+          - /url: https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.2.1
+          - text: Release notes and checksums
+          - generic [aria-hidden] [ref=e266]: ↗
+      - generic [ref=e267]:
+        - generic [ref=e268]:
+          - generic [ref=e269]:
+            - generic [ref=e274]: install.sh / unsigned alpha
+            - button "Copy install commands" [ref=e275] [cursor=pointer]: Copy
+          - generic [ref=e276]: $ TAG=v0.2.1 $ curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh $ mc setup $ mc
+          - generic [ref=e277]:
+            - generic [ref=e278]: SHA-256 verified
+            - generic [ref=e280]: not signed yet
+            - generic [ref=e281]: tag-specific install
+        - paragraph [ref=e282]:
+          - strong [ref=e283]: "Alpha note:"
+          - text: v0.2.1 is a pre-release, so GitHub's
+          - code [ref=e284]: /latest/
+          - text: URL does not select it yet. The installer checks the manifest hash and size, but not a code signature. Keep an independent world backup.
+        - group [ref=e285]:
+          - generic "Prefer to build from source?" [ref=e286] [cursor=pointer]
+    - generic [ref=e287]:
+      - generic [ref=e288]:
+        - paragraph [ref=e289]: Roadmap
+        - heading "Alpha, with receipts." [level=2] [ref=e290]
+        - paragraph [ref=e291]: The current release is deliberately narrow. We publish the gaps instead of pretending the product is finished.
+      - generic [ref=e292]:
+        - article [ref=e293]:
+          - generic [ref=e294]: Phase 0–1
+          - heading "Shipped foundation" [level=3] [ref=e295]
+          - paragraph [ref=e296]: Paper and Fabric lifecycle, resident runner, durable tasks, backup/restore, workspace TUI, players, pack import, properties editor, controlled restart, startup diagnosis, user service and versioned three-target releases.
+          - generic [ref=e297]: shipped
+        - article [ref=e298]:
+          - generic [ref=e299]: Phase 2
+          - heading "Signed distribution" [level=3] [ref=e300]
+          - paragraph [ref=e301]: Apple Developer ID signing/notarization, Homebrew tap, Linux .deb/.rpm and apt/dnf repositories, SBOM and changelog discipline.
+          - generic [ref=e302]: next
+        - article [ref=e303]:
+          - generic [ref=e304]: Phase 3
+          - heading "Safe hot update · in progress" [level=3] [ref=e305]
+          - paragraph [ref=e306]: API 8–11 compatibility, runner handshake, controlled restart and manual rollback are implemented. State migrations, task draining and health-checked automatic rollback remain.
+          - generic [ref=e307]: partial
+        - article [ref=e308]:
+          - generic [ref=e309]: Next product work
+          - heading "Broader server management" [level=3] [ref=e310]
+          - paragraph [ref=e311]: Vanilla, existing-directory takeover, broader property management, online/scheduled backups, and a real Minecraft-client join/restore drill remain.
+          - generic [ref=e312]: planned
+      - link "Read the current limitations" [ref=e313] [cursor=pointer]:
+        - /url: docs/#evidence-current-limitations
+        - text: Read the current limitations
+        - generic [aria-hidden] [ref=e314]: →
+    - generic [ref=e315]:
+      - generic [ref=e316]:
+        - paragraph [ref=e317]: Documentation
+        - heading [level=2] [ref=e318]:
+          - text: The field manual.
+          - emphasis [ref=e319]: Right here.
+        - paragraph [ref=e320]: "Read the complete bilingual guide on this site: installation, daily commands, recovery, troubleshooting, and the limits of the unsigned alpha."
+      - generic [ref=e321]:
+        - link "01 / EN Complete user guide Install, create, operate, and recover a Paper or Fabric server." [ref=e322] [cursor=pointer]:
+          - /url: docs/
+          - generic [ref=e323]: 01 / EN
+          - strong [ref=e324]: Complete user guide
+          - generic [ref=e325]: Install, create, operate, and recover a Paper or Fabric server.
+          - generic [aria-hidden] [ref=e326]: →
+        - link "02 / 中文 中文使用手册 从安装到备份恢复、排错与安全边界。" [ref=e327] [cursor=pointer]:
+          - /url: docs/zh-CN/
+          - generic [ref=e328]: 02 / 中文
+          - strong [ref=e329]: 中文使用手册
+          - generic [ref=e330]: 从安装到备份恢复、排错与安全边界。
+          - generic [aria-hidden] [ref=e331]: →
+        - link "03 Before you host EULA, independent backups, network exposure, and alpha limits." [ref=e332] [cursor=pointer]:
+          - /url: docs/#read-before-hosting
+          - generic [ref=e333]: "03"
+          - strong [ref=e334]: Before you host
+          - generic [ref=e335]: EULA, independent backups, network exposure, and alpha limits.
+          - generic [aria-hidden] [ref=e336]: →
+        - link "04 Quick start Release installer, source build, and the first-server walkthrough." [ref=e337] [cursor=pointer]:
+          - /url: docs/#install
+          - generic [ref=e338]: "04"
+          - strong [ref=e339]: Quick start
+          - generic [ref=e340]: Release installer, source build, and the first-server walkthrough.
+          - generic [aria-hidden] [ref=e341]: →
+        - link "05 Backups and restore Stopped-world snapshots, verification, and transactional recovery." [ref=e342] [cursor=pointer]:
+          - /url: docs/#backups-restore
+          - generic [ref=e343]: "05"
+          - strong [ref=e344]: Backups and restore
+          - generic [ref=e345]: Stopped-world snapshots, verification, and transactional recovery.
+          - generic [aria-hidden] [ref=e346]: →
+        - link "06 Evidence and limits What the alpha proves today and what is still missing." [ref=e347] [cursor=pointer]:
+          - /url: docs/#evidence-current-limitations
+          - generic [ref=e348]: "06"
+          - strong [ref=e349]: Evidence and limits
+          - generic [ref=e350]: What the alpha proves today and what is still missing.
+          - generic [aria-hidden] [ref=e351]: →
+    - generic [ref=e352]:
+      - paragraph [ref=e376]: The terminal is enough
+      - heading "Your server doesn't need another dashboard." [level=2] [ref=e377]
+      - paragraph [ref=e378]: Keep it in the shell, keep the world safe, and keep the browser closed.
+      - generic [ref=e379]:
+        - link "Install the alpha" [ref=e380] [cursor=pointer]:
+          - /url: "#install"
+          - text: Install the alpha
+          - generic [aria-hidden] [ref=e381]: →
+        - link "Star on GitHub" [ref=e382] [cursor=pointer]:
+          - /url: https://github.com/JUANWANG-BUAA/mc-server-tui
+          - text: Star on GitHub
+          - generic [aria-hidden] [ref=e383]: ↗
+  - contentinfo [ref=e384]:
+    - generic [ref=e385]:
+      - generic [ref=e386]: mc-server-tui
+      - generic [ref=e387]: alpha
+    - paragraph [ref=e388]: Terminal-first Minecraft Java server management for macOS and Linux.
+    - generic [ref=e389]:
+      - link "User guide" [ref=e390] [cursor=pointer]:
+        - /url: docs/
+      - link "中文手册" [ref=e391] [cursor=pointer]:
+        - /url: docs/zh-CN/
+      - link "Troubleshooting" [ref=e392] [cursor=pointer]:
+        - /url: docs/#troubleshooting
+      - link "GitHub" [ref=e393] [cursor=pointer]:
+        - /url: https://github.com/JUANWANG-BUAA/mc-server-tui
+      - link "Releases" [ref=e394] [cursor=pointer]:
+        - /url: https://github.com/JUANWANG-BUAA/mc-server-tui/releases
+      - link "MIT" [ref=e395] [cursor=pointer]:
+        - /url: https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/LICENSE-MIT
+      - link "Apache-2.0" [ref=e396] [cursor=pointer]:
+        - /url: https://github.com/JUANWANG-BUAA/mc-server-tui/blob/main/LICENSE-APACHE
+    - paragraph [ref=e397]: Not affiliated with Mojang, Microsoft, or PaperMC. Minecraft is a trademark of Mojang Synergies AB. 2026

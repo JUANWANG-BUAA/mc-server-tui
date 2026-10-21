@@ -31,23 +31,46 @@ The selected server and next action stay at the top; background progress appears
 
 See the [interaction contract](docs/INTERACTION_DESIGN.md).
 
-## Why another server manager?
+## 🎯 Core strengths
 
-Most Minecraft server panels assume a browser, a daemon with broad privileges,
-or a workflow that hides the actual server process. `mc-server-tui` is built for
-the terminal:
+**A reliable server management tool built for technical administrators**
 
-- **One shell for daily work.** Start, stop, watch logs, cancel a download,
-  inspect a task, or send a console command without changing pages.
-- **The server outlives the UI.** A per-instance resident runner owns Java's
-  console and keeps running when the TUI or management daemon restarts.
-- **Downloads are evidence-based.** Paper builds are locked to an exact build,
-  size, and SHA-256; partial downloads resume only when the source proves the
-  range is safe.
-- **World safety first.** Backups are checksummed, listed in pages, verified,
-  and restored through a preview + explicit confirmation + recovery journal.
-- **It looks like a terminal.** Near-black palettes, restrained accent colors,
-  a pixel Steve mascot, and no browser dependency.
+- 🛡️ **Reliable**: Resident supervision — daemon restarts don't kill Java
+- 🔍 **Auditable**: Every download verified with SHA-256/512 checksums
+- 💾 **Recoverable**: Transactional backups with complete rollback journals
+- 🔧 **Terminal-first**: Manage multiple servers over SSH without a browser
+
+**Best for**: Managing 3-5 servers, data-critical workflows, SSH-comfortable admins  
+**Not for**: Zero-barrier GUIs for beginners, large multi-tenant commercial panels
+
+---
+
+## Who is this for?
+
+You manage Minecraft servers over SSH. You don't want to install a web panel with
+its own daemon, database, and attack surface. You need backups you can verify,
+not just files you hope are correct. You prepare servers on macOS and deploy to
+Linux hosts. **This is built for that workflow.**
+
+`mc-server-tui` is a terminal-first manager for server administrators who value
+reliability, auditability, and recovery over low-barrier automation:
+
+- **Verifiable operations.** Paper builds lock to exact build numbers, sizes, and
+  SHA-256. Backups include SHA-256 manifests, paged verification, restore previews,
+  and recovery journals. You can prove what changed.
+- **Supervised processes.** Each instance runs under a resident runner with process
+  identity markers. The TUI or daemon can restart without killing Java. No guessing
+  whether the server is actually running.
+- **Terminal-native workflow.** Start, stop, read logs, cancel downloads, inspect
+  tasks, send console commands—all in one shell. No browser tabs, no separate admin
+  panels.
+- **Recoverable state.** Durable tasks survive daemon restarts. Backups are
+  transactional with rollback journals. Failed operations leave audit trails,
+  not corrupted worlds.
+
+The TUI market is small. Most server operators use web panels or raw `screen`
+sessions. This tool exists for the gap: administrators who need the control of
+a CLI and the verifiability that panels omit.
 
 ## Features
 
@@ -60,10 +83,18 @@ This table describes the `v0.2.1` alpha release and its exact published scope.
 | **Lifecycle** | Idempotent start, graceful stop, controlled restart, readiness detection, startup-failure diagnosis, console input, incremental logs, CPU/RSS readouts |
 | **Resident supervision** | Per-instance runner, process identity markers, daemon restarts reattach without killing Java |
 | **Durable tasks** | SQLite-backed queue, byte progress, speed/source, event cursors, cooperative cancellation |
-| **World backups** | Stopped-world discovery, preflight, staging copy, SHA-256 manifest, paged listing, verification, restore plan/token, rollback journal |
-| **Server configuration** | TUI editor for MOTD, max players, difficulty, and view distance; diff review, external-edit detection, and atomic save |
+| **World backups** | ✅ Stopped-world only (online backup planned for v0.3.0) — discovery, preflight, staging copy, SHA-256 manifest, paged listing, verification, restore plan/token, rollback journal |
+| **Server configuration** | 🔄 Basic editor (4 fields) — MOTD, max players, difficulty, view distance; full editor planned for v0.3.0 |
 | **Modpacks** | ZIP/MRPACK preview and stopped-instance import, verified export; compatible Paper/Fabric add-on downloads and required dependencies |
 | **Distribution** | `mc` launcher, `config.toml`, launchd/systemd user service, versioned installer, release manifest, Homebrew formula template |
+
+### Current limitations (v0.2.1 alpha)
+
+- ❌ **No Vanilla support** — Paper and Fabric only (Vanilla planned for v0.3.0)
+- ❌ **Cannot take over existing servers** — must create new instances (takeover planned for v0.3.0)
+- ⚠️ **Stopped-world backups only** — server must be stopped to backup (online backup in v0.3.0)
+- ⚠️ **Unsigned artifacts** — no code signing or notarization yet (blocking formal release)
+- ⚠️ **Limited Linux validation** — most testing on macOS
 
 ## Screenshots
 
@@ -75,6 +106,15 @@ This table describes the `v0.2.1` alpha release and its exact published scope.
 
 These are real v0.2.1 TUI captures with deterministic demonstration data.
 See the [acceptance record](docs/acceptance/0.2.1.md) for the separate real Paper drill.
+
+## 📚 Documentation
+
+- 🚀 [5-Minute Quick Start](docs/QUICK_START.md) - From installation to first launch
+- 🔧 [Troubleshooting Cheatsheet](docs/TROUBLESHOOTING_CHEATSHEET.md) - Quick fixes for common issues
+- 📖 [Complete User Guide](docs/USER_GUIDE.md) - Detailed operations manual
+- 🌐 [Online Docs](https://juanwang-buaa.github.io/mc-server-tui/docs/)
+
+---
 
 ## Quick start
 

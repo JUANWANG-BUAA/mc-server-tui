@@ -3,6 +3,9 @@ mod backup_manager;
 mod backup_manager_view;
 mod command_palette;
 mod command_palette_view;
+mod contextual_hints;
+mod error_dialog;
+mod error_dialog_view;
 mod help_view;
 mod hit;
 mod instance_detail;
@@ -23,6 +26,7 @@ mod theme;
 mod transcript;
 mod ui;
 mod view;
+mod welcome_view;
 mod wizard;
 mod wizard_view;
 

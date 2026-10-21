@@ -903,6 +903,16 @@ impl AppState {
                 self.shell_suggestion_index = index;
                 self.shell_complete();
             }
+            HitTarget::WelcomeCreatePaper => {
+                self.update(Action::OpenCreate);
+            }
+            HitTarget::WelcomeCreateFabric => {
+                // TODO: 实现 Fabric 创建向导
+                self.status = "Fabric 创建向导即将推出".to_owned();
+            }
+            HitTarget::WelcomeImportModpack => {
+                self.update(Action::OpenModpackImport);
+            }
         }
     }
 
