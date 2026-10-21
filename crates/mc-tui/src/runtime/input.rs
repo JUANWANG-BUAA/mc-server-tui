@@ -8,6 +8,7 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum UiMode {
+    ErrorDialog,
     Help,
     CommandPalette,
     ModpackImport {
@@ -29,7 +30,9 @@ pub(super) enum UiMode {
 }
 
 pub(super) fn mode_for_state(state: &AppState) -> UiMode {
-    if state.help_visible {
+    if state.error_dialog.is_some() {
+        UiMode::ErrorDialog
+    } else if state.help_visible {
         UiMode::Help
     } else if state.command_palette.is_some() {
         UiMode::CommandPalette
@@ -75,6 +78,15 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
     if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
         return Action::Quit;
     }
+    if mode == UiMode::ErrorDialog {
+        return match code {
+            KeyCode::Esc | KeyCode::Enter => Action::DismissError,
+            KeyCode::Char('d') | KeyCode::F(3) => Action::ToggleErrorDetails,
+            KeyCode::Up | KeyCode::PageUp => Action::ErrorScrollUp,
+            KeyCode::Down | KeyCode::PageDown => Action::ErrorScrollDown,
+            _ => Action::Ignore,
+        };
+    }
     if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('b') {
         return Action::WorkspacePrefix;
     }
@@ -107,6 +119,7 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
         return Action::ShellClear;
     }
     match mode {
+        UiMode::ErrorDialog => Action::Ignore,
         UiMode::Shell => match code {
             KeyCode::Esc => Action::ShellEscape,
             KeyCode::Enter => Action::ShellSubmit,
@@ -342,6 +355,7 @@ pub(super) fn action_for_key(code: KeyCode, modifiers: KeyModifiers, mode: UiMod
             KeyCode::Enter if panel == Panel::Tasks => Action::OpenTaskDetail,
             KeyCode::Enter if panel == Panel::Instances => Action::OpenInstanceDetail,
             KeyCode::Char('n') => Action::OpenCreate,
+            KeyCode::Char('f') => Action::OpenFabricCreate,
             KeyCode::Char('i') => Action::OpenModpackImport,
             KeyCode::Up | KeyCode::Char('k') => Action::Previous,
             KeyCode::Down | KeyCode::Char('j') => Action::Next,

@@ -242,6 +242,15 @@ impl AppState {
 
     pub fn apply_instance_command_result(&mut self, result: InstanceCommandResult) {
         self.instance_operation_pending = false;
+        let error = match &result {
+            InstanceCommandResult::Management(result) => result.as_ref().err(),
+            InstanceCommandResult::Status(result) => result.as_ref().err(),
+            InstanceCommandResult::Console(result) => result.as_ref().err(),
+            InstanceCommandResult::Task(result) => result.as_ref().err(),
+        };
+        if let Some(error) = error {
+            self.show_error(error);
+        }
         match result {
             InstanceCommandResult::Management(result) => match result.map(|response| *response) {
                 Ok(mc_core::ApiResponse::ManagementReport(report)) => {

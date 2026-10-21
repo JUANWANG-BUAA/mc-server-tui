@@ -4,3 +4,7 @@
 dist/
 .playwright-mcp/
 __pycache__/
+
+# Browser automation scratch files
+.playwright-cli/
+step-session-*.html

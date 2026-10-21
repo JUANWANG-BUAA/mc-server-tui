@@ -31,20 +31,6 @@ The selected server and next action stay at the top; background progress appears
 
 See the [interaction contract](docs/INTERACTION_DESIGN.md).
 
-## 🎯 Core strengths
-
-**A reliable server management tool built for technical administrators**
-
-- 🛡️ **Reliable**: Resident supervision — daemon restarts don't kill Java
-- 🔍 **Auditable**: Every download verified with SHA-256/512 checksums
-- 💾 **Recoverable**: Transactional backups with complete rollback journals
-- 🔧 **Terminal-first**: Manage multiple servers over SSH without a browser
-
-**Best for**: Managing 3-5 servers, data-critical workflows, SSH-comfortable admins  
-**Not for**: Zero-barrier GUIs for beginners, large multi-tenant commercial panels
-
----
-
 ## Who is this for?
 
 You manage Minecraft servers over SSH. You don't want to install a web panel with
@@ -83,16 +69,16 @@ This table describes the `v0.2.1` alpha release and its exact published scope.
 | **Lifecycle** | Idempotent start, graceful stop, controlled restart, readiness detection, startup-failure diagnosis, console input, incremental logs, CPU/RSS readouts |
 | **Resident supervision** | Per-instance runner, process identity markers, daemon restarts reattach without killing Java |
 | **Durable tasks** | SQLite-backed queue, byte progress, speed/source, event cursors, cooperative cancellation |
-| **World backups** | ✅ Stopped-world only (online backup planned for v0.3.0) — discovery, preflight, staging copy, SHA-256 manifest, paged listing, verification, restore plan/token, rollback journal |
-| **Server configuration** | 🔄 Basic editor (4 fields) — MOTD, max players, difficulty, view distance; full editor planned for v0.3.0 |
+| **World backups** | ✅ Stopped-world only (online backup planned) — discovery, preflight, staging copy, SHA-256 manifest, paged listing, verification, restore plan/token, rollback journal |
+| **Server configuration** | 🔄 Basic editor (4 fields) — MOTD, max players, difficulty, view distance; broader editing planned |
 | **Modpacks** | ZIP/MRPACK preview and stopped-instance import, verified export; compatible Paper/Fabric add-on downloads and required dependencies |
 | **Distribution** | `mc` launcher, `config.toml`, launchd/systemd user service, versioned installer, release manifest, Homebrew formula template |
 
 ### Current limitations (v0.2.1 alpha)
 
-- ❌ **No Vanilla support** — Paper and Fabric only (Vanilla planned for v0.3.0)
-- ❌ **Cannot take over existing servers** — must create new instances (takeover planned for v0.3.0)
-- ⚠️ **Stopped-world backups only** — server must be stopped to backup (online backup in v0.3.0)
+- ❌ **No Vanilla support** — Paper and Fabric only (Vanilla planned)
+- ❌ **Cannot take over existing servers** — must create new instances (takeover planned)
+- ⚠️ **Stopped-world backups only** — server must be stopped to backup (online backup planned)
 - ⚠️ **Unsigned artifacts** — no code signing or notarization yet (blocking formal release)
 - ⚠️ **Limited Linux validation** — most testing on macOS
 
@@ -109,7 +95,7 @@ See the [acceptance record](docs/acceptance/0.2.1.md) for the separate real Pape
 
 ## 📚 Documentation
 
-- 🚀 [5-Minute Quick Start](docs/QUICK_START.md) - From installation to first launch
+- 🚀 [Install and first server](docs/USER_GUIDE.md#3-install) - Installation and first launch
 - 🔧 [Troubleshooting Cheatsheet](docs/TROUBLESHOOTING_CHEATSHEET.md) - Quick fixes for common issues
 - 📖 [Complete User Guide](docs/USER_GUIDE.md) - Detailed operations manual
 - 🌐 [Online Docs](https://juanwang-buaa.github.io/mc-server-tui/docs/)

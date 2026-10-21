@@ -76,8 +76,7 @@ fn diagnostic_report_without_evidence() {
 
 #[test]
 fn diagnostic_report_without_actions() {
-    let msg = ErrorMessage::new("Test error", "Test reason")
-        .with_evidence("evidence");
+    let msg = ErrorMessage::new("Test error", "Test reason").with_evidence("evidence");
 
     let report = msg.diagnostic_report();
 
@@ -251,11 +250,7 @@ mod templates {
 
     #[test]
     fn hash_mismatch_zh_cn() {
-        let msg = ErrorTemplates::hash_mismatch(
-            "abc123",
-            "def456",
-            Language::ZhCN,
-        );
+        let msg = ErrorTemplates::hash_mismatch("abc123", "def456", Language::ZhCN);
 
         assert!(msg.summary.contains("完整性"));
         assert!(msg.summary.contains("失败"));
@@ -268,11 +263,7 @@ mod templates {
 
     #[test]
     fn hash_mismatch_en() {
-        let msg = ErrorTemplates::hash_mismatch(
-            "abc123",
-            "def456",
-            Language::En,
-        );
+        let msg = ErrorTemplates::hash_mismatch("abc123", "def456", Language::En);
 
         assert!(msg.summary.contains("integrity"));
         assert!(msg.summary.contains("failed"));
@@ -281,11 +272,7 @@ mod templates {
 
     #[test]
     fn permission_denied_zh_cn() {
-        let msg = ErrorTemplates::permission_denied(
-            "/var/minecraft/world",
-            "写入",
-            Language::ZhCN,
-        );
+        let msg = ErrorTemplates::permission_denied("/var/minecraft/world", "写入", Language::ZhCN);
 
         assert!(msg.summary.contains("权限"));
         assert!(msg.summary.contains("拒绝"));
@@ -296,11 +283,7 @@ mod templates {
 
     #[test]
     fn permission_denied_en() {
-        let msg = ErrorTemplates::permission_denied(
-            "/var/minecraft/world",
-            "write",
-            Language::En,
-        );
+        let msg = ErrorTemplates::permission_denied("/var/minecraft/world", "write", Language::En);
 
         assert!(msg.summary.contains("Permission"));
         assert!(msg.summary.contains("denied"));
@@ -345,5 +328,47 @@ mod language {
 
         let _ = ErrorTemplates::permission_denied("path", "op", Language::En);
         let _ = ErrorTemplates::permission_denied("path", "op", Language::ZhCN);
+    }
+}
+
+#[test]
+fn conversion_preserves_operation_evidence_and_recovery_policy() {
+    use crate::{AppError, ErrorCode};
+    for code in [
+        ErrorCode::BackupFailed,
+        ErrorCode::ServerStartFailed,
+        ErrorCode::HashMismatch,
+    ] {
+        let error = AppError::new(code, "Actual operation failure")
+            .with_evidence("expected_hash=abc, actual_hash=def")
+            .with_action("Inspect the recovery journal before proceeding");
+        let message = error.to_error_message(Language::ZhCN);
+        assert_eq!(message.reason, error.reason);
+        assert_eq!(
+            message.actions[0],
+            error.next_action.as_ref().expect("next action").as_str()
+        );
+        assert!(!message.retryable);
+        let report = message.diagnostic_report();
+        assert!(report.contains("expected_hash=abc, actual_hash=def"));
+        assert!(report.contains(&code.to_string()));
+    }
+}
+
+#[test]
+fn disk_space_conversion_accepts_existing_evidence_formats() {
+    use crate::{AppError, ErrorCode};
+    for evidence in [
+        "need 524288000 bytes, have 104857600",
+        "need 524288000 bytes, have 104857600 bytes",
+    ] {
+        let message = AppError::new(ErrorCode::DiskSpaceLow, "Backup volume is full")
+            .with_evidence(evidence)
+            .retryable()
+            .to_error_message(Language::En);
+        assert_eq!(message.summary, "Insufficient disk space");
+        assert!(message.actions.len() >= 3);
+        assert!(message.retryable);
+        assert!(message.diagnostic_report().contains(evidence));
     }
 }

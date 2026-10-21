@@ -188,6 +188,7 @@ impl AppState {
         if editor.request_id != request_id {
             return;
         }
+        let failure = result.as_ref().err().cloned();
         let was_saving = editor.phase == EditorPhase::Saving;
         editor.accept_result(request_id, result);
         self.status = if was_saving && editor.phase == EditorPhase::Saved {
@@ -200,6 +201,9 @@ impl AppState {
         } else {
             "配置已读取。".to_owned()
         };
+        if let Some(error) = failure {
+            self.show_error(&error);
+        }
     }
 }
 

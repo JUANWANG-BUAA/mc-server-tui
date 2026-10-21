@@ -15,7 +15,8 @@ fn renders_empty_dashboard_at_reference_width() {
 
     assert!(text.contains("MC"));
     assert!(text.contains("还没有服务器"));
-    assert!(text.contains("后台任务"));
+    assert!(text.contains("创建Paper"));
+    assert!(text.contains("Fabric"));
     assert!(text.contains("q退出"));
 }
 
@@ -119,4 +120,58 @@ fn render_to_styles(
         .iter()
         .map(|cell| (cell.symbol().to_owned(), cell.fg, cell.bg))
         .collect()
+}
+
+#[test]
+fn default_session_welcome_has_three_clickable_entries_at_both_sizes() {
+    use crate::hit::HitTarget;
+    for (width, height) in [(80, 24), (40, 16)] {
+        let mut state = AppState::default();
+        state.apply_refresh(Ok(DashboardData::default()));
+        let text = render_to_text(width, height, &state, 0);
+        assert!(text.contains("/create"));
+        assert!(text.contains("/fabric"));
+        assert!(text.contains("/import"));
+        assert!(text.contains("Enter发送"));
+        for target in [
+            HitTarget::WelcomeCreatePaper,
+            HitTarget::WelcomeCreateFabric,
+            HitTarget::WelcomeImportModpack,
+        ] {
+            let found = (0..height).any(|row| {
+                (0..width).any(|column| state.hit_target_at(column, row) == Some(target))
+            });
+            assert!(found, "missing {target:?} at {width}x{height}");
+        }
+        state.paste_text("/help");
+        let _ = render_to_text(width, height, &state, 0);
+        assert!(!(0..height).any(|row| (0..width).any(
+            |column| state.hit_target_at(column, row) == Some(HitTarget::WelcomeCreateFabric)
+        )));
+    }
+}
+
+#[test]
+fn error_dialog_renders_recovery_and_details_without_underlying_mouse_targets() {
+    for (width, height) in [(80, 24), (40, 12)] {
+        let mut state = AppState::default();
+        state.show_error(
+            &mc_core::AppError::new(mc_core::ErrorCode::InvalidInput, "bad input")
+                .with_action("Correct the input")
+                .with_evidence("proof=42"),
+        );
+        let text = render_to_text(width, height, &state, 0);
+        assert!(text.contains("badinput"));
+        assert!(text.contains("Correcttheinput"));
+        assert!(text.contains("Esc关闭"));
+        assert!(!text.contains("proof=42"));
+        assert!((0..height)
+            .all(|row| (0..width).all(|column| state.hit_target_at(column, row).is_none())));
+        state.update(crate::app::Action::ToggleErrorDetails);
+        let _ = render_to_text(width, height, &state, 0);
+        for _ in 0..5 {
+            state.update(crate::app::Action::ErrorScrollDown);
+        }
+        assert!(render_to_text(width, height, &state, 0).contains("proof=42"));
+    }
 }

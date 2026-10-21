@@ -134,6 +134,11 @@ pub(crate) enum Action {
     ConsoleSubmit,
     ConsoleCancel,
     OpenCreate,
+    OpenFabricCreate,
+    DismissError,
+    ToggleErrorDetails,
+    ErrorScrollUp,
+    ErrorScrollDown,
     CancelWizard,
     Wizard(WizardAction),
     Ignore,
@@ -178,6 +183,7 @@ pub(crate) struct AppState {
     pub modpack_import: Option<ModpackImportState>,
     pub modpack_import_visible: bool,
     pub help_visible: bool,
+    pub error_dialog: Option<crate::error_dialog::ErrorDialogState>,
     pub help_scroll: usize,
     pub help_max_scroll: Cell<usize>,
     pub shell_visible: bool,
@@ -243,6 +249,7 @@ impl Default for AppState {
             modpack_import: None,
             modpack_import_visible: false,
             help_visible: false,
+            error_dialog: None,
             help_scroll: 0,
             help_max_scroll: Cell::new(0),
             shell_visible: true,
@@ -276,6 +283,21 @@ impl Default for AppState {
 }
 
 impl AppState {
+    pub fn should_show_welcome(&self) -> bool {
+        self.connected != Some(false)
+            && self.instances.is_empty()
+            && self.tasks.is_empty()
+            && self.shell_input.is_empty()
+            && self.transcript.len() == 1
+    }
+
+    pub(super) fn show_error(&mut self, error: &AppError) {
+        self.workspace_prefix = false;
+        self.error_dialog = Some(crate::error_dialog::ErrorDialogState::new(
+            error.to_error_message(mc_core::Language::ZhCN),
+        ));
+    }
+
     /// Header label and style for the daemon connection.
     pub fn connection_badge(&self) -> (&'static str, ratatui::style::Style) {
         match self.connected {
@@ -287,6 +309,30 @@ impl AppState {
 
     pub fn update(&mut self, action: Action) {
         match action {
+            Action::DismissError => self.error_dialog = None,
+            Action::ToggleErrorDetails => {
+                if let Some(dialog) = self.error_dialog.as_mut() {
+                    dialog.toggle_details();
+                }
+            }
+            Action::ErrorScrollUp | Action::ErrorScrollDown => {
+                if let Some(dialog) = self.error_dialog.as_mut() {
+                    if action == Action::ErrorScrollUp {
+                        dialog.scroll = dialog.scroll.saturating_sub(1);
+                    } else {
+                        dialog.scroll =
+                            dialog.scroll.saturating_add(1).min(dialog.max_scroll.get());
+                    }
+                }
+            }
+            Action::OpenFabricCreate => {
+                self.show_shell();
+                self.shell_input = "/fabric ".to_owned();
+                self.shell_cursor = self.shell_input.len();
+                self.push_transcript(TranscriptEntry::assistant(
+                    "Fabric 建服：/fabric <名称> <Minecraft版本> --accept-eula\n填写名称和版本，阅读并接受 Minecraft EULA 后提交。",
+                ));
+            }
             Action::WorkspacePrefix => self.workspace_prefix = true,
             Action::WorkspaceSwitch(id) => self.switch_page(id),
             Action::WorkspaceList => {
@@ -481,13 +527,14 @@ impl AppState {
                 let Some(wizard) = self.wizard.as_mut() else {
                     return;
                 };
-                let message = match error.next_action {
+                let message = match &error.next_action {
                     Some(action) => format!("{} · 下一步：{}", error.reason, action),
                     None => error.reason.clone(),
                 };
                 wizard.set_submit_error(message);
                 self.status = format!("提交失败 [{}]：{}", error.code, error.reason);
                 self.push_transcript(TranscriptEntry::error(format!("创建失败：{}", self.status)));
+                self.show_error(&error);
             }
         }
     }
@@ -629,6 +676,11 @@ impl AppState {
                                 .and_then(|e| e.next_action.as_deref())
                                 .unwrap_or("/task 查看详情。")
                         )));
+                        if task.status == mc_core::TaskStatus::Failed {
+                            if let Some(error) = &task.error {
+                                self.show_error(error);
+                            }
+                        }
                     }
                 }
                 self.selected_instance = self
@@ -697,12 +749,13 @@ impl AppState {
                 self.status = "已读取 Paper 稳定版本和本机 Java 运行时。".to_owned();
             }
             Err(error) => {
-                let message = match error.next_action {
+                let message = match &error.next_action {
                     Some(action) => format!("{} · 下一步：{}", error.reason, action),
-                    None => error.reason,
+                    None => error.reason.clone(),
                 };
                 wizard.set_options_error(message.clone());
                 self.status = format!("创建选项读取失败：{message}");
+                self.show_error(&error);
             }
         }
     }
@@ -769,6 +822,9 @@ impl AppState {
     /// Single click selects; a second click on the same target within 450 ms
     /// opens the detail/executes the palette entry.
     pub fn apply_click(&mut self, target: HitTarget) {
+        if self.error_dialog.is_some() {
+            return;
+        }
         let now = Instant::now();
         let double_click = self.last_click.is_some_and(|(when, previous)| {
             previous == target && now.duration_since(when) <= Duration::from_millis(450)
@@ -907,8 +963,7 @@ impl AppState {
                 self.update(Action::OpenCreate);
             }
             HitTarget::WelcomeCreateFabric => {
-                // TODO: 实现 Fabric 创建向导
-                self.status = "Fabric 创建向导即将推出".to_owned();
+                self.update(Action::OpenFabricCreate);
             }
             HitTarget::WelcomeImportModpack => {
                 self.update(Action::OpenModpackImport);
@@ -917,6 +972,14 @@ impl AppState {
     }
 
     pub fn mouse_wheel(&mut self, column: u16, row: u16, forward: bool) {
+        if self.error_dialog.is_some() {
+            self.update(if forward {
+                Action::ErrorScrollDown
+            } else {
+                Action::ErrorScrollUp
+            });
+            return;
+        }
         if !self.shell_visible && !self.instance_detail_visible && self.wizard.is_none() {
             match self.hit_target_at(column, row) {
                 Some(HitTarget::Instance(_)) => self.focused_panel = Panel::Instances,

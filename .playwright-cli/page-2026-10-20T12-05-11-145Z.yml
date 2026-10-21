@@ -1,5 +1,0 @@
-- generic [ref=e3]:
-  - generic [ref=e5]:
-    - generic:
-      - textbox "Terminal input" [active]
-  - generic [ref=e8]: 111x35

@@ -399,3 +399,42 @@ fn details_shortcut_is_contextual_and_does_not_submit_input() {
         Action::Ignore
     );
 }
+
+#[test]
+fn error_dialog_captures_keys_before_global_navigation() {
+    let mut state = crate::app::AppState::default();
+    state.show_error(&mc_core::AppError::new(
+        mc_core::ErrorCode::InvalidInput,
+        "test failure",
+    ));
+    assert_eq!(mode_for_state(&state), UiMode::ErrorDialog);
+    for (code, modifiers, action) in [
+        (KeyCode::Esc, KeyModifiers::NONE, Action::DismissError),
+        (KeyCode::Enter, KeyModifiers::NONE, Action::DismissError),
+        (
+            KeyCode::Char('d'),
+            KeyModifiers::NONE,
+            Action::ToggleErrorDetails,
+        ),
+        (KeyCode::Down, KeyModifiers::NONE, Action::ErrorScrollDown),
+        (KeyCode::Char('k'), KeyModifiers::CONTROL, Action::Ignore),
+        (KeyCode::Char('s'), KeyModifiers::NONE, Action::Ignore),
+    ] {
+        assert_eq!(
+            action_for_key(code, modifiers, mode_for_state(&state)),
+            action
+        );
+    }
+    assert_eq!(
+        action_for_key(
+            KeyCode::Char('f'),
+            KeyModifiers::NONE,
+            UiMode::Dashboard(Panel::Instances)
+        ),
+        Action::OpenFabricCreate
+    );
+    assert_eq!(
+        action_for_key(KeyCode::Char('f'), KeyModifiers::NONE, UiMode::Shell),
+        Action::ShellInsert('f')
+    );
+}

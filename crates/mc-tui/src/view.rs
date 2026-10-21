@@ -24,7 +24,10 @@ pub(crate) fn render(frame: &mut Frame<'_>, app: &AppState, animation_frame: u8)
         Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(frame.area());
     render_workspace(frame, bar, app, &mut hits);
     render_primary(frame, body, app, animation_frame, &mut hits);
-    if app.help_visible {
+    if let Some(dialog) = &app.error_dialog {
+        crate::error_dialog_view::render(frame, dialog);
+        hits = HitMap::default();
+    } else if app.help_visible {
         crate::help_view::render(frame, app, &mut hits);
     } else if let Some(palette) = &app.command_palette {
         crate::command_palette_view::render(frame, palette, &mut hits);
@@ -88,7 +91,7 @@ fn render_dashboard(
     hits: &mut HitMap,
 ) {
     // 显示欢迎界面（仅在没有实例且没有任务时）
-    if app.instances.is_empty() && app.tasks.is_empty() && area.width >= 60 && area.height >= 15 {
+    if app.should_show_welcome() && area.width >= 32 && area.height >= 7 {
         crate::welcome_view::render(frame, area, app, hits);
         return;
     }

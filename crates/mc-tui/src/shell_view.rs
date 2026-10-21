@@ -1,6 +1,6 @@
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::Modifier,
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
     Frame,
@@ -158,17 +158,12 @@ fn render_transcript(frame: &mut Frame<'_>, area: Rect, app: &AppState, hits: &m
     if area.height == 0 {
         return;
     }
-    let area = if app.instances.is_empty()
-        && app.tasks.is_empty()
-        && area.width >= 80
-        && area.height >= 10
-    {
-        let columns = Layout::horizontal([Constraint::Length(11), Constraint::Min(1)]).split(area);
-        render_mascot(frame, columns[0], 2, false);
-        columns[1]
-    } else {
-        area
-    };
+    if app.should_show_welcome() && area.width >= 32 && area.height >= 7 {
+        app.shell_max_scroll.set(0);
+        app.shell_viewport.set(area.height as usize);
+        crate::welcome_view::render(frame, area, app, hits);
+        return;
+    }
     let text_width = area.width.saturating_sub(2) as usize;
     app.shell_text_width.set(text_width.saturating_sub(3));
     let lines = transcript_lines(app, text_width);
@@ -524,25 +519,7 @@ fn instance_line(app: &AppState) -> Line<'static> {
 }
 
 fn quick_actions_line(app: &AppState) -> Line<'static> {
-    let actions = if app.instances.is_empty() {
-        if app.has_animated_work() {
-            "/tasks 查看建服进度 · /help 帮助"
-        } else {
-            "/create 创建服务器 · /help 帮助"
-        }
-    } else {
-        match selected_server(app).map(|server| server.state) {
-            Some(mc_core::ServerState::Running) => "/connect 加入方式 · /open 日志 · /backups 备份",
-            Some(mc_core::ServerState::Starting | mc_core::ServerState::Stopping) => {
-                "/open 查看进展 · /logs 最近日志"
-            }
-            Some(mc_core::ServerState::Installed | mc_core::ServerState::Stopped) => {
-                "/start 启动 · /config 设置 · /backups 备份"
-            }
-            Some(mc_core::ServerState::Failed) => "/open 检查失败原因 · /logs 最近日志",
-            _ => "/refresh 刷新状态 · /open 查看详情",
-        }
-    };
+    let actions = crate::contextual_hints::next_actions(app, selected_server(app));
     Line::from(Span::styled(format!(" 下一步  {actions}"), theme::text()))
 }
 
@@ -631,48 +608,6 @@ fn resource_line(app: &AppState, compact: bool) -> Line<'static> {
         ));
     }
     Line::from(spans)
-}
-
-fn render_mascot(frame: &mut Frame<'_>, area: Rect, animation_frame: u8, active: bool) {
-    // Steve's 8×8 face, two pixel rows per terminal cell; half blocks preserve
-    // the square silhouette, brown hair/beard, blue eyes and broad nose.
-    const PIXELS: [&str; 8] = [
-        "hhhhhhhh", "hhhhhhhh", "hssssssh", "ssssssss", "swessews", "ssnnnnss", "ssdbbdss",
-        "sssbbsss",
-    ];
-    let color = |pixel| match pixel {
-        'h' => Color::Rgb(54, 37, 25),
-        's' | ' ' => Color::Rgb(181, 136, 108),
-        'w' => Color::Rgb(237, 234, 225),
-        'e' => Color::Rgb(75, 65, 145),
-        'n' => Color::Rgb(156, 105, 78),
-        'd' => Color::Rgb(106, 69, 46),
-        _ => Color::Rgb(67, 43, 29),
-    };
-    let mut lines = vec![Line::from(Span::styled(
-        if active {
-            ["·", "•", "●", "•"][usize::from(animation_frame) % 4]
-        } else {
-            "STEVE"
-        },
-        theme::muted(),
-    ))];
-    for pair in 0..4 {
-        let top: Vec<_> = PIXELS[pair * 2].chars().take(8).collect();
-        let bottom: Vec<_> = PIXELS[pair * 2 + 1].chars().take(8).collect();
-        let spans = (0..8)
-            .map(|x| {
-                let upper = if pair == 2 && (x == 2 || x == 5) && animation_frame % 40 < 2 {
-                    's'
-                } else {
-                    top[x]
-                };
-                Span::styled("▀", Style::default().fg(color(upper)).bg(color(bottom[x])))
-            })
-            .collect::<Vec<_>>();
-        lines.push(Line::from(spans));
-    }
-    frame.render_widget(Paragraph::new(lines).alignment(Alignment::Center), area);
 }
 
 fn render_footer(frame: &mut Frame<'_>, area: Rect, app: &AppState) {

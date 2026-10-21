@@ -9,6 +9,8 @@ notes and testing history preserve the evidence available at the time.
 
 | Document | What it covers |
 | --- | --- |
+| [快速开始](QUICK_START.md) | 中文安装、Paper/Fabric 建服及日常操作入口 |
+| [故障排查速查](TROUBLESHOOTING_CHEATSHEET.md) | 按实际命令检查服务、任务与备份问题 |
 | [User guide](USER_GUIDE.md) | Complete English tutorial: install, create, operate, back up, troubleshoot, and understand alpha limits |
 | [中文使用手册](USER_GUIDE.zh-CN.md) | 完整中文教程：安装、建服、日常操作、备份恢复、排错与免责声明 |
 | [Online documentation](https://juanwang-buaa.github.io/mc-server-tui/docs/) | Native bilingual site with chapter navigation and mobile layout |
@@ -17,6 +19,7 @@ notes and testing history preserve the evidence available at the time.
 
 | Document | What it covers |
 | --- | --- |
+| [Maintenance status](PRODUCTIZATION_STATUS.md) | Current source changes, reproducible checks and remaining acceptance work |
 | [Product design](../PRODUCT_DESIGN.md) | product scope, P0/P1/P2 features, release gates |
 | [Productization review (中文)](PRODUCTIZATION_REVIEW.md) | Apple-inspired product critique, scope freeze, complete user journeys, proposed release vetoes and acceptance gates |
 | [Base implementation plan](../BASE_IMPLEMENTATION_PLAN.md) | original vertical-slice decisions and milestones |

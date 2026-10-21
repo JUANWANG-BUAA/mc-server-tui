@@ -97,11 +97,15 @@ impl ErrorMessage {
             for (i, action) in self.actions.iter().enumerate() {
                 report.push_str(&format!("{}. {}\n", i + 1, action));
             }
-            report.push_str("\n");
+            report.push('\n');
         }
 
         report.push_str("可重试 | Retryable: ");
-        report.push_str(if self.retryable { "是 | Yes" } else { "否 | No" });
+        report.push_str(if self.retryable {
+            "是 | Yes"
+        } else {
+            "否 | No"
+        });
         report.push_str("\n\n");
 
         report.push_str(&format!(
@@ -118,11 +122,7 @@ pub struct ErrorTemplates;
 
 impl ErrorTemplates {
     /// Java version mismatch error.
-    pub fn java_version_mismatch(
-        required: &str,
-        found: &str,
-        lang: Language,
-    ) -> ErrorMessage {
+    pub fn java_version_mismatch(required: &str, found: &str, lang: Language) -> ErrorMessage {
         match lang {
             Language::En => ErrorMessage::new(
                 "Java version mismatch",
@@ -231,18 +231,17 @@ impl ErrorTemplates {
                 "Check if a proxy or firewall is blocking the connection".to_string(),
             ])
             .retryable(),
-            Language::ZhCN => ErrorMessage::new(
-                "下载失败",
-                format!("无法下载服务器文件：{reason}"),
-            )
-            .with_evidence(format!("url={url}, error={reason}"))
-            .with_actions([
-                "检查网络连接".to_string(),
-                "验证下载链接是否可访问".to_string(),
-                "稍后重试".to_string(),
-                "检查代理或防火墙是否阻止了连接".to_string(),
-            ])
-            .retryable(),
+            Language::ZhCN => {
+                ErrorMessage::new("下载失败", format!("无法下载服务器文件：{reason}"))
+                    .with_evidence(format!("url={url}, error={reason}"))
+                    .with_actions([
+                        "检查网络连接".to_string(),
+                        "验证下载链接是否可访问".to_string(),
+                        "稍后重试".to_string(),
+                        "检查代理或防火墙是否阻止了连接".to_string(),
+                    ])
+                    .retryable()
+            }
         }
     }
 
@@ -291,18 +290,15 @@ impl ErrorTemplates {
                 "Try backing up individual worlds instead of all at once".to_string(),
             ])
             .retryable(),
-            Language::ZhCN => ErrorMessage::new(
-                "备份失败",
-                format!("无法创建世界备份：{reason}"),
-            )
-            .with_evidence(reason.to_string())
-            .with_actions([
-                "确保服务器已停止再进行备份".to_string(),
-                "检查可用磁盘空间".to_string(),
-                "验证世界目录权限".to_string(),
-                "尝试逐个备份世界，而不是一次性备份所有".to_string(),
-            ])
-            .retryable(),
+            Language::ZhCN => ErrorMessage::new("备份失败", format!("无法创建世界备份：{reason}"))
+                .with_evidence(reason.to_string())
+                .with_actions([
+                    "确保服务器已停止再进行备份".to_string(),
+                    "检查可用磁盘空间".to_string(),
+                    "验证世界目录权限".to_string(),
+                    "尝试逐个备份世界，而不是一次性备份所有".to_string(),
+                ])
+                .retryable(),
         }
     }
 
@@ -320,17 +316,14 @@ impl ErrorTemplates {
                 "Consider using a different mirror or download source".to_string(),
             ])
             .retryable(),
-            Language::ZhCN => ErrorMessage::new(
-                "网络超时",
-                format!("操作超时：{operation}"),
-            )
-            .with_evidence(format!("operation={operation}, error=timeout"))
-            .with_actions([
-                "检查互联网连接".to_string(),
-                "网络状况改善后重试".to_string(),
-                "考虑使用其他镜像或下载源".to_string(),
-            ])
-            .retryable(),
+            Language::ZhCN => ErrorMessage::new("网络超时", format!("操作超时：{operation}"))
+                .with_evidence(format!("operation={operation}, error=timeout"))
+                .with_actions([
+                    "检查互联网连接".to_string(),
+                    "网络状况改善后重试".to_string(),
+                    "考虑使用其他镜像或下载源".to_string(),
+                ])
+                .retryable(),
         }
     }
 
@@ -341,118 +334,47 @@ impl ErrorTemplates {
                 "File integrity check failed",
                 "Downloaded file hash does not match expected value",
             )
-            .with_evidence(format!(
-                "expected_hash={expected}, actual_hash={actual}"
-            ))
+            .with_evidence(format!("expected_hash={expected}, actual_hash={actual}"))
             .with_actions([
                 "Delete the corrupted file and retry the download".to_string(),
                 "Check if the download source is trustworthy".to_string(),
                 "Verify your network connection is stable".to_string(),
             ])
             .retryable(),
-            Language::ZhCN => ErrorMessage::new(
-                "文件完整性检查失败",
-                "下载文件的哈希值与预期不符",
-            )
-            .with_evidence(format!(
-                "expected_hash={expected}, actual_hash={actual}"
-            ))
-            .with_actions([
-                "删除损坏的文件并重新下载".to_string(),
-                "检查下载源是否可信".to_string(),
-                "验证网络连接是否稳定".to_string(),
-            ])
-            .retryable(),
+            Language::ZhCN => ErrorMessage::new("文件完整性检查失败", "下载文件的哈希值与预期不符")
+                .with_evidence(format!("expected_hash={expected}, actual_hash={actual}"))
+                .with_actions([
+                    "删除损坏的文件并重新下载".to_string(),
+                    "检查下载源是否可信".to_string(),
+                    "验证网络连接是否稳定".to_string(),
+                ])
+                .retryable(),
         }
     }
 
     /// Permission denied error.
     pub fn permission_denied(path: &str, operation: &str, lang: Language) -> ErrorMessage {
         match lang {
-            Language::En => ErrorMessage::new(
-                "Permission denied",
-                format!("Cannot {operation}: {path}"),
-            )
-            .with_evidence(format!("path={path}, operation={operation}, error=EACCES"))
-            .with_actions([
-                "Check file and directory permissions".to_string(),
-                format!("Ensure the user has write access to {path}"),
-                "Run with appropriate permissions or change the instance location".to_string(),
-            ]),
-            Language::ZhCN => ErrorMessage::new(
-                "权限被拒绝",
-                format!("无法{operation}：{path}"),
-            )
-            .with_evidence(format!("path={path}, operation={operation}, error=EACCES"))
-            .with_actions([
-                "检查文件和目录权限".to_string(),
-                format!("确保用户对 {path} 有写入权限"),
-                "使用适当的权限运行或更改实例位置".to_string(),
-            ]),
+            Language::En => {
+                ErrorMessage::new("Permission denied", format!("Cannot {operation}: {path}"))
+                    .with_evidence(format!("path={path}, operation={operation}, error=EACCES"))
+                    .with_actions([
+                        "Check file and directory permissions".to_string(),
+                        format!("Ensure the user has write access to {path}"),
+                        "Run with appropriate permissions or change the instance location"
+                            .to_string(),
+                    ])
+            }
+            Language::ZhCN => ErrorMessage::new("权限被拒绝", format!("无法{operation}：{path}"))
+                .with_evidence(format!("path={path}, operation={operation}, error=EACCES"))
+                .with_actions([
+                    "检查文件和目录权限".to_string(),
+                    format!("确保用户对 {path} 有写入权限"),
+                    "使用适当的权限运行或更改实例位置".to_string(),
+                ]),
         }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn error_message_builder() {
-        let msg = ErrorMessage::new("Something went wrong", "The reason is X")
-            .with_evidence("error_code=123")
-            .with_action("Try this")
-            .with_action("Or try that")
-            .retryable();
-
-        assert_eq!(msg.summary, "Something went wrong");
-        assert_eq!(msg.reason, "The reason is X");
-        assert_eq!(msg.evidence, Some("error_code=123".to_string()));
-        assert_eq!(msg.actions.len(), 2);
-        assert!(msg.retryable);
-    }
-
-    #[test]
-    fn diagnostic_report_generation() {
-        let msg = ErrorMessage::new("Test error", "Test reason")
-            .with_evidence("test_evidence=123")
-            .with_actions(["Action 1", "Action 2"])
-            .retryable();
-
-        let report = msg.diagnostic_report();
-        assert!(report.contains("Test error"));
-        assert!(report.contains("Test reason"));
-        assert!(report.contains("test_evidence=123"));
-        assert!(report.contains("Action 1"));
-        assert!(report.contains("可重试"));
-    }
-
-    #[test]
-    fn java_version_mismatch_template() {
-        let msg = ErrorTemplates::java_version_mismatch("21", "17", Language::ZhCN);
-        assert!(msg.summary.contains("Java 版本不匹配"));
-        assert!(msg.reason.contains("21"));
-        assert!(msg.reason.contains("17"));
-        assert!(!msg.actions.is_empty());
-    }
-
-    #[test]
-    fn port_in_use_template() {
-        let msg = ErrorTemplates::port_in_use(25565, Language::En);
-        assert!(msg.summary.contains("Port already in use"));
-        assert!(msg.reason.contains("25565"));
-        assert!(msg.retryable);
-    }
-
-    #[test]
-    fn disk_space_low_template() {
-        let msg = ErrorTemplates::disk_space_low(
-            1024 * 1024 * 500, // 500 MB needed
-            1024 * 1024 * 100, // 100 MB available
-            Language::ZhCN,
-        );
-        assert!(msg.summary.contains("磁盘空间不足"));
-        assert!(msg.reason.contains("500"));
-        assert!(msg.reason.contains("100"));
-    }
-}
+mod tests;

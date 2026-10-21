@@ -1090,3 +1090,55 @@ fn console_draft_cannot_follow_a_changed_instance() {
     state.shell_escape();
     assert!(state.shell_draft_target.is_none());
 }
+
+#[test]
+fn welcome_actions_open_real_flows_without_submitting_fabric() {
+    use crate::hit::HitTarget;
+    let mut state = AppState::default();
+    assert!(state.should_show_welcome());
+    state.apply_click(HitTarget::WelcomeCreatePaper);
+    assert!(state.wizard.is_some());
+    assert!(state.take_create_options_request());
+    state.update(Action::CancelWizard);
+    state.apply_click(HitTarget::WelcomeCreateFabric);
+    assert!(state.shell_visible);
+    assert_eq!(state.shell_input, "/fabric ");
+    assert!(!state.should_show_welcome());
+    assert!(state.take_instance_command().is_none());
+    state.update(Action::ShellEscape);
+    state.apply_click(HitTarget::WelcomeImportModpack);
+    assert!(state.modpack_import_visible);
+}
+
+#[test]
+fn operation_error_blocks_paste_and_clicks_until_dismissed() {
+    use crate::hit::HitTarget;
+    let mut state = AppState {
+        shell_input: "say draft".to_owned(),
+        ..AppState::default()
+    };
+    state.apply_instance_command_result(InstanceCommandResult::Management(Err(
+        mc_core::AppError::new(ErrorCode::BackupFailed, "World is running")
+            .with_evidence("instance=example")
+            .with_action("Stop the server first"),
+    )));
+    let dialog = state
+        .error_dialog
+        .as_ref()
+        .expect("operation failure dialog");
+    assert_eq!(dialog.message.reason, "World is running");
+    assert_eq!(dialog.message.actions[0], "Stop the server first");
+    assert!(dialog
+        .message
+        .diagnostic_report()
+        .contains("instance=example"));
+    state.paste_text("unsafe pasted command");
+    state.apply_click(HitTarget::WelcomeCreatePaper);
+    assert_eq!(state.shell_input, "say draft");
+    assert!(state.wizard.is_none());
+    state.update(Action::ToggleErrorDetails);
+    assert!(state.error_dialog.as_ref().expect("dialog").show_details);
+    state.update(Action::DismissError);
+    assert!(state.error_dialog.is_none());
+    assert_eq!(state.shell_input, "say draft");
+}

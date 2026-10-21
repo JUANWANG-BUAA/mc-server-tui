@@ -2,6 +2,23 @@
 
 > v0.2.1 · 2026-10-20 · shipped interaction contract
 
+## Unreleased source changes
+
+The empty session transcript and classic dashboard share three first-use entries.
+Paper opens the existing wizard; Fabric fills `/fabric ` in the composer and asks
+for name, exact Minecraft version and explicit EULA acceptance; import opens the
+ZIP/MRPACK inspection flow. Session commands remain editable text: single letters
+are not global action shortcuts. Typing or receiving transcript results replaces
+the welcome content so it cannot hide feedback.
+
+Failures from create, instance management, console, backup, pack inspection and
+properties operations open an error dialog. `d`/F3 expands evidence, arrows scroll,
+Esc/Enter closes; the existing draft/page remains available underneath. The dialog
+captures keyboard, paste and mouse input. It offers recovery instructions without
+automatic retries or clipboard actions. Periodic connection failures stay inline.
+Next-action guidance uses commands for the selected instance and distinguishes
+connection loss from game state. These changes have not shipped in v0.2.1.
+
 ## Reference direction
 
 The interaction layer borrows patterns, not visual assets, from mature terminal tools:

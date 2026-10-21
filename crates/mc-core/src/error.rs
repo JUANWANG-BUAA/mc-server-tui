@@ -124,30 +124,21 @@ impl AppError {
 
     /// Convert this AppError to a user-friendly ErrorMessage.
     pub fn to_error_message(&self, lang: Language) -> ErrorMessage {
-        // Try to match known error patterns and use templates
-        let template_msg = self.try_template_message(lang);
-        if let Some(msg) = template_msg {
-            return msg;
-        }
-
-        // Fall back to generic conversion
-        let mut msg = ErrorMessage::new(
-            self.format_summary(lang),
-            self.reason.clone(),
-        );
-
-        if let Some(evidence) = &self.evidence {
-            msg = msg.with_evidence(evidence.clone());
-        }
-
+        let mut msg = self
+            .try_template_message(lang)
+            .unwrap_or_else(|| ErrorMessage::new(self.format_summary(lang), self.reason.clone()));
+        // Templates supply presentation defaults; the operation remains the source
+        // of truth for the cause, evidence, recovery action and retry policy.
+        msg.reason = self.reason.clone();
+        msg.evidence = Some(match self.evidence.as_deref().or(msg.evidence.as_deref()) {
+            Some(evidence) => format!("code={}\n{evidence}", self.code),
+            None => format!("code={}", self.code),
+        });
         if let Some(action) = &self.next_action {
-            msg = msg.with_action(action.clone());
+            msg.actions.retain(|suggestion| suggestion != action);
+            msg.actions.insert(0, action.clone());
         }
-
-        if self.retryable {
-            msg = msg.retryable();
-        }
-
+        msg.retryable = self.retryable;
         msg
     }
 
@@ -220,8 +211,12 @@ impl AppError {
             return None;
         }
 
-        let needed = parts[0].trim().strip_prefix("need ")?.strip_suffix(" bytes")?;
-        let available = parts[1].trim().strip_prefix("have ")?.strip_suffix(" bytes")?;
+        let needed = parts[0]
+            .trim()
+            .strip_prefix("need ")?
+            .strip_suffix(" bytes")?;
+        let available = parts[1].trim().strip_prefix("have ")?;
+        let available = available.strip_suffix(" bytes").unwrap_or(available);
 
         let needed: u64 = needed.parse().ok()?;
         let available: u64 = available.parse().ok()?;

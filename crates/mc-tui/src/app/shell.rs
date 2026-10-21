@@ -15,7 +15,7 @@ const MAX_HISTORY: usize = 100;
 
 impl AppState {
     pub(crate) fn paste_text(&mut self, text: &str) {
-        if self.help_visible {
+        if self.help_visible || self.error_dialog.is_some() {
             return;
         }
 

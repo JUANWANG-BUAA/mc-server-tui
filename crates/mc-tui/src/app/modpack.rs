@@ -83,6 +83,7 @@ impl AppState {
         let Some(import) = self.modpack_import.as_mut() else {
             return;
         };
+        let failure = result.as_ref().err().cloned();
         import.apply_result(result);
         if let Some(error) = &import.error {
             self.status = format!("整合包检查失败：{error}");
@@ -91,6 +92,9 @@ impl AppState {
                 "整合包静态检查完成：{} · {} 个安装文件 · {} 个待确认",
                 report.name, report.install_files, report.review_files
             );
+        }
+        if let Some(error) = failure {
+            self.show_error(&error);
         }
     }
 

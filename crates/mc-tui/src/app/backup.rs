@@ -230,6 +230,7 @@ impl AppState {
         };
         match result {
             Ok(task) => {
+                let failure = task.error.clone();
                 let finished = manager.track_task(&task);
                 let message = manager
                     .notice
@@ -241,12 +242,18 @@ impl AppState {
                 }
                 self.remember_backup_task(task);
                 self.status = message;
+                if finished {
+                    if let Some(error) = failure {
+                        self.show_error(&error);
+                    }
+                }
             }
             Err(error) => {
                 let message = error_message(&error);
                 manager.mark_submission_error(&error);
                 self.instance_operation_pending = false;
                 self.status = format!("备份任务提交失败：{message}");
+                self.show_error(&error);
             }
         }
     }
@@ -260,6 +267,7 @@ impl AppState {
                 if manager.tracked_task_id() != Some(task.id) {
                     return;
                 }
+                let failure = task.error.clone();
                 let finished = manager.track_task(&task);
                 let message = manager
                     .notice
@@ -271,6 +279,11 @@ impl AppState {
                 }
                 self.remember_backup_task(task);
                 self.status = message;
+                if finished {
+                    if let Some(error) = failure {
+                        self.show_error(&error);
+                    }
+                }
             }
             Err(error) => {
                 if error.code == ErrorCode::TaskNotFound {
