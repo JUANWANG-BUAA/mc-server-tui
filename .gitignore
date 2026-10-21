@@ -8,3 +8,6 @@ __pycache__/
 # Browser automation scratch files
 .playwright-cli/
 step-session-*.html
+
+# Local browser review captures (published assets live in site/assets)
+/output/playwright/

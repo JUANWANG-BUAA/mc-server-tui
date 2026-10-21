@@ -1,6 +1,6 @@
 # 产品化维护状态
 
-更新：2026-10-21。发布基线为 v0.2.1；下列修复属于源码中的未发布改动。
+更新：2026-10-21。发布目标为 v0.2.2；本页记录本轮范围与复验方式，最终发布证据见 [v0.2.2 验收](acceptance/0.2.2.md)。
 用户操作以[中文手册](USER_GUIDE.zh-CN.md)、[英文手册](USER_GUIDE.md)和
 [快速开始](QUICK_START.md)为入口。已发布范围见[实施差距](IMPLEMENTATION_GAPS.md)。
 
@@ -32,7 +32,7 @@
 
 2026-10-21 本地 macOS 验证：下列命令均通过。Rust 全目标测试为 258 项通过、
 0 项失败、0 项忽略；五套 PTY 流程和真实 daemon 协议窗口检查通过。
-文档检查覆盖 125 个本地路径引用，并确认双语网页与源文件一致；不检查外部网址或锚点。
+文档检查覆盖全部用户与工程文档、本地 HTML 资源和路径/锚点，确认四个双语页面与源文件一致；不检查外部网址。
 这些结果来自本机执行，远程 CI 与下述真实环境验收仍需各自执行。
 
 ```sh
@@ -41,6 +41,8 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-targets --locked
 cargo test --workspace --doc --locked
 cargo build --workspace --locked
+python3 scripts/build_landing_site.py
+python3 scripts/build_docs_site.py
 python3 scripts/check_docs.py
 python3 scripts/check_protocol_window.py
 python3 scripts/tui_pty_smoke.py

@@ -5,9 +5,12 @@ on:
     branches: [main]
     paths:
       - "site/**"
+      - "Cargo.toml"
       - "docs/USER_GUIDE.md"
       - "docs/USER_GUIDE.zh-CN.md"
       - "scripts/build_docs_site.py"
+      - "scripts/build_landing_site.py"
+      - "scripts/check_docs.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -36,7 +39,10 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build native documentation pages
-        run: python3 scripts/build_docs_site.py
+        run: |
+          python3 scripts/build_landing_site.py
+          python3 scripts/build_docs_site.py
+          python3 scripts/check_docs.py
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3

@@ -1,7 +1,7 @@
 # Documentation
 
 Start with the [README](../README.md) for installation and the quick tour. The
-current release is v0.2.1. User guides describe shipped behavior; design and
+current release is v0.2.2. User guides describe shipped behavior; design and
 review documents may contain explicitly marked future work. The dated release
 notes and testing history preserve the evidence available at the time.
 
@@ -63,7 +63,9 @@ notes and testing history preserve the evidence available at the time.
 | [Security](../SECURITY.md) | supported versions and private vulnerability reporting |
 | [Code of conduct](../CODE_OF_CONDUCT.md) | participation expectations |
 | [Changelog](../CHANGELOG.md) | user-facing changes and alpha limitations |
-| [0.2.1 release notes](releases/0.2.1.md) | current unsigned alpha |
+| [0.2.2 release notes](releases/0.2.2.md) | Current unsigned alpha |
+| [0.2.2 acceptance](acceptance/0.2.2.md) | Current checks, screenshot provenance and remaining work |
+| [0.2.1 release notes](releases/0.2.1.md) | Previous unsigned alpha |
 | [0.2.1 acceptance](acceptance/0.2.1.md) | real Paper drill, automated checks and limits |
 | [0.2.0 release notes](releases/0.2.0.md) | previous unsigned alpha |
 | [0.1.0 release notes](releases/0.1.0.md) | first public unsigned alpha |

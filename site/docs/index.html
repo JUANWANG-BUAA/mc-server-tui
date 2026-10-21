@@ -3,32 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script>
-    document.documentElement.classList.add("js");
-    window.addEventListener("error", function () {
-      document.documentElement.classList.remove("js");
-    }, true);
-  </script>
   <title>User Guide · mc-server-tui</title>
-  <meta name="description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.1 Minecraft server manager.">
-  <meta name="theme-color" content="#0b0b0c">
+  <meta name="description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.2 Minecraft server manager.">
+  <meta name="theme-color" content="#f5f6ef">
   <link rel="canonical" href="https://juanwang-buaa.github.io/mc-server-tui/docs/">
   <link rel="alternate" hreflang="en" href="https://juanwang-buaa.github.io/mc-server-tui/docs/">
   <link rel="alternate" hreflang="zh-CN" href="https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/">
   <link rel="alternate" hreflang="x-default" href="https://juanwang-buaa.github.io/mc-server-tui/docs/">
   <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="../assets/styles.css?v=20261020-docs3">
+  <link rel="stylesheet" href="../assets/styles.css?v=0.2.2">
   <meta property="og:type" content="article">
   <meta property="og:title" content="User Guide · mc-server-tui">
-  <meta property="og:description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.1 Minecraft server manager.">
+  <meta property="og:description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.2 Minecraft server manager.">
   <meta property="og:url" content="https://juanwang-buaa.github.io/mc-server-tui/docs/">
   <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="User Guide · mc-server-tui">
-  <meta name="twitter:description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.1 Minecraft server manager.">
+  <meta name="twitter:description" content="Install, run, back up, troubleshoot, and understand the safety limits of the mc-server-tui v0.2.2 Minecraft server manager.">
   <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
-  <script src="../assets/app.js?v=20261020-docs3" defer></script>
-  <script src="../assets/docs.js?v=20261020-docs3" defer></script>
+  <script src="../assets/app.js?v=0.2.2" defer></script>
+  <script src="../assets/docs.js?v=0.2.2" defer></script>
 </head>
 <body class="docs-page">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -57,9 +51,9 @@
   <main id="main" class="docs-main">
     <section class="docs-hero">
       <div class="docs-hero-copy">
-        <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span>USER GUIDE · V0.2.1 ALPHA</p>
-        <h1>Run Minecraft.<br><em>Stay in the terminal.</em></h1>
-        <p class="docs-hero-lede">A complete field guide to installing the alpha, creating a Paper or Fabric server, running it day to day, and recovering a world with care. Read the safety section before you trust it with a server.</p>
+        <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span>USER GUIDE · V0.2.2 ALPHA</p>
+        <h1>Your first server.<br><em>Then your everyday workflow.</em></h1>
+        <p class="docs-hero-lede">A complete field guide to installing the alpha, creating a Paper or Fabric server, running it day to day, and recovering a world with care. Follow the expected results at each step, and use the failure guide when an operation needs attention.</p>
         <div class="docs-hero-meta"><span>Unsigned alpha</span><span>16 chapters</span><span>About 20 minutes</span></div>
         <div class="docs-quicklinks">
           <a href="#install">Install <span aria-hidden="true">→</span></a>
@@ -69,14 +63,14 @@
       </div>
       <div class="docs-hero-card">
         <span class="docs-card-index">00 / Alpha note</span>
-        <p>This guide documents the shipped v0.2.1 behavior. The release is unsigned and does not promise production stability or data recovery.</p>
+        <p>This guide documents the shipped v0.2.2 behavior. The release is unsigned and does not promise production stability or data recovery.</p>
         <a href="#read-before-hosting">Read the full safety guidance <span aria-hidden="true">↓</span></a>
       </div>
     </section>
 
     <details class="docs-mobile-menu">
       <summary>Open chapter list</summary>
-      <nav aria-label="Contents"><a href="#read-before-hosting">Before hosting</a><a href="#supported-scope">Supported scope</a><a href="#install">Install</a><a href="#create-the-first-server">First server</a><a href="#session-shell">Session shell</a><a href="#lifecycle-readiness">Lifecycle</a><a href="#common-configuration">Configuration</a><a href="#backups-restore">Backups and restore</a><a href="#players-logs-workspaces">Players and logs</a><a href="#fabric-addons-server-packs">Fabric and packs</a><a href="#cli">CLI</a><a href="#service-update-data">Service and data</a><a href="#troubleshooting">Troubleshooting</a><a href="#network-exposure">Network exposure</a><a href="#evidence-current-limitations">Evidence and limits</a><a href="#license-no-warranty-notice">License and disclaimer</a></nav>
+      <nav aria-label="Contents"><a href="#read-before-hosting">Start here</a><a href="#supported-scope">Supported scope</a><a href="#install">Install</a><a href="#create-the-first-server">First server</a><a href="#session-shell">Session shell</a><a href="#lifecycle-readiness">Lifecycle</a><a href="#common-configuration">Configuration</a><a href="#backups-restore">Backups and restore</a><a href="#players-logs-workspaces">Players and logs</a><a href="#fabric-addons-server-packs">Fabric and packs</a><a href="#cli">CLI</a><a href="#service-update-data">Service and data</a><a href="#troubleshooting">Troubleshooting</a><a href="#network-exposure">Network exposure</a><a href="#evidence-current-limitations">Evidence and limits</a><a href="#license-no-warranty-notice">License and disclaimer</a></nav>
     </details>
 
     <div class="docs-layout">
@@ -86,31 +80,35 @@
           <span>Filter chapters</span>
           <input id="docs-nav-filter" type="search" placeholder="Find a chapter…" autocomplete="off">
         </label>
-        <nav aria-label="Contents"><div class="docs-nav-groups"><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">Get started</p><a href="#read-before-hosting" data-doc-link>Before hosting</a><a href="#supported-scope" data-doc-link>Supported scope</a><a href="#install" data-doc-link>Install</a><a href="#create-the-first-server" data-doc-link>First server</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">Day to day</p><a href="#session-shell" data-doc-link>Session shell</a><a href="#lifecycle-readiness" data-doc-link>Lifecycle</a><a href="#common-configuration" data-doc-link>Configuration</a><a href="#backups-restore" data-doc-link>Backups and restore</a><a href="#players-logs-workspaces" data-doc-link>Players and logs</a><a href="#fabric-addons-server-packs" data-doc-link>Fabric and packs</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">Operate</p><a href="#cli" data-doc-link>CLI</a><a href="#service-update-data" data-doc-link>Service and data</a><a href="#troubleshooting" data-doc-link>Troubleshooting</a><a href="#network-exposure" data-doc-link>Network exposure</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">Trust</p><a href="#evidence-current-limitations" data-doc-link>Evidence and limits</a><a href="#license-no-warranty-notice" data-doc-link>License and disclaimer</a></div></div></nav>
+        <nav aria-label="Contents"><div class="docs-nav-groups"><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">Get started</p><a href="#read-before-hosting" data-doc-link>Start here</a><a href="#supported-scope" data-doc-link>Supported scope</a><a href="#install" data-doc-link>Install</a><a href="#create-the-first-server" data-doc-link>First server</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">Day to day</p><a href="#session-shell" data-doc-link>Session shell</a><a href="#lifecycle-readiness" data-doc-link>Lifecycle</a><a href="#common-configuration" data-doc-link>Configuration</a><a href="#backups-restore" data-doc-link>Backups and restore</a><a href="#players-logs-workspaces" data-doc-link>Players and logs</a><a href="#fabric-addons-server-packs" data-doc-link>Fabric and packs</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">Operate</p><a href="#cli" data-doc-link>CLI</a><a href="#service-update-data" data-doc-link>Service and data</a><a href="#troubleshooting" data-doc-link>Troubleshooting</a><a href="#network-exposure" data-doc-link>Network exposure</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">Trust</p><a href="#evidence-current-limitations" data-doc-link>Evidence and limits</a><a href="#license-no-warranty-notice" data-doc-link>License and disclaimer</a></div></div></nav>
         <p class="docs-nav-empty" id="docs-nav-empty" hidden>No matching chapter.</p>
         <div class="docs-sidebar-note">
           <span>ALPHA</span>
-          <p>This guide documents the shipped v0.2.1 behavior. The release is unsigned and does not promise production stability or data recovery.</p>
+          <p>This guide documents the shipped v0.2.2 behavior. The release is unsigned and does not promise production stability or data recovery.</p>
         </div>
       </aside>
 
       <article class="docs-article" id="guide">
-<aside class="doc-callout doc-callout-warning"><span class="doc-callout-label">Notice</span><p>Applies to <code>v0.2.1</code> (unsigned alpha pre-release). This guide describes the shipped alpha. It is not a promise of production stability, data recovery, compatibility with every server pack, or support for every Minecraft version.</p></aside>
-<section class="doc-section" id="read-before-hosting"><header class="doc-section-head"><span class="doc-section-kicker">01 / Get started</span><h2>Read this before hosting a world</h2></header>
+<section class="doc-section" id="read-before-hosting"><header class="doc-section-head"><span class="doc-section-kicker">01 / Get started</span><h2>Start here</h2></header>
+<p>This guide takes you to three outcomes: a managed server, a client connection, and a verifiable world backup. For a first installation, follow chapters 2–4. For an existing instance, start at chapter 5. If an operation fails, use chapter 13. Each workflow includes an expected result; <code>/help</code> lists the commands in the app.</p>
+<h3 id="before-hosting-a-world">Before hosting a world</h3>
 <p><code>mc-server-tui</code> is an independent terminal-based Minecraft Java server manager. It is not affiliated with Mojang, Microsoft, PaperMC, Modrinth, Fabric, or Forge. Minecraft and related trademarks belong to their respective owners.</p>
 <p>You are responsible for:</p>
 <ul><li>reviewing and accepting the Minecraft EULA yourself;</li><li>using only server software, plugins, mods, packs, world data, and player data you are entitled to use;</li><li>keeping independent backups outside this application;</li><li>firewall, port forwarding, public exposure, passwords, permissions, and host security;</li><li>validating that a plugin, mod, server pack, or update works before relying on it for a world you care about.</li></ul>
 <p>This alpha is unsigned. Release artifacts have SHA-256 integrity checks, but no code signature or Apple notarization. Server software and third-party add-ons execute with the permissions of your user account. Use a dedicated account and do not install untrusted files. The software is provided under the repository's MIT OR Apache-2.0 license, without a guarantee of availability or recovery.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#supported-scope">Supported scope →</a></nav>
 </section>
 <section class="doc-section" id="supported-scope"><header class="doc-section-head"><span class="doc-section-kicker">02 / Get started</span><h2>Supported scope</h2></header>
-<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Platform</th><th><code>v0.2.1</code> artifact</th></tr></thead><tbody><tr><td>macOS 13+ Apple Silicon</td><td><code>aarch64-apple-darwin</code></td></tr><tr><td>Linux x86_64</td><td><code>x86_64-unknown-linux-gnu</code></td></tr><tr><td>Linux arm64</td><td><code>aarch64-unknown-linux-gnu</code></td></tr><tr><td>Intel macOS</td><td>Not published in this release</td></tr></tbody></table></div>
+<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Platform</th><th><code>v0.2.2</code> artifact</th></tr></thead><tbody><tr><td>macOS 13+ Apple Silicon</td><td><code>aarch64-apple-darwin</code></td></tr><tr><td>Linux x86_64</td><td><code>x86_64-unknown-linux-gnu</code></td></tr><tr><td>Linux arm64</td><td><code>aarch64-unknown-linux-gnu</code></td></tr><tr><td>Intel macOS</td><td>Not published in this release</td></tr></tbody></table></div>
+<p><strong>Before continuing:</strong> install Java for your game version. The app recommends Java 21 for 1.21.x and Java 25+ for 26.x. The Paper wizard discovers installed runtimes; it does not install Java.</p>
 <p>The TUI relies on a Unix socket and Unix process behavior. Windows is not supported by this release. Use a terminal at least 80×24; 40×12 is usable with reduced chrome.</p>
 <p>Java must match the selected Minecraft and server version. The creation flow shows detected runtimes and recommends one, but you remain responsible for the server version, plugins/mods, and client compatibility.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#install">Install →</a></nav>
 </section>
 <section class="doc-section" id="install"><header class="doc-section-head"><span class="doc-section-kicker">03 / Get started</span><h2>Install</h2></header>
 <h3 id="release-installer">Release installer</h3>
-<p><code>v0.2.1</code> is a pre-release, so use the tag-specific URL:</p>
-<div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>TAG=v0.2.1
+<p><code>v0.2.2</code> is a pre-release, so use the tag-specific URL:</p>
+<div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>TAG=v0.2.2
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc</code></pre></div>
@@ -118,6 +116,9 @@ mc</code></pre></div>
 <div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>mc setup --no-service
 mc daemon run   # terminal 1
 mc tui          # terminal 2</code></pre></div>
+<p><strong>Expected result:</strong> setup finishes configuration and user-service initialization. Running <code>mc</code> opens a session with Paper, Fabric and pack-inspection entries, plus a connected management-service status. Type a command or click an entry to begin. Typing replaces the welcome content so results remain visible.</p>
+<p><strong>If it does not work:</strong> if <code>mc</code> is missing, run <code>export PATH="$HOME/.local/bin:$PATH"</code>. If management is disconnected, use <code>mc service status --json</code> and <code>mc service start</code>. Use <code>mc setup --dry-run</code> to inspect the intended paths before writing them.</p>
+<figure class="doc-figure"><img src="../assets/welcome-0.2.2.png" alt="First-use welcome · actual v0.2.2 TUI · demonstration data" loading="lazy" width="771" height="504"><figcaption>First-use welcome · actual v0.2.2 TUI · demonstration data</figcaption></figure>
 <h3 id="build-from-source">Build from source</h3>
 <p>The repository pins Rust 1.89.0:</p>
 <div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>git clone https://github.com/JUANWANG-BUAA/mc-server-tui.git
@@ -130,21 +131,33 @@ cargo build --workspace
 <div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>mc version --json
 mc status --json
 mc doctor --json</code></pre></div>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#create-the-first-server">First server →</a></nav>
 </section>
 <section class="doc-section" id="create-the-first-server"><header class="doc-section-head"><span class="doc-section-kicker">04 / Get started</span><h2>Create the first server</h2></header>
-<p>Start <code>mc</code>, then enter:</p>
+<p>Open the Paper entry on the welcome screen, or start <code>mc</code> and submit:</p>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>/create</code></pre></div>
 <p>The guided Paper flow asks for:</p>
 <ol><li>instance name and Minecraft version;</li><li>Java runtime, memory range, and server port;</li><li>a review of the artifact, download source, memory, port, and EULA.</li></ol>
+<figure class="doc-figure"><img src="../assets/create-0.2.1.png" alt="Paper wizard · v0.2.1 capture, layout retained in v0.2.2 · demonstration data" loading="lazy" width="867" height="504"><figcaption>Paper wizard · v0.2.1 capture, layout retained in v0.2.2 · demonstration data</figcaption></figure>
 <p>The runtime step retains your instance name and version and starts with a settings summary. Press Enter to accept, or F3 / Tab to adjust Java, memory and port.</p>
 <p>New date-based releases such as <code>26.3</code> and <code>26.2</code> are sorted before legacy <code>1.21.x</code> releases in the version picker. Choose the exact version your players will use. EULA acceptance is explicit and is never selected automatically.</p>
 <p>After submission, use:</p>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>/tasks
 /task &lt;number&gt;</code></pre></div>
 <p>to inspect download progress, source, speed, phases, and cancellation.</p>
-<p>For a Fabric server:</p>
+<h3 id="select-start-and-connect">Select, start and connect</h3>
+<p><strong>Expected result:</strong> the create task completes and <code>/instances</code> lists the server. Select it before starting:</p>
+<div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>/instances
+/use &lt;number-or-name&gt;
+/start
+/connect</code></pre></div>
+<p>Wait for Minecraft readiness, then connect with a Java client using the same game version. On the same machine, this is usually <code>localhost:25565</code>; use the port shown by <code>/connect</code>. Other machines also require appropriate networking. A connected management service is separate from a ready Minecraft process.</p>
+<p><strong>If it does not work:</strong> inspect creation with <code>/tasks</code> and <code>/task &lt;number&gt;</code>; inspect startup with <code>/open</code> or <code>/logs</code>. Dismiss a failure dialog to return to its underlying page and correct the settings.</p>
+<h3 id="create-fabric">Create Fabric</h3>
+<p>Clicking Fabric fills a <code>/fabric </code> draft without submitting. Add the name and exact game version, then include the acceptance flag only after reviewing and agreeing to the Minecraft EULA:</p>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>/fabric MyFabricServer 1.21.11 --accept-eula</code></pre></div>
 <p>The Fabric path resolves a stable loader and compatible Java, checks the port, and creates a managed instance.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#session-shell">Session shell →</a></nav>
 </section>
 <section class="doc-section" id="session-shell"><header class="doc-section-head"><span class="doc-section-kicker">05 / Day to day</span><h2>Session shell</h2></header>
 <p>The default screen is a session shell. Text without a leading slash is sent to the current Minecraft console; slash commands manage the application.</p>
@@ -152,22 +165,28 @@ mc doctor --json</code></pre></div>
 <p>Common commands:</p>
 <div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>Command</th><th>Purpose</th></tr></thead><tbody><tr><td><code>/help</code>, <code>F1</code></td><td>Show all commands and keys</td></tr><tr><td><code>/instances</code>, <code>/use &lt;number-or-name&gt;</code></td><td>List and select an instance</td></tr><tr><td><code>/open</code></td><td>Open the selected instance detail</td></tr><tr><td><code>/start</code>, <code>/stop</code>, <code>/restart</code></td><td>Start, gracefully stop, or controlled restart</td></tr><tr><td><code>/logs</code></td><td>Tail console output in the session</td></tr><tr><td><code>/console &lt;command&gt;</code></td><td>Send one command to the Minecraft console</td></tr><tr><td><code>/tasks</code>, <code>/task &lt;n&gt;</code>, <code>/cancel [n]</code></td><td>Inspect or cancel durable tasks</td></tr><tr><td><code>/backup</code>, <code>/backups</code></td><td>Create or manage stopped-world backups</td></tr><tr><td><code>/config</code></td><td>Edit four common <code>server.properties</code> values</td></tr><tr><td><code>/players [action] [player]</code></td><td>OP, whitelist, ban, pardon, kick, LuckPerms helpers</td></tr><tr><td><code>/rg [-i] [-e] &lt;pattern&gt;</code></td><td>Search current and rotated logs</td></tr><tr><td><code>/connect</code>, <code>/monitor</code></td><td>Inspect join addresses and server state</td></tr><tr><td><code>/mods</code>, <code>/import</code>, <code>/export</code></td><td>Add-ons and server-pack workflows</td></tr><tr><td><code>/pages</code>, <code>/page &lt;n&gt;</code>, <code>/close [n]</code></td><td>Workspace pages</td></tr><tr><td><code>/theme [name]</code>, <code>F2</code></td><td>Themes</td></tr><tr><td><code>/quit</code></td><td>Exit the TUI; the server and tasks continue</td></tr></tbody></table></div>
 <p>Useful keys: <code>Enter</code> submit, <code>Tab</code> complete, <code>←/→</code> move the cursor, <code>Home/End</code> line boundaries, <code>↑/↓</code> history or selection, <code>Ctrl-K</code> command palette, <code>F2</code> theme, and <code>F1</code> help.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#lifecycle-readiness">Lifecycle →</a></nav>
 </section>
 <section class="doc-section" id="lifecycle-readiness"><header class="doc-section-head"><span class="doc-section-kicker">06 / Day to day</span><h2>Lifecycle and readiness</h2></header>
 <ul><li><code>/start</code> is idempotent and verifies the Java path, server JAR, port, and process identity.</li><li><code>/stop</code> sends Minecraft's graceful <code>stop</code> command and waits for the verified process to exit. Timeout does not force-kill Java.</li><li><code>/restart</code> requires a verified starting or running process, gracefully stops it, waits for a clean stopped state, then starts the same instance. It does not start a replacement after an unclean stop.</li><li>Readiness requires the server's <code>Done (</code> marker. An open port alone is not considered ready.</li><li>Closing the TUI or daemon does not kill the resident runner or Java process.</li></ul>
 <p>The instance detail page (<code>/open</code>) exposes lifecycle controls, console input, logs, process identity, CPU/RSS samples, and alerts. Press <code>R</code> there for a controlled restart and <code>c</code> for configuration. F3 expands the diagnostic summary; logs receive the space by default. Ctrl-K exposes the same detail toggle.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#common-configuration">Configuration →</a></nav>
 </section>
 <section class="doc-section" id="common-configuration"><header class="doc-section-head"><span class="doc-section-kicker">07 / Day to day</span><h2>Common configuration</h2></header>
 <p>Run:</p>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>/config</code></pre></div>
 <p>The current editor supports MOTD, maximum players, difficulty, and view distance. It shows a diff before writing, preserves unknown keys and comments, and rejects an external file change instead of overwriting it. Saving while the server is running does not restart it. Use <code>/restart</code> or <code>R</code> when you want the new values to take effect.</p>
 <p>Raw editing, the complete property catalog, and per-version validation are not implemented. For unsupported properties, edit <code>server.properties</code> while the server is stopped and keep your own backup.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#backups-restore">Backups and restore →</a></nav>
 </section>
 <section class="doc-section" id="backups-restore"><header class="doc-section-head"><span class="doc-section-kicker">08 / Day to day</span><h2>Backups and restore</h2></header>
-<p>Backups are stopped-world only.</p>
+<p>Backups are stopped-world only. Run <code>/stop</code>, wait for <code>stopped</code>, then use <code>/backup</code>. Wait for the task to complete in <code>/tasks</code> before opening <code>/backups</code>.</p>
+<p><strong>Expected result:</strong> the snapshot has a timestamp, file count and size. Verify it successfully before proceeding; being listed does not mean it has passed a fresh verification.</p>
 <ol><li>Stop the server and wait for <code>stopped</code>.</li><li>Run <code>/backup</code>.</li><li>Open <code>/backups</code> and select a verified snapshot.</li><li>Press <code>v</code> to verify, then <code>Enter</code> to build a restore plan.</li><li>Review affected worlds, added/replaced/removed roots, staging space, and safety steps.</li><li>Press <code>c</code>, type the exact <code>RESTORE</code> confirmation, then submit.</li></ol>
+<figure class="doc-figure"><img src="../assets/backups-0.2.1.png" alt="Backup manager · v0.2.1 capture, layout retained in v0.2.2 · demonstration data" loading="lazy" width="867" height="504"><figcaption>Backup manager · v0.2.1 capture, layout retained in v0.2.2 · demonstration data</figcaption></figure>
 <p>Backup details display local time with an explicit UTC offset. F3 reveals technical evidence. Restore replaces the listed world roots; progress after the backup is not merged. After creating a backup, press <code>r</code> to refresh the catalog.</p>
 <p>Restore is transactional and keeps rollback evidence until commit verification. The server remains stopped after restore. Start it explicitly and validate the world with a Minecraft client. No automated online backup or scheduler exists in this release.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#players-logs-workspaces">Players and logs →</a></nav>
 </section>
 <section class="doc-section" id="players-logs-workspaces"><header class="doc-section-head"><span class="doc-section-kicker">09 / Day to day</span><h2>Players, logs, and workspaces</h2></header>
 <p>Examples:</p>
@@ -179,10 +198,12 @@ mc doctor --json</code></pre></div>
 <p>Online-name actions may need Mojang profile lookup and can fail on constrained networks. The TUI reports server responses or timeout errors; it does not pretend the action succeeded.</p>
 <p><code>/rg</code> searches current and one rotated log. <code>/logs</code> shows recent output. <code>/monitor</code> shows game status and online count. CPU/RSS history is local observability, not TPS/MSPT or JVM heap telemetry.</p>
 <p>Workspace pages preserve log filters and reading positions. Closing a page does not stop the server.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#fabric-addons-server-packs">Fabric and packs →</a></nav>
 </section>
 <section class="doc-section" id="fabric-addons-server-packs"><header class="doc-section-head"><span class="doc-section-kicker">10 / Day to day</span><h2>Fabric, add-ons, and server packs</h2></header>
 <ul><li><code>/mods search &lt;name&gt;</code> and <code>/mods install &lt;name&gt;</code> install supported Modrinth Paper plugins or Fabric mods, required catalog dependencies, and validated JARs. The instance must be stopped.</li><li><code>/import</code> previews a <code>.mrpack</code> or server-pack ZIP. <code>/import &lt;path&gt; --apply</code> stages and verifies compatible <code>mods</code>, <code>plugins</code>, and <code>config</code>; it refuses conflicts, unsafe paths, world/identity data, <code>server.jar</code>, and <code>server.properties</code>.</li><li><code>/export &lt;path.zip&gt;</code> creates a server add-on/config bundle with a SHA-256 manifest. It is not a client launcher pack.</li></ul>
 <p>Imports do not execute pack scripts and do not prove that the combined plugins/mods will start. Validate after import. Forge/NeoForge and CurseForge file-ID materialization are not implemented.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#cli">CLI →</a></nav>
 </section>
 <section class="doc-section" id="cli"><header class="doc-section-head"><span class="doc-section-kicker">11 / Operate</span><h2>CLI</h2></header>
 <p>The CLI uses the same typed daemon API:</p>
@@ -195,6 +216,7 @@ mc cli backup list &lt;instance-id&gt;
 mc cli task list
 mc cli modpack inspect /path/server.mrpack</code></pre></div>
 <p>CLI lifecycle output is an observation; a server can still be <code>starting</code> while the command returns. Poll dashboard/detail status or use the TUI until the readiness marker is observed.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#service-update-data">Service and data →</a></nav>
 </section>
 <section class="doc-section" id="service-update-data"><header class="doc-section-head"><span class="doc-section-kicker">12 / Operate</span><h2>Service, update, and data</h2></header>
 <div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>mc service install
@@ -205,9 +227,15 @@ mc update status
 mc update rollback --dry-run</code></pre></div>
 <p>The user service supervises the daemon. Resident Java runners are intentionally separate. <code>mc service restart</code> restarts the daemon and leaves running servers alone. Uninstall preserves instance data unless a destructive purge option is explicitly used.</p>
 <p><code>mc doctor</code> prints the exact data directory. Instance worlds live under <code>&lt;state&gt;/instances/&lt;uuid&gt;/server/</code>. Do not edit the UUID directory while the server is running. Configuration, socket, state, and cache paths can be overridden in <code>config.toml</code> or with documented environment variables.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#troubleshooting">Troubleshooting →</a></nav>
 </section>
 <section class="doc-section" id="troubleshooting"><header class="doc-section-head"><span class="doc-section-kicker">13 / Operate</span><h2>Troubleshooting</h2></header>
-<p>Run first:</p>
+<h3 id="read-the-operation-failure-dialog">Read the operation-failure dialog</h3>
+<p>Failures in creation, instance management, console, backup, pack inspection and configuration show their actual reason and recovery guidance. Use <code>d</code> or F3 for the error code and evidence; arrows or the mouse wheel scroll. Esc or Enter closes. While open, the dialog captures keys, paste and clicks. The underlying page and draft remain available after dismissal. It does not automatically retry or copy to the clipboard. Periodic connection failures remain in the status line.</p>
+<p>Correct the issue before submitting again. For a bug report, retain the reason, error code and relevant logs, reviewing paths and sensitive information first.</p>
+<figure class="doc-figure"><img src="../assets/error-0.2.2.png" alt="Expanded failure details · actual v0.2.2 TUI · simulated Java discovery failure" loading="lazy" width="771" height="504"><figcaption>Expanded failure details · actual v0.2.2 TUI · simulated Java discovery failure</figcaption></figure>
+<h3 id="inspect-the-service-and-environment">Inspect the service and environment</h3>
+<p>Start with:</p>
 <div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>mc version --json
 mc doctor --json
 mc status --json</code></pre></div>
@@ -218,14 +246,18 @@ mc status --json</code></pre></div>
 <div class="docs-code"><div class="docs-code-bar"><span>Shell</span><button class="docs-code-copy" type="button" data-copy-label="Copy" data-copied-label="Copied" data-failed-label="Select">Copy</button></div><pre><code>mc service status --json
 mc service start
 mc doctor --json</code></pre></div>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#network-exposure">Network exposure →</a></nav>
 </section>
 <section class="doc-section" id="network-exposure"><header class="doc-section-head"><span class="doc-section-kicker">14 / Operate</span><h2>Network exposure</h2></header>
 <p><code>/connect</code> suggests local, LAN, and possible public addresses. It does not prove that a remote friend can connect. Port forwarding, NAT, firewalls, carrier restrictions, and DNS are outside the application's control.</p>
 <p>Do not expose an administrative host directly to the internet. Run the manager under a dedicated user, restrict file permissions, keep the daemon socket private, use a firewall, and review plugin/mod permissions. Minecraft server software and third-party code may contain vulnerabilities.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#evidence-current-limitations">Evidence and limits →</a></nav>
 </section>
 <section class="doc-section" id="evidence-current-limitations"><header class="doc-section-head"><span class="doc-section-kicker">15 / Trust</span><h2>Evidence and current limitations</h2></header>
-<p>The <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md" target="_blank" rel="noreferrer">v0.2.1 acceptance record</a> records 224 automatic tests, four PTY suites, v8–v11 protocol checks, and a real isolated Paper drill: console input, graceful stop, backup, marker-file restoration and post-restore readiness. These results do not prove every world, plugin combination, network, or client scenario. A real Minecraft client join and post-restore in-game verification still need to be performed.</p>
+<p>The <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.2/docs/acceptance/0.2.2.md" target="_blank" rel="noreferrer">v0.2.2 acceptance record</a> records this release’s Rust, five PTY flows, protocol-window and bilingual website checks. The earlier <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md" target="_blank" rel="noreferrer">v0.2.1 real Paper drill</a> covered console input, stop, backup, marker-file restoration and post-restore readiness; it is historical evidence, not a new game-process acceptance run. These checks do not prove every world, plugin, network or client scenario. A real client join and post-restore in-game verification remain open.</p>
+<p>Task history persists, but a daemon restart marks queued/running tasks <code>interrupted</code>; it does not automatically replay them. Resumable download files are separate from task recovery.</p>
 <p>Current gaps include Vanilla, existing-directory takeover, complete <code>server.properties</code> editing, online/scheduled backups, Forge/NeoForge, CurseForge file-ID downloads, signed/notarized artifacts, a signed self-updater, state migrations, update-time task draining, and real Linux service validation.</p>
+<nav class="chapter-next" aria-label="Next chapter"><span>Next chapter</span><a href="#license-no-warranty-notice">License and disclaimer →</a></nav>
 </section>
 <section class="doc-section" id="license-no-warranty-notice"><header class="doc-section-head"><span class="doc-section-kicker">16 / Trust</span><h2>License and no-warranty notice</h2></header>
 <p>The project is licensed under MIT OR Apache-2.0. Those licenses govern the software; this guide does not add a warranty or support commitment. You are responsible for backups, access control, hosted content, third-party licenses, and compliance with the Minecraft EULA and applicable law.</p>
@@ -241,7 +273,7 @@ mc doctor --json</code></pre></div>
 
       <aside class="docs-toc">
         <p>On this page</p>
-        <nav aria-label="On this page"><a href="#read-before-hosting" data-toc-link>Read this before hosting a world</a><a href="#supported-scope" data-toc-link>Supported scope</a><a href="#install" data-toc-link>Install</a><a href="#create-the-first-server" data-toc-link>Create the first server</a><a href="#session-shell" data-toc-link>Session shell</a><a href="#lifecycle-readiness" data-toc-link>Lifecycle and readiness</a><a href="#common-configuration" data-toc-link>Common configuration</a><a href="#backups-restore" data-toc-link>Backups and restore</a><a href="#players-logs-workspaces" data-toc-link>Players, logs, and workspaces</a><a href="#fabric-addons-server-packs" data-toc-link>Fabric, add-ons, and server packs</a><a href="#cli" data-toc-link>CLI</a><a href="#service-update-data" data-toc-link>Service, update, and data</a><a href="#troubleshooting" data-toc-link>Troubleshooting</a><a href="#network-exposure" data-toc-link>Network exposure</a><a href="#evidence-current-limitations" data-toc-link>Evidence and current limitations</a><a href="#license-no-warranty-notice" data-toc-link>License and no-warranty notice</a></nav>
+        <nav aria-label="On this page"><a href="#read-before-hosting" data-toc-link>Start here</a><a href="#supported-scope" data-toc-link>Supported scope</a><a href="#install" data-toc-link>Install</a><a href="#create-the-first-server" data-toc-link>Create the first server</a><a href="#session-shell" data-toc-link>Session shell</a><a href="#lifecycle-readiness" data-toc-link>Lifecycle and readiness</a><a href="#common-configuration" data-toc-link>Common configuration</a><a href="#backups-restore" data-toc-link>Backups and restore</a><a href="#players-logs-workspaces" data-toc-link>Players, logs, and workspaces</a><a href="#fabric-addons-server-packs" data-toc-link>Fabric, add-ons, and server packs</a><a href="#cli" data-toc-link>CLI</a><a href="#service-update-data" data-toc-link>Service, update, and data</a><a href="#troubleshooting" data-toc-link>Troubleshooting</a><a href="#network-exposure" data-toc-link>Network exposure</a><a href="#evidence-current-limitations" data-toc-link>Evidence and current limitations</a><a href="#license-no-warranty-notice" data-toc-link>License and no-warranty notice</a></nav>
       </aside>
     </div>
   </main>

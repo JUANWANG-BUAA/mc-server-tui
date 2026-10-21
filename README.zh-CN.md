@@ -1,301 +1,128 @@
 <div align="center">
-  <a href="README.md">English</a> · <strong>简体中文</strong> · <a href="https://juanwang-buaa.github.io/mc-server-tui/">官网</a>
-  <img src="site/assets/session-claude-0.2.1.png" alt="mc-server-tui 七套主题与像素史蒂夫" width="100%">
-  <h1>mc-server-tui</h1>
-  <p><strong>面向 macOS / Linux 的终端优先 Minecraft Java 服务端管理器。</strong></p>
-  <p>Paper 引导建服 · Fabric 建服 · 常驻 runner · 实时控制台 · 校验下载 · 世界备份 · Claude Code 风格会话 · 七套主题</p>
+
+<img src="site/assets/favicon.svg" width="56" alt="">
+
+# mc-server-tui
+
+**好世界，值得一直在线。**
+
+在 macOS 与 Linux 终端里，管理你的 Paper 和 Fabric 服务器。
+
+[中文官网](https://juanwang-buaa.github.io/mc-server-tui/zh-CN/) · [使用教程](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/) · [English](README.md) · [v0.2.2](https://github.com/JUANWANG-BUAA/mc-server-tui/releases/tag/v0.2.2)
+
+<img src="site/assets/session-claude-0.2.1.png" width="900" alt="当前 Minecraft 实例、下载进度与标注目标的控制台输入框">
+
 </div>
 
-> [!WARNING]
-> **v0.2.1 是未签名的 alpha pre-release。** 安装器只校验 release manifest 的
-> SHA-256 和文件大小，没有代码签名或 macOS 公证。请始终为重要世界保留独立备份。
+上图是使用确定性演示数据的 v0.2.1 真实 TUI 截图；v0.2.2 沿用此会话布局。
 
-完整操作流程、安全边界和免责声明见[中英文使用手册](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/)。
+## 安装，创建第一个服务器
 
-## 📚 文档导航
-
-- 🚀 [快速开始](docs/QUICK_START.md) - 从安装到首次启动
-- 🔧 [故障排查速查表](docs/TROUBLESHOOTING_CHEATSHEET.md) - 常见问题快速解决
-- 📖 [完整使用手册](docs/USER_GUIDE.zh-CN.md) - 详细操作指南
-- 🌐 [在线文档](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/)
-
----
-
-## v0.2.1 的交互改进
-
-顶部固定当前服务器与下一步动作，后台进度只显示一次；管理连接状态与游戏就绪状态分开。控制台输入标注目标，切换实例后保留草稿并阻止误发。建服运行设置默认显示摘要，F3 调整；实例日志默认收起详细摘要，备份页默认显示恢复时间与影响，F3 查看技术详情。现有七主题、命令和经典视图继续保留。
-
-这些变化已包含在 v0.2.1 中。详见 [交互契约](docs/INTERACTION_DESIGN.md)。
-
-## 这个工具是给谁用的
-
-你通过 SSH 管理 Minecraft 服务器。你不想装一个自带 daemon、数据库和攻击面的网页面板。
-你需要可以验证的备份，而不是只能祈祷正确的文件。你在 macOS 上准备服务器，部署到
-Linux 主机。**这个工具就是为这个工作流设计的。**
-
-`mc-server-tui` 是为重视可靠性、可审计性和可恢复性，而非低门槛自动化的服务器管理员
-打造的终端优先工具：
-
-- **可验证的操作。** Paper 构建锁定到精确的 build 号、大小和 SHA-256。备份包含
-  SHA-256 清单、分页校验、恢复预览和 recovery journal。你可以证明改变了什么。
-- **受监督的进程。** 每个实例在带进程身份标记的常驻 runner 下运行。TUI 或 daemon
-  可以重启而不杀死 Java。不用猜服务器是否真的在运行。
-- **终端原生工作流。** 启动、停止、查看日志、取消下载、检查任务、发送控制台命令——
-  全在一个 shell 里。没有浏览器标签页，没有独立管理面板。
-- **可恢复的状态。** 持久任务在 daemon 重启后继续。备份是带回滚 journal 的事务。
-  失败的操作留下审计轨迹，而不是损坏的世界。
-
-TUI 市场很小。大多数服务器运营者使用网页面板或原始的 `screen` 会话。这个工具存在于
-缝隙中：需要 CLI 控制力和面板省略的可验证性的管理员。
-
-## 当前功能
-
-下表描述 `v0.2.1` alpha 发行版的实际范围。
-
-| 模块 | 当前状态 |
-| --- | --- |
-| 会话 TUI | transcript + composer + 状态坞、命令补全、命令面板、光标编辑、历史、内联 `/logs`/`/cancel` |
-| 建服 | Paper 版本/build 向导，以及带 Java/端口检查和明确 EULA 的 Fabric 建服 |
-| 生命周期 | 幂等启动、优雅停止、受控重启、就绪识别、启动失败诊断、控制台、增量日志、CPU/RSS |
-| 常驻监督 | per-instance runner、进程身份、daemon 重启重连 |
-| 持久任务 | SQLite 任务、字节进度、速度/来源、事件游标、协作取消 |
-| 世界备份 | 停服备份、预检、staging、校验、恢复计划/token、恢复 journal |
-| 服务端配置 | MOTD、人数上限、难度和视距编辑；差异预览、外部修改检测与原子保存 |
-| 整合包 | ZIP / MRPACK 预览与停服导入、校验导出；Paper / Fabric 兼容扩展下载及必需依赖 |
-| 分发 | `mc` 启动器、`config.toml`、launchd/systemd 用户服务、版本化安装器、release manifest、Homebrew formula 模板 |
-
-## 快速开始
-
-要求：macOS 13+ Apple Silicon，或 Linux x86_64/arm64；Java 21（1.21.x）/ Java 25+（26.x）；终端至少 80×24；首次下载
-Paper 需要网络。
+需要 macOS 13+ Apple Silicon 或 GNU Linux x86_64/arm64、80×24 终端，
+以及匹配游戏版本的 Java。应用对 1.21.x 推荐 Java 21，对 26.x 推荐 Java 25+。
+Paper 向导检测已有 Java，不自动安装运行时。
 
 ```sh
-# v0.2.1 是 pre-release，/latest/ 暂时不会选中它，使用 tag-specific URL
-TAG=v0.2.1
+TAG=v0.2.2
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
 ```
 
-`mc setup` 会写 `config.toml`、检查 Java、安装 launchd/systemd **用户级**服务、
-启动 daemon，然后提示运行 `mc` 进入 TUI。
+输入 `/create` 或点击欢迎页的 Paper 入口。选择精确游戏版本，确认 Java、内存和端口，
+亲自接受 Minecraft EULA。`/tasks` 显示创建完成后：
 
-不安装后台服务：
-
-```sh
-mc setup --no-service
-mc daemon run   # 终端 1
-mc tui          # 终端 2
+```text
+/instances
+/use <序号或名称>
+/start
+/connect
 ```
 
-从源码构建：
+等待 Minecraft 显示就绪，再用匹配版本的 Java 客户端连接。
+[完整教程](docs/USER_GUIDE.zh-CN.md)包含每一步的预期结果和失败处理。
+找不到 `mc` 时，执行 `export PATH="$HOME/.local/bin:$PATH"`。
+Fabric 使用 `/fabric MyFabricServer 1.21.11 --accept-eula`，请先阅读并同意 EULA。
+点击 Fabric 入口只填入可编辑草稿，不会自动提交。
+
+**v0.2.2 是未签名 alpha pre-release。** 安装器校验 SHA-256 与文件大小，
+没有代码签名或 macOS 公证。重要世界请保留独立备份；alpha 不承诺生产稳定性或恢复成功。
+
+## 现在能做什么
+
+| 流程 | 当前行为 |
+| --- | --- |
+| 建服 | Paper 引导创建；Fabric 独立命令；精确游戏版本与明确 EULA 确认 |
+| 运行 | 启动、优雅停服、受控重启、控制台、增量日志、CPU/RSS、玩家操作 |
+| 导航 | 当前实例摘要、绑定目标的草稿、工作区、七主题、命令面板 |
+| 排错 | 实际原因、恢复建议、可展开证据、可滚动弹窗；保留草稿 |
+| 备份 | 停服快照、SHA-256 清单、校验、恢复预览与明确确认 |
+| 配置 | 四项常用属性、差异预览、外部修改冲突检测、原子保存 |
+| 扩展 | 兼容 Paper/Fabric 扩展；ZIP/MRPACK 检查与停服导入 |
+| 安装 | 当前用户启动器、配置、launchd/systemd 用户服务定义、版本化产物 |
+
+每个实例都有常驻 runner，关闭 TUI 或重启管理 daemon 不会停止 Java。
+**任务历史会持久保存，未完成任务不会在 daemon 重启后自动继续。**
+它们会变为 `interrupted`；下载文件续传是另一项能力。
+
+## 一次学会一条流程
+
+| 目标 | 从这里开始 |
+| --- | --- |
+| 安装、建服与连接 | [快速开始](docs/QUICK_START.md) / [完整教程](docs/USER_GUIDE.zh-CN.md) |
+| 保护与恢复世界 | [备份教程](docs/USER_GUIDE.zh-CN.md#8-备份与恢复) |
+| 找到失败原因 | [故障排查速查](docs/TROUBLESHOOTING_CHEATSHEET.md) |
+| 了解范围与证据 | [本版验收](docs/acceptance/0.2.2.md) / [当前差距](docs/IMPLEMENTATION_GAPS.md) |
+| 参与开发或打包 | [文档索引](docs/README.md) / [发布流程](docs/RELEASING.md) |
+
+Vanilla、接管现有目录、在线/定时备份、Forge/NeoForge、签名发布与签名自动更新器仍待实现。
+Linux 产物在 CI 构建；真实 Linux 用户服务演练、客户端进入恢复世界核验仍待完成。
+`/connect` 提供地址提示，不证明公网可连接。
+
+## 源码构建与验证
+
+仓库固定 Rust 1.89.0。官网使用 Python 标准库及原生 HTML/CSS/JavaScript，
+不需要安装前端依赖。
 
 ```sh
-git clone https://github.com/JUANWANG-BUAA/mc-server-tui.git
-cd mc-server-tui
-cargo build --workspace
-./target/debug/mc setup --dry-run
+cargo build --workspace --locked
 ./target/debug/mc setup
 ./target/debug/mc
 ```
 
-源码构建的服务指向 `target/debug/mc`，只适合开发验证。
-
-## 日常命令
-
-默认是会话 shell，输入 `/` 补全；直接输入文本会发送到当前实例控制台。
-
-| 命令 | 作用 |
-| --- | --- |
-| `/create` | Paper 引导建服 |
-| `/open` | 实例详情：生命周期、控制台、日志、备份 |
-| `/config` | 编辑四类 `server.properties` 字段，保存前检查差异 |
-| `/start`、`/stop` | 启动 / 优雅停止 |
-| `/restart` | 优雅停止并等待旧进程退出，再启动同一实例 |
-| `/logs` | 在会话内查看最近日志 |
-| `/tasks`、`/task <n>` | 任务列表 / 详情 |
-| `/cancel [n]` | 取消下载，TUI 会二次确认 |
-| `/backup`、`/backups` | 停服备份 / 备份管理器 |
-| `/console <命令>` | 发送控制台命令 |
-| `/status`、`/instances`、`/use <n>` | 查看 / 选择实例 |
-| `/theme <name>`、`F2` | 切换七套主题 |
-| `/classic` | 经典双面板 |
-| `/help`、`F1` | 帮助 |
-
-常用按键：`Enter` 发送 · `Tab` 补全 · `←/→` 光标 · `Home/End` 行首尾 ·
-`↑/↓` 历史/补全 · `PgUp/PgDn` 会话 · `Ctrl-K` 命令面板 · `F1` 帮助 · `F2` 主题。
-
-TUI 外：
-
-```sh
-mc status --json
-mc doctor --json
-mc version --json
-mc cli instance list
-mc cli instance start <实例 ID>
-mc cli instance stop <实例 ID> --timeout-seconds 20
-mc cli instance restart <实例 ID> --timeout-seconds 20
-mc service status --json
-mc service restart
-mc uninstall          # 保留实例数据/配置/cache
-```
-
-
-## 工作区、日志与玩家管理
-
-页面使用稳定编号；顶部显示当前页和总数，鼠标可点击切换。按 **Ctrl-B** 后再按
-`n` / `p` 切换、`w` 列表、`x` 关闭、`1`–`9` 跳转。`/pages`、`/page <编号>`、
-`/close [编号]` 也可使用。关闭页面不会停止服务端；实例日志的过滤和滚动位置会保留。
-
-| 命令 | 用途 |
-| --- | --- |
-| `/connect` | 区分本机、局域网和外网加入方式；接口地址不代表外网已连通 |
-| `/monitor` | 实际 Minecraft 状态查询和在线人数；`/open` 查看 CPU / RSS 趋势 |
-| `/rg [-i] [-e] <模式>` | 搜索当前和上一份轮转日志；`-i` 忽略大小写，`-e` 正则；返回文件与行号 |
-| `/players` | 查看 OP、白名单、封禁名单和操作说明 |
-| `/players list` | 查询在线玩家并显示服务端反馈 |
-| `/players op\|deop\|ban\|pardon\|kick <玩家> [原因]` | 玩家管理；OP 是全面管理权限 |
-| `/players allow\|deny <玩家>` | 白名单增删；`whitelist-on` / `whitelist-off` 开关 |
-| `/players group <玩家> <组>` | LuckPerms 权限组；`grant` / `revoke <玩家> <节点>` 分配细粒度权限 |
-
-实例日志按级别着色；`f` 实时文字过滤，`←` / `→` 横向查看，拖动右侧滚动条可跳转。
-CPU 连续 6 次采样达到单核 90%、RSS 连续 3 次超过配置的 Xmx，以及异常退出、近期
-ERROR / Exception 会产生提示。**RSS 包含堆外内存，并不等于 Java 堆使用量**；这些提示
-不会自动重启或结束进程。趋势图展示最近 60 次采样。
-
-## 模组与服务端整合包
-
-```sh
-# 在 TUI 中执行；先阅读 https://www.minecraft.net/eula
-/fabric mod-friends 1.21.11 --accept-eula
-/mods search luckperms
-/mods install luckperms
-```
-
-Fabric 自动选择稳定 Loader 和兼容 Java，初始内存 1–4 GiB；在创建向导或已有实例
-占用的端口会跳过。安装扩展要求停服，按 Minecraft 版本和加载器筛选、校验 SHA-512，
-解析必需依赖，并识别 JAR 中常见的 Fabric API 模块依赖。Paper 只装插件，Fabric 只装模组；
-客户端专用文件会拒绝。安装后需要启动才能加载，不执行热加载。
-
-```sh
-/import /绝对路径/server-pack.zip            # 只预览
-/import /绝对路径/server-pack.zip --apply    # 停服后添加扩展与配置
-/import /绝对路径/example.mrpack --apply
-/export /绝对路径/shared-server-pack.zip
-```
-
-ZIP 支持 `mods/*.jar`、`plugins/*.jar`、`config/`，以及常见的单层目录封装。
-MRPACK 读取服务端环境标记，并从 Modrinth CDN 下载、校验 SHA-512；不支持的加载器、
-CurseForge 客户端文件 ID 清单会明确拒绝。导入先暂存和校验，已有同内容跳过、不同内容
-冲突拒绝，不覆盖世界、玩家身份数据、server.jar 或 server.properties，不执行包内脚本。
-限制为 10000 项、展开总量 512 MiB、单文件 256 MiB，并拒绝越界路径与符号链接。
-
-导出的是**服务端扩展与配置包**，含版本/加载器和 SHA-256 清单，不包含世界、玩家名单
-或服务端核心，不是客户端启动器格式。配置可能含部署者自己的连接信息，分享前应检查。
-Forge / NeoForge 建服、CurseForge API 授权下载和自动解决任意第三方依赖尚未提供。
-
-## 架构
-
-```mermaid
-flowchart LR
-    TUI["TUI client"] -->|Unix socket| D["management daemon"]
-    CLI["mc CLI"] -->|Unix socket| D
-    D --> T["durable tasks / SQLite"]
-    D --> S["process supervisor"]
-    S --> RA["resident runner · instance A"]
-    S --> RB["resident runner · instance B"]
-    RA --> JA["Paper / Java"]
-    RB --> JB["Paper / Java"]
-```
-
-runner 持有 Java 的 stdin/stdout/stderr 和私有控制 socket。TUI 或 daemon 重启
-不会杀掉 Minecraft；新 daemon 读取进程身份记录并重连。详见
-[Supervision](docs/SUPERVISION.md)。
-
-## 状态
-
-`v0.2.1` 是当前公开的 unsigned alpha。截至 2026-10-20，实现状态如下：
-
-| 已实现 | 下一步 |
-| --- | --- |
-| Paper / Fabric 安装、启停、控制台、日志 | Vanilla provider |
-| 常驻 runner + daemon 重连 | 接管现有服务端目录 |
-| 停服备份/校验/恢复 | 在线/定时备份 |
-| 持久任务、字节进度、取消 | 完整 `server.properties` 覆盖与原始编辑 |
-| 玩家操作（OP/白名单/封禁/踢出） | 结构化玩家管理结果 |
-| `/rg` 日志搜索、实时过滤、CPU/RSS 趋势与告警 | TPS/MSPT 与 JVM 指标 |
-| 工作区多页面、稳定编号、日志状态保留 | 多实例调度与主机内存预算 |
-| Modrinth 扩展安装、MRPACK/ZIP 整合包预览/导入/导出 | Forge / NeoForge 与 CurseForge 文件 ID 授权导入 |
-| 会话 TUI、七主题、史蒂夫 | 签名/公证、Homebrew tap、deb/rpm |
-| API 协议 8–11 协商 + runner 协议握手 | 状态 schema 迁移与更新前任务排空 |
-| 受控重启与可执行的启动失败诊断 | 更完整属性管理与真实客户端加入演练 |
-| 四字段 `server.properties` 编辑、差异预览与冲突检测 | 更多属性与原始编辑 |
-| 版本化 `mc update status/rollback` | 带健康检查的签名自动更新器 |
-
-完整差距见 [Implementation gaps](docs/IMPLEMENTATION_GAPS.md)。
-下一里程碑仍需明确路线：产品评审建议先验证完整 Paper 服主旅程，较早的发布规划则优先签名和包管理分发。
-
-## 文档
-
-- [官网](https://juanwang-buaa.github.io/mc-server-tui/)
-- [中文使用手册（站内）](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/)
-- [中文使用手册（Markdown）](docs/USER_GUIDE.zh-CN.md)
-- [English user guide](docs/USER_GUIDE.md)
-- [文档索引](docs/README.md)
-- [FAQ](docs/FAQ.md)
-- [交互设计](docs/INTERACTION_DESIGN.md)
-- [进程监督](docs/SUPERVISION.md)
-- [实例 schema](docs/INSTANCE_SCHEMA.md)
-- [异步并发](docs/ASYNC_CONCURRENCY.md)
-- [备份恢复](docs/BACKUP_RESTORE_DESIGN.md)
-- [分发设计](docs/DISTRIBUTION.md)
-- [发布流程](docs/RELEASING.md)
-- [0.2.1 发布说明](docs/releases/0.2.1.md)
-- [TUI 测试](docs/TUI_TESTING.md)
-- [实现差距](docs/IMPLEMENTATION_GAPS.md)
-
-## 开发
-
-仓库在 `rust-toolchain.toml` 中固定 Rust **1.89.0**。
+前台运行时，先执行 `mc setup --no-service`，再在两个终端分别运行
+`mc daemon run` 和 `mc tui`。CLI 生命周期命令使用实例 UUID：
+先执行 `mc cli instance list`，再执行 `mc cli instance start <UUID>`。
 
 ```sh
 cargo fmt --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-cargo build --workspace
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-targets --locked
+cargo test --workspace --doc --locked
+python3 scripts/build_landing_site.py
+python3 scripts/build_docs_site.py
+python3 scripts/check_docs.py
+python3 scripts/check_protocol_window.py
+python3 scripts/test_first_time_experience.py
 ```
 
-当前本机自动化证据（macOS，2026-10-20）：workspace **224** 项测试，
-其中 `mc-tui` **98** 项。Linux 仍在 CI 矩阵内，但本次未在本机重跑；另有四个 PTY 脚本：
+本机 macOS 基线为 258 项测试，其中 TUI 104 项，另有五套 PTY 流程。
+[本版验收](docs/acceptance/0.2.2.md)分别记录模拟 daemon 交互检查、
+历史真实 Paper 演练与远程 CI，避免混淆验证范围。
 
-```sh
-python3 scripts/tui_pty_smoke.py
-python3 scripts/tui_guided_create_pty.py
-python3 scripts/tui_task_detail_pty.py
-python3 scripts/tui_instance_detail_pty.py
-```
+## 运行原理
 
-另完成隔离的真实 Paper 1.21.11 重启演练：运行中的 PID 3482 被 PID 3565 替代，
-新进程再次就绪后优雅停止，退出码为 0；原始实例仅只读复制，未被启动或修改。
+TUI / CLI 通过私有 Unix socket 访问管理 daemon；daemon 协调实例配置、持久任务、
+备份恢复与每实例 runner。runner 独立持有 Java 进程、控制台和日志。
+`mc doctor --json` 可查看实际配置与数据路径。
 
-仓库的 Cargo 配置固定保留彩色编译与测试输出；TUI 本身仍尊重用户的 `NO_COLOR` 偏好。
+实现契约见[监督机制](docs/SUPERVISION.md)、[实例结构](docs/INSTANCE_SCHEMA.md)
+和[备份设计](docs/BACKUP_RESTORE_DESIGN.md)。
 
-## 贡献与安全
+## 参与与许可证
 
-- 提交前阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
-- 漏洞请走私密 GitHub Security Advisory，见 [SECURITY.md](SECURITY.md)。
-- 不要公开世界文件、token、私密 IP 或包含个人信息的日志。
+请阅读 [CONTRIBUTING](CONTRIBUTING.md)、[SECURITY](SECURITY.md) 和
+[行为准则](CODE_OF_CONDUCT.md)。项目采用 [MIT](LICENSE-MIT) OR [Apache-2.0](LICENSE-APACHE)。
 
-## 许可证
-
-本项目采用 **MIT OR Apache-2.0** 双许可，任选其一：
-
-- [MIT](LICENSE-MIT)
-- [Apache License 2.0](LICENSE-APACHE)
-
-贡献按 MIT 或 Apache-2.0 双许可接收。
-
-本项目是独立项目，与 Mojang、Microsoft、PaperMC 无隶属关系。Minecraft 是
-Mojang Synergies AB 的商标。
-
-<sub>Minecraft 服务端管理器 · PaperMC · Rust TUI · Ratatui · 终端面板 · macOS · Linux · 自托管 · 进程监督 · 世界备份</sub>
+本项目与 Mojang、Microsoft、PaperMC、Modrinth、Fabric、Forge 无隶属关系。
+Minecraft 是 Mojang Synergies AB 的商标。EULA、第三方许可证、托管权限和世界备份由使用者负责。

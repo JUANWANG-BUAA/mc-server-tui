@@ -1,6 +1,6 @@
 # Install on macOS
 
-The v0.2.1 unsigned alpha publishes an Apple Silicon artifact for macOS 13+.
+The v0.2.2 unsigned alpha publishes an Apple Silicon artifact for macOS 13+.
 Intel macOS has no published artifact in this release. Source builds are a development path,
 not a separately validated release target. Keep independent backups of important worlds.
 
@@ -10,7 +10,7 @@ Use Java compatible with the selected Minecraft version: Java 21 for 1.21.x,
 Java 25+ for 26.x. The Paper wizard discovers installed runtimes.
 
 ```sh
-TAG=v0.2.1
+TAG=v0.2.2
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 ~/.local/bin/mc setup
 ~/.local/bin/mc

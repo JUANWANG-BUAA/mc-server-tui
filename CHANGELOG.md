@@ -16,6 +16,17 @@ All notable user-facing changes are recorded here. The format is based on
   self-updater with health checks.
 - Mirrors and retry policy for constrained networks.
 
+## [0.2.2] - 2026-10-21
+
+Unsigned alpha pre-release; API 8–11, state schema 1 and runner protocol 1 unchanged.
+
+### Changed
+
+- Rebuild the bilingual landing pages and teaching site around install, create,
+  operate and recover workflows, with responsive layouts and keyboard navigation.
+- Synchronize release metadata from the workspace version; add full-chapter
+  filtering, clear expected results, and failure-dialog guidance to both guides.
+
 ### Fixed
 
 - First-use actions now render in the default session as well as the classic

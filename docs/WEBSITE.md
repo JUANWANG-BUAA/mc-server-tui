@@ -1,70 +1,55 @@
-# Website
+# Website maintenance
 
-The landing page is a dependency-free static site in [`site/`](../site/). It is
-deployed to GitHub Pages by [`.github/workflows/pages.yml`](../.github/workflows/pages.yml).
+The site is dependency-free HTML/CSS/JavaScript. The two landing pages and two
+teaching guides share a paper/forest visual system with real terminal captures.
+They deploy through [Pages](../.github/workflows/pages.yml).
 
-- **Production URL**: https://juanwang-buaa.github.io/mc-server-tui/
-- **Source**: `site/index.html`, `site/docs/**`, `site/assets/styles.css`,
-  `site/assets/app.js`, and `site/assets/docs.js`
-- **Assets**: terminal screenshots copied from `output/playwright/`, plus a pixel
-  Steve favicon
-- **Deploy trigger**: changes under `site/**`, the two user-guide Markdown
-  files, the docs generator, or the Pages workflow on `main`
+| Page | Source | Generated output |
+| --- | --- | --- |
+| English landing | `scripts/build_landing_site.py` | `site/index.html` |
+| 中文宣传页 | `scripts/build_landing_site.py` | `site/zh-CN/index.html` |
+| English tutorial | [USER_GUIDE.md](USER_GUIDE.md) | `site/docs/index.html` |
+| 中文教程 | [USER_GUIDE.zh-CN.md](USER_GUIDE.zh-CN.md) | `site/docs/zh-CN/index.html` |
 
-The native [English guide](https://juanwang-buaa.github.io/mc-server-tui/docs/)
-and [Chinese guide](https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/)
-are generated from `docs/USER_GUIDE.md` and `docs/USER_GUIDE.zh-CN.md`:
+The workspace version in `Cargo.toml` controls generated metadata, cache keys,
+release links and installer commands. Commit source and generated output together.
 
 ```sh
+python3 scripts/build_landing_site.py
 python3 scripts/build_docs_site.py
-```
-
-Commit both the Markdown source and generated pages. The generator uses only
-the Python standard library.
-
-## Preview locally
-
-```sh
+python3 scripts/check_docs.py
 python3 -m http.server 8099 --directory site
 ```
 
-Open <http://127.0.0.1:8099/>. The landing page has no build step. Documentation
-pages are regenerated with the standard-library Python command above; there is
-no package manager dependency.
+Open <http://127.0.0.1:8099/> or `/zh-CN/`. No package installation or external
+font request is required. Keep GitHub Pages’ `/mc-server-tui/` base path working.
 
-## What to check
+## Review before deploying
 
-- 1440px desktop hero and each section at 1000px viewport height;
-- 390px mobile hero, theme picker, install block, architecture diagram;
-- theme buttons update both screenshots, accent color, labels, and persist;
-- copy button writes the four install lines;
-- documentation pages at desktop width and 390px mobile have a usable chapter
-  menu, active section, code copy buttons, language switch, and no horizontal
-  page overflow;
-- every documentation link resolves locally except release downloads, source,
-  licenses, and other explicitly secondary references;
-- no horizontal overflow, console errors, missing images, or broken in-page anchors;
-- `prefers-reduced-motion` leaves all content visible;
-- canonical URL, Open Graph image, JSON-LD, sitemap, robots, and 404 page remain
-  valid when the repository is renamed (update `site/` URLs if that happens).
+- Both landing languages and both guides at 1440px, 768px and 390px.
+- Workflow tabs by pointer and arrow/Home/End keys; selected tab and panel agree.
+- Seven theme previews, correct image paths and preference persistence.
+- Installation and tutorial code copy; denied clipboard access selects the text.
+- Chapter filtering searches chapter content, shows an empty state, and recovers.
+- Mobile chapter menu, next-chapter links, language switch and reading progress.
+- No horizontal page overflow, missing images, console errors or broken anchors.
+- JavaScript disabled: text, install commands and guides remain readable; hidden
+  workflow panels are available through a no-script rule.
+- Reduced motion: all content remains visible; printing omits navigation chrome.
 
-## Design notes
+The checker validates local paths, Markdown/HTML anchors, duplicate HTML IDs,
+installer tags and the freshness of all four generated pages. External URLs
+need separate review; successful local validation does not prove deployment.
 
-The page deliberately uses system fonts and no framework: it should render
-offline and deploy as a plain artifact. The visual language mirrors the TUI:
-near-black surfaces, one accent color, mono microcopy, real 80×24 screenshots,
-and one animated pixel Steve. The documentation uses a three-column reading
-layout on wide screens, a chapter drawer on mobile, and printable prose.
+## Screenshot provenance
 
-## v0.2.1 asset and release maintenance
+`*-0.2.1.png` are actual 80×24 captures from the compiled v0.2.1 TUI with
+controlled visual-daemon responses. The session/create/backup layout is retained
+in v0.2.2. They are labelled as historical captures and demonstration data,
+not recaptured or represented as live server metrics.
+Fresh v0.2.2 first-use/error captures use the compiled v0.2.2
+binary against an isolated fixture. See [release acceptance](acceptance/0.2.2.md).
 
-`site/assets/*-0.2.1.png` are current 80×24 terminal captures (867×504 pixels).
-They use the compiled binary and deterministic visual-daemon responses; captions
-must identify demonstration data. The separate real Paper test is documented in
-[`acceptance/0.2.1.md`](acceptance/0.2.1.md). Older screenshots are historical.
-
-When releasing, update the workspace version, landing-page JSON-LD/install tag,
-both guides, both READMEs, docs-generator metadata and release notes together.
-The matrix is three targets: Apple Silicon macOS and GNU Linux x86_64/arm64.
-Keep roadmap proposals separate from shipped capabilities. Check generated pages
-for stale tags, local links, image dimensions and desktop/mobile overflow.
+When releasing, synchronize Cargo/lock versions, README files, user-facing
+installation docs, changelog, release notes and acceptance. Preserve historical
+versioned release and acceptance records; never relabel old evidence as new.

@@ -1,6 +1,6 @@
 # Install on Linux
 
-The v0.2.1 unsigned alpha publishes GNU/Linux x86_64 and arm64 artifacts.
+The v0.2.2 unsigned alpha publishes GNU/Linux x86_64 and arm64 artifacts.
 Real-host distribution and systemd acceptance remain incomplete; see the
 [release acceptance limits](../acceptance/0.2.1.md).
 
@@ -10,7 +10,7 @@ Install Java compatible with the selected Minecraft version: Java 21 for 1.21.x,
 Java 25+ for 26.x. Also provide `curl`, `tar`, `python3`, and a SHA-256 tool.
 
 ```sh
-TAG=v0.2.1
+TAG=v0.2.2
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 ~/.local/bin/mc setup
 ~/.local/bin/mc

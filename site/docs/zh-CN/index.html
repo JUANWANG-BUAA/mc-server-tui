@@ -3,32 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script>
-    document.documentElement.classList.add("js");
-    window.addEventListener("error", function () {
-      document.documentElement.classList.remove("js");
-    }, true);
-  </script>
   <title>使用手册 · mc-server-tui</title>
-  <meta name="description" content="mc-server-tui v0.2.1 中文使用手册：安装、创建服务器、日常操作、备份恢复、排错以及 alpha 版本的安全边界。">
-  <meta name="theme-color" content="#0b0b0c">
+  <meta name="description" content="mc-server-tui v0.2.2 中文使用手册：安装、创建服务器、日常操作、备份恢复、排错以及 alpha 版本的安全边界。">
+  <meta name="theme-color" content="#f5f6ef">
   <link rel="canonical" href="https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/">
   <link rel="alternate" hreflang="en" href="https://juanwang-buaa.github.io/mc-server-tui/docs/">
   <link rel="alternate" hreflang="zh-CN" href="https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/">
   <link rel="alternate" hreflang="x-default" href="https://juanwang-buaa.github.io/mc-server-tui/docs/">
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="../../assets/styles.css?v=20261020-docs3">
+  <link rel="stylesheet" href="../../assets/styles.css?v=0.2.2">
   <meta property="og:type" content="article">
   <meta property="og:title" content="使用手册 · mc-server-tui">
-  <meta property="og:description" content="mc-server-tui v0.2.1 中文使用手册：安装、创建服务器、日常操作、备份恢复、排错以及 alpha 版本的安全边界。">
+  <meta property="og:description" content="mc-server-tui v0.2.2 中文使用手册：安装、创建服务器、日常操作、备份恢复、排错以及 alpha 版本的安全边界。">
   <meta property="og:url" content="https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/">
   <meta property="og:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="使用手册 · mc-server-tui">
-  <meta name="twitter:description" content="mc-server-tui v0.2.1 中文使用手册：安装、创建服务器、日常操作、备份恢复、排错以及 alpha 版本的安全边界。">
+  <meta name="twitter:description" content="mc-server-tui v0.2.2 中文使用手册：安装、创建服务器、日常操作、备份恢复、排错以及 alpha 版本的安全边界。">
   <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
-  <script src="../../assets/app.js?v=20261020-docs3" defer></script>
-  <script src="../../assets/docs.js?v=20261020-docs3" defer></script>
+  <script src="../../assets/app.js?v=0.2.2" defer></script>
+  <script src="../../assets/docs.js?v=0.2.2" defer></script>
 </head>
 <body class="docs-page">
   <a class="skip-link" href="#main">跳到正文</a>
@@ -37,14 +31,14 @@
 
   <header class="site-header docs-site-header" id="site-header">
     <div class="header-inner">
-      <a class="brand" href="../../" aria-label="mc-server-tui">
+      <a class="brand" href="../../zh-CN/" aria-label="mc-server-tui">
         <img class="brand-mark" src="../../assets/favicon.svg" alt="" width="28" height="28">
         <span>mc-server-tui</span>
         <span class="alpha-tag">ALPHA</span>
       </a>
       <nav class="nav docs-top-nav" aria-label="主导航">
-        <a href="../../">首页</a>
-        <a class="is-active" href="../" aria-current="page">文档</a>
+        <a href="../../zh-CN/">首页</a>
+        <a class="is-active" href="./" aria-current="page">文档</a>
         <a href="#troubleshooting">排错</a>
       </nav>
       <div class="docs-top-actions">
@@ -57,8 +51,8 @@
   <main id="main" class="docs-main">
     <section class="docs-hero">
       <div class="docs-hero-copy">
-        <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span>使用手册 · V0.2.1 ALPHA</p>
-        <h1>把 Minecraft 服务端<br><em>留在终端里。</em></h1>
+        <p class="eyebrow"><span class="pulse-dot" aria-hidden="true"></span>使用手册 · V0.2.2 ALPHA</p>
+        <h1>从第一个服务器，<br><em>学会日常管理。</em></h1>
         <p class="docs-hero-lede">从安装 alpha、创建 Paper 或 Fabric 服务器，到日常运行与谨慎恢复世界，这份手册覆盖完整操作流程。把重要世界交给它之前，请先阅读安全须知。</p>
         <div class="docs-hero-meta"><span>未签名 alpha</span><span>16 个章节</span><span>约 20 分钟</span></div>
         <div class="docs-quicklinks">
@@ -69,14 +63,14 @@
       </div>
       <div class="docs-hero-card">
         <span class="docs-card-index">00 / Alpha 提示</span>
-        <p>本手册描述 v0.2.1 已发布行为。当前版本未签名，不承诺生产稳定性或数据一定能够恢复。</p>
+        <p>本手册描述 v0.2.2 已发布行为。当前版本未签名，不承诺生产稳定性或数据一定能够恢复。</p>
         <a href="#read-before-hosting">阅读完整安全说明 <span aria-hidden="true">↓</span></a>
       </div>
     </section>
 
     <details class="docs-mobile-menu">
       <summary>展开章节列表</summary>
-      <nav aria-label="目录"><a href="#read-before-hosting">托管前须知</a><a href="#supported-scope">支持范围</a><a href="#install">安装</a><a href="#create-the-first-server">创建首个服务器</a><a href="#session-shell">会话 shell</a><a href="#lifecycle-readiness">生命周期</a><a href="#common-configuration">常用配置</a><a href="#backups-restore">备份与恢复</a><a href="#players-logs-workspaces">玩家与日志</a><a href="#fabric-addons-server-packs">Fabric 与整合包</a><a href="#cli">CLI</a><a href="#service-update-data">服务与数据</a><a href="#troubleshooting">排错</a><a href="#network-exposure">网络暴露</a><a href="#evidence-current-limitations">证据与限制</a><a href="#license-no-warranty-notice">许可证与免责声明</a></nav>
+      <nav aria-label="目录"><a href="#read-before-hosting">开始阅读</a><a href="#supported-scope">支持范围</a><a href="#install">安装</a><a href="#create-the-first-server">创建首个服务器</a><a href="#session-shell">会话 shell</a><a href="#lifecycle-readiness">生命周期</a><a href="#common-configuration">常用配置</a><a href="#backups-restore">备份与恢复</a><a href="#players-logs-workspaces">玩家与日志</a><a href="#fabric-addons-server-packs">Fabric 与整合包</a><a href="#cli">CLI</a><a href="#service-update-data">服务与数据</a><a href="#troubleshooting">排错</a><a href="#network-exposure">网络暴露</a><a href="#evidence-current-limitations">证据与限制</a><a href="#license-no-warranty-notice">许可证与免责声明</a></nav>
     </details>
 
     <div class="docs-layout">
@@ -86,31 +80,35 @@
           <span>筛选章节</span>
           <input id="docs-nav-filter" type="search" placeholder="查找章节…" autocomplete="off">
         </label>
-        <nav aria-label="目录"><div class="docs-nav-groups"><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">开始使用</p><a href="#read-before-hosting" data-doc-link>托管前须知</a><a href="#supported-scope" data-doc-link>支持范围</a><a href="#install" data-doc-link>安装</a><a href="#create-the-first-server" data-doc-link>创建首个服务器</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">日常操作</p><a href="#session-shell" data-doc-link>会话 shell</a><a href="#lifecycle-readiness" data-doc-link>生命周期</a><a href="#common-configuration" data-doc-link>常用配置</a><a href="#backups-restore" data-doc-link>备份与恢复</a><a href="#players-logs-workspaces" data-doc-link>玩家与日志</a><a href="#fabric-addons-server-packs" data-doc-link>Fabric 与整合包</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">运维</p><a href="#cli" data-doc-link>CLI</a><a href="#service-update-data" data-doc-link>服务与数据</a><a href="#troubleshooting" data-doc-link>排错</a><a href="#network-exposure" data-doc-link>网络暴露</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">可信信息</p><a href="#evidence-current-limitations" data-doc-link>证据与限制</a><a href="#license-no-warranty-notice" data-doc-link>许可证与免责声明</a></div></div></nav>
+        <nav aria-label="目录"><div class="docs-nav-groups"><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">开始使用</p><a href="#read-before-hosting" data-doc-link>开始阅读</a><a href="#supported-scope" data-doc-link>支持范围</a><a href="#install" data-doc-link>安装</a><a href="#create-the-first-server" data-doc-link>创建首个服务器</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">日常操作</p><a href="#session-shell" data-doc-link>会话 shell</a><a href="#lifecycle-readiness" data-doc-link>生命周期</a><a href="#common-configuration" data-doc-link>常用配置</a><a href="#backups-restore" data-doc-link>备份与恢复</a><a href="#players-logs-workspaces" data-doc-link>玩家与日志</a><a href="#fabric-addons-server-packs" data-doc-link>Fabric 与整合包</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">运维</p><a href="#cli" data-doc-link>CLI</a><a href="#service-update-data" data-doc-link>服务与数据</a><a href="#troubleshooting" data-doc-link>排错</a><a href="#network-exposure" data-doc-link>网络暴露</a></div><div class="docs-nav-group" data-doc-group><p class="docs-nav-label">可信信息</p><a href="#evidence-current-limitations" data-doc-link>证据与限制</a><a href="#license-no-warranty-notice" data-doc-link>许可证与免责声明</a></div></div></nav>
         <p class="docs-nav-empty" id="docs-nav-empty" hidden>没有匹配的章节。</p>
         <div class="docs-sidebar-note">
           <span>ALPHA</span>
-          <p>本手册描述 v0.2.1 已发布行为。当前版本未签名，不承诺生产稳定性或数据一定能够恢复。</p>
+          <p>本手册描述 v0.2.2 已发布行为。当前版本未签名，不承诺生产稳定性或数据一定能够恢复。</p>
         </div>
       </aside>
 
       <article class="docs-article" id="guide">
-<aside class="doc-callout doc-callout-warning"><span class="doc-callout-label">提示</span><p>适用于 <code>v0.2.1</code>（未签名 alpha pre-release）。 本文描述当前已发布的 alpha，不承诺生产稳定性、数据恢复成功、对所有整合包的兼容， 也不承诺支持所有 Minecraft 版本。</p></aside>
-<section class="doc-section" id="read-before-hosting"><header class="doc-section-head"><span class="doc-section-kicker">01 / 开始使用</span><h2>托管世界前请先阅读</h2></header>
+<section class="doc-section" id="read-before-hosting"><header class="doc-section-head"><span class="doc-section-kicker">01 / 开始使用</span><h2>从这里开始</h2></header>
+<p>这份教程带你完成三个结果：创建一个受管实例、用客户端连接它、为世界保留一份可校验的备份。 首次使用按第 2–4 节操作；已有实例从第 5 节开始；遇到失败直接看第 13 节。 每个操作都标明应该看到的结果。完整命令可以在应用内输入 <code>/help</code> 查看。</p>
+<h3 id="托管世界前">托管世界前</h3>
 <p><code>mc-server-tui</code> 是独立的终端 Minecraft Java 服务端管理工具，与 Mojang、 Microsoft、PaperMC、Modrinth、Fabric、Forge 均无隶属关系。Minecraft 及相关商标 归各自权利人所有。</p>
 <p>你需要自行负责：</p>
 <ul><li>阅读并接受 Minecraft EULA；</li><li>只使用你有权使用的服务端软件、插件、模组、整合包、世界和玩家数据；</li><li>在应用之外保留独立备份；</li><li>防火墙、端口转发、公网暴露、密码、权限和主机安全；</li><li>在依赖某个插件、模组、整合包或更新之前，验证它能正常工作。</li></ul>
 <p>当前 alpha 没有代码签名或 macOS 公证。发布文件提供 SHA-256 完整性校验，但这不等于 可信签名。服务端软件和第三方扩展会以你的用户权限执行。请使用专用账户，不要安装 来源不明的文件。软件按仓库的 MIT OR Apache-2.0 许可证提供，不保证持续可用或数据可恢复。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#supported-scope">支持范围 →</a></nav>
 </section>
 <section class="doc-section" id="supported-scope"><header class="doc-section-head"><span class="doc-section-kicker">02 / 开始使用</span><h2>支持范围</h2></header>
-<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>平台</th><th><code>v0.2.1</code> 发布目标</th></tr></thead><tbody><tr><td>macOS 13+ Apple Silicon</td><td><code>aarch64-apple-darwin</code></td></tr><tr><td>Linux x86_64</td><td><code>x86_64-unknown-linux-gnu</code></td></tr><tr><td>Linux arm64</td><td><code>aarch64-unknown-linux-gnu</code></td></tr><tr><td>Intel macOS</td><td>当前版本不提供</td></tr></tbody></table></div>
+<div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>平台</th><th><code>v0.2.2</code> 发布目标</th></tr></thead><tbody><tr><td>macOS 13+ Apple Silicon</td><td><code>aarch64-apple-darwin</code></td></tr><tr><td>Linux x86_64</td><td><code>x86_64-unknown-linux-gnu</code></td></tr><tr><td>Linux arm64</td><td><code>aarch64-unknown-linux-gnu</code></td></tr><tr><td>Intel macOS</td><td>当前版本不提供</td></tr></tbody></table></div>
+<p><strong>准备好再继续：</strong> 先安装匹配游戏版本的 Java；应用对 1.21.x 推荐 Java 21，对 26.x 推荐 Java 25+。Paper 向导只发现本机运行时，不自动安装 Java。</p>
 <p>TUI 依赖 Unix socket 和 Unix 进程语义，本版本不支持 Windows。建议使用至少 80×24 的终端；40×12 可用，但会减少装饰和辅助信息。</p>
 <p>Java 必须与 Minecraft/服务端版本匹配。向导会发现本机 Java 并给出推荐，但服务端版本、 插件/模组和玩家客户端兼容性仍由你确认。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#install">安装 →</a></nav>
 </section>
 <section class="doc-section" id="install"><header class="doc-section-head"><span class="doc-section-kicker">03 / 开始使用</span><h2>安装</h2></header>
 <h3 id="使用-release-安装器">使用 release 安装器</h3>
-<p><code>v0.2.1</code> 是 pre-release，请使用带 tag 的地址：</p>
-<div class="docs-code"><div class="docs-code-bar"><span>终端</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>TAG=v0.2.1
+<p><code>v0.2.2</code> 是 pre-release，请使用带 tag 的地址：</p>
+<div class="docs-code"><div class="docs-code-bar"><span>终端</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>TAG=v0.2.2
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc</code></pre></div>
@@ -118,6 +116,9 @@ mc</code></pre></div>
 <div class="docs-code"><div class="docs-code-bar"><span>终端</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>mc setup --no-service
 mc daemon run   # 终端 1
 mc tui          # 终端 2</code></pre></div>
+<p><strong>应该看到：</strong> <code>mc setup</code> 完成配置与服务初始化；运行 <code>mc</code> 后，空会话显示 Paper、Fabric、整合包三个入口，底部显示管理服务已连接。输入命令或点击入口即可开始。 输入中的内容会替换欢迎页，操作结果不会被欢迎内容遮住。</p>
+<p><strong>如果没有成功：</strong> 找不到 <code>mc</code> 时，执行 <code>export PATH="$HOME/.local/bin:$PATH"</code>； 管理服务未连接时，执行 <code>mc service status --json</code> 与 <code>mc service start</code>。 需要查看将要写入的位置时，先运行 <code>mc setup --dry-run</code>。</p>
+<figure class="doc-figure"><img src="../../assets/welcome-0.2.2.png" alt="首次使用欢迎页 · v0.2.2 实际 TUI · 演示数据" loading="lazy" width="771" height="504"><figcaption>首次使用欢迎页 · v0.2.2 实际 TUI · 演示数据</figcaption></figure>
 <h3 id="从源码构建">从源码构建</h3>
 <p>仓库固定 Rust 1.89.0：</p>
 <div class="docs-code"><div class="docs-code-bar"><span>终端</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>git clone https://github.com/JUANWANG-BUAA/mc-server-tui.git
@@ -130,21 +131,33 @@ cargo build --workspace
 <div class="docs-code"><div class="docs-code-bar"><span>终端</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>mc version --json
 mc status --json
 mc doctor --json</code></pre></div>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#create-the-first-server">创建首个服务器 →</a></nav>
 </section>
 <section class="doc-section" id="create-the-first-server"><header class="doc-section-head"><span class="doc-section-kicker">04 / 开始使用</span><h2>创建第一个服务器</h2></header>
-<p>启动 <code>mc</code> 后输入：</p>
+<p>欢迎页中的 Paper 入口会打开向导。也可以在 <code>mc</code> 会话输入以下命令并按 Enter：</p>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>/create</code></pre></div>
 <p>Paper 引导流程包括：</p>
 <ol><li>实例名称与 Minecraft 版本；</li><li>Java、内存范围和服务端端口；</li><li>服务端产物、下载来源、内存、端口与 EULA 的最终检查。</li></ol>
+<figure class="doc-figure"><img src="../../assets/create-0.2.1.png" alt="Paper 向导 · v0.2.1 截图，v0.2.2 沿用布局 · 演示数据" loading="lazy" width="867" height="504"><figcaption>Paper 向导 · v0.2.1 截图，v0.2.2 沿用布局 · 演示数据</figcaption></figure>
 <p>运行设置默认展示摘要，并保留实例名与游戏版本。Enter 接受当前设置，F3 或 Tab 展开 Java、内存与端口。</p>
 <p>新版年号版本如 <code>26.3</code>、<code>26.2</code> 会排在旧式 <code>1.21.x</code> 前面。请选择玩家客户端实际使用的 精确版本。EULA 必须由你明确确认，默认不会勾选。</p>
 <p>提交后使用：</p>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>/tasks
 /task &lt;序号&gt;</code></pre></div>
 <p>查看下载字节、来源、速度、阶段和取消状态。</p>
-<p>Fabric 建服：</p>
+<h3 id="确认实例并首次连接">确认实例并首次连接</h3>
+<p><strong>应该看到：</strong> 创建任务完成，<code>/instances</code> 中出现新实例。先选择它，再启动：</p>
+<div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>/instances
+/use &lt;序号或名称&gt;
+/start
+/connect</code></pre></div>
+<p>等待 Minecraft 状态显示就绪，再用相同游戏版本的 Java 客户端连接。 同机通常为 <code>localhost:25565</code>，以 <code>/connect</code> 显示的端口为准；异机还要检查网络与防火墙。 底部“管理服务已连接”不等于 Minecraft 已就绪。</p>
+<p><strong>如果没有成功：</strong> <code>/tasks</code> 和 <code>/task &lt;序号&gt;</code> 查看建服失败原因， <code>/open</code> 或 <code>/logs</code> 查看启动日志。关闭错误弹窗后可以回到原来的页面修正设置。</p>
+<h3 id="创建-fabric">创建 Fabric</h3>
+<p>点击 Fabric 入口只会填入 <code>/fabric </code> 草稿，不会自动提交。 补充名称、精确游戏版本，并在阅读且同意 Minecraft EULA 后加入确认参数：</p>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>/fabric MyFabricServer 1.21.11 --accept-eula</code></pre></div>
-<p>该路径会解析稳定 Fabric loader、检查 Java 和端口，并创建受管实例。</p>
+<p>该路径会解析稳定 Fabric loader、准备兼容 Java、检查端口，并创建受管实例。 参数不完整时只显示用法，不会创建服务器。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#session-shell">会话 shell →</a></nav>
 </section>
 <section class="doc-section" id="session-shell"><header class="doc-section-head"><span class="doc-section-kicker">05 / 日常操作</span><h2>会话 shell</h2></header>
 <p>默认界面是会话 shell。不带 <code>/</code> 的文本会发送给当前 Minecraft 控制台；斜杠命令用于 管理应用。</p>
@@ -152,21 +165,27 @@ mc doctor --json</code></pre></div>
 <div class="docs-table-wrap"><table class="docs-table"><thead><tr><th>命令</th><th>用途</th></tr></thead><tbody><tr><td><code>/help</code>、<code>F1</code></td><td>查看全部命令和快捷键</td></tr><tr><td><code>/instances</code>、<code>/use &lt;序号或名称&gt;</code></td><td>列出并选择实例</td></tr><tr><td><code>/open</code></td><td>打开当前实例详情</td></tr><tr><td><code>/start</code>、<code>/stop</code>、<code>/restart</code></td><td>启动、优雅停止、受控重启</td></tr><tr><td><code>/logs</code></td><td>在会话中查看控制台尾部</td></tr><tr><td><code>/console &lt;命令&gt;</code></td><td>向 Minecraft 控制台发送命令</td></tr><tr><td><code>/tasks</code>、<code>/task &lt;n&gt;</code>、<code>/cancel [n]</code></td><td>查看或取消持久任务</td></tr><tr><td><code>/backup</code>、<code>/backups</code></td><td>创建或管理停机世界备份</td></tr><tr><td><code>/config</code></td><td>编辑四个常用 <code>server.properties</code> 字段</td></tr><tr><td><code>/players [操作] [玩家]</code></td><td>OP、白名单、封禁、解封、踢出、LuckPerms</td></tr><tr><td><code>/rg [-i] [-e] &lt;模式&gt;</code></td><td>搜索当前和轮转日志</td></tr><tr><td><code>/connect</code>、<code>/monitor</code></td><td>查看联机地址和运行状态</td></tr><tr><td><code>/mods</code>、<code>/import</code>、<code>/export</code></td><td>扩展和整合包流程</td></tr><tr><td><code>/pages</code>、<code>/page &lt;n&gt;</code>、<code>/close [n]</code></td><td>工作区页面</td></tr><tr><td><code>/theme [主题]</code>、<code>F2</code></td><td>主题</td></tr><tr><td><code>/quit</code></td><td>退出 TUI；服务端和任务继续运行</td></tr></tbody></table></div>
 <p>快捷键：<code>Enter</code> 提交、<code>Tab</code> 补全、<code>←/→</code> 移动光标、<code>Home/End</code> 行首尾、 <code>↑/↓</code> 历史或选择、<code>Ctrl-K</code> 命令面板、<code>F2</code> 主题、<code>F1</code> 帮助。</p>
 <p>顶部固定当前实例、下一步动作与资源，后台进度只显示一次；管理服务连接与游戏就绪 分别显示。控制台草稿标明目标并绑定开始输入时的实例。切换实例后，需切回原实例 或按 Esc 清空重写，才能发送。实例日志页 F3 展开诊断，Ctrl-K 也能找到相同入口。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#lifecycle-readiness">生命周期 →</a></nav>
 </section>
 <section class="doc-section" id="lifecycle-readiness"><header class="doc-section-head"><span class="doc-section-kicker">06 / 日常操作</span><h2>生命周期与就绪</h2></header>
 <ul><li><code>/start</code> 幂等启动，并检查 Java、server.jar、端口和进程身份。</li><li><code>/stop</code> 发送 Minecraft 的优雅 <code>stop</code>，等待已验证进程退出；超时不会强杀 Java。</li><li><code>/restart</code> 只接受已验证的 starting/running 进程，先优雅停止，确认干净退出后再启动 同一实例。停止不干净时不会自动创建替代进程。</li><li>就绪必须有服务端 <code>Done (</code> 标记；端口打开不等于服务器可加入。</li><li>关闭 TUI 或 daemon 不会杀死常驻 runner 或 Java 进程。</li></ul>
 <p>实例详情页 <code>/open</code> 提供生命周期、控制台、日志、进程身份、CPU/RSS 和告警。<code>R</code> 执行 受控重启，<code>c</code> 打开配置。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#common-configuration">常用配置 →</a></nav>
 </section>
 <section class="doc-section" id="common-configuration"><header class="doc-section-head"><span class="doc-section-kicker">07 / 日常操作</span><h2>常用服务端配置</h2></header>
 <div class="docs-code"><div class="docs-code-bar"><span>TUI</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>/config</code></pre></div>
 <p>当前编辑器支持 MOTD、人数上限、难度和视距。保存前会展示差异，保留未知键和注释； 文件被外部修改时会拒绝覆盖。运行中保存不会自动重启，需要 <code>/restart</code> 或 <code>R</code> 后生效。</p>
 <p>原始编辑、完整属性目录和逐版本校验尚未实现。其余属性请在服务器停止时直接编辑 <code>server.properties</code>，并先保留自己的备份。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#backups-restore">备份与恢复 →</a></nav>
 </section>
 <section class="doc-section" id="backups-restore"><header class="doc-section-head"><span class="doc-section-kicker">08 / 日常操作</span><h2>备份与恢复</h2></header>
-<p>当前只支持停服备份。</p>
-<ol><li>停止服务器并等待状态为 <code>stopped</code>；</li><li>执行 <code>/backup</code>；</li><li>打开 <code>/backups</code> 并选择已验证快照；</li><li>按 <code>v</code> 复验，按 <code>Enter</code> 生成恢复计划；</li><li>检查受影响世界、增加/替换/移除目录、staging 空间和安全步骤；</li><li>输入精确的 <code>RESTORE</code> 确认并提交。</li></ol>
+<p>当前只支持停服备份。先运行 <code>/stop</code>，等待状态变为 <code>stopped</code>，再执行 <code>/backup</code>。 <code>/tasks</code> 中任务完成后，再进入 <code>/backups</code> 查看快照。</p>
+<p><strong>应该看到：</strong> 快照有明确时间、文件数和大小。校验成功后才能据此继续恢复； 列表中存在一条快照，不代表它已经通过本次校验。</p>
+<ol><li>停止服务器并等待状态为 <code>stopped</code>；</li><li>执行 <code>/backup</code>；</li><li>打开 <code>/backups</code> 并选择已验证快照；</li><li>按 <code>v</code> 复验，按 <code>Enter</code> 生成恢复计划；</li><li>检查受影响世界、增加/替换/移除目录、staging 空间和安全步骤；</li><li>按 <code>c</code>，输入精确的 <code>RESTORE</code> 确认并提交。</li></ol>
 <p>恢复使用事务和回滚证据，提交前不会报告成功。恢复完成后服务器保持停止，需要手动启动， 并用 Minecraft 客户端验证世界内容。当前没有在线备份或定时备份。</p>
+<figure class="doc-figure"><img src="../../assets/backups-0.2.1.png" alt="备份管理 · v0.2.1 截图，v0.2.2 沿用布局 · 演示数据" loading="lazy" width="867" height="504"><figcaption>备份管理 · v0.2.1 截图，v0.2.2 沿用布局 · 演示数据</figcaption></figure>
 <p>备份详情使用本地时间并标注 UTC 偏移；F3 查看技术证据。创建备份后按 <code>r</code> 刷新。 恢复会替换预览列出的世界，不会合并备份之后的进度。按 <code>c</code> 后输入完整 <code>RESTORE</code> 确认。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#players-logs-workspaces">玩家与日志 →</a></nav>
 </section>
 <section class="doc-section" id="players-logs-workspaces"><header class="doc-section-head"><span class="doc-section-kicker">09 / 日常操作</span><h2>玩家、日志与工作区</h2></header>
 <p>示例：</p>
@@ -178,10 +197,12 @@ mc doctor --json</code></pre></div>
 <p>按玩家名执行在线操作可能需要 Mojang 档案查询，受限网络下可能超时。TUI 会显示服务端 响应或超时错误，不会伪造成功。</p>
 <p><code>/rg</code> 搜索当前和上一份轮转日志，<code>/logs</code> 显示最近输出，<code>/monitor</code> 显示游戏状态和在线 人数。CPU/RSS 是本机观测，不等于 TPS/MSPT 或 JVM 堆指标。</p>
 <p>工作区页面会保留日志过滤和阅读位置；关闭页面不会停止服务端。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#fabric-addons-server-packs">Fabric 与整合包 →</a></nav>
 </section>
 <section class="doc-section" id="fabric-addons-server-packs"><header class="doc-section-head"><span class="doc-section-kicker">10 / 日常操作</span><h2>Fabric、扩展与整合包</h2></header>
 <ul><li><code>/mods search &lt;名称&gt;</code>、<code>/mods install &lt;名称&gt;</code> 安装受支持的 Modrinth Paper 插件 或 Fabric 模组、必需目录依赖和已验证 JAR；实例必须停止。</li><li><code>/import</code> 预览 <code>.mrpack</code> 或服务端 ZIP；<code>/import &lt;路径&gt; --apply</code> 暂存并校验兼容的 <code>mods</code>、<code>plugins</code>、<code>config</code>，拒绝冲突、越界路径、世界/身份数据、<code>server.jar</code> 和 <code>server.properties</code>。</li><li><code>/export &lt;路径.zip&gt;</code> 生成带 SHA-256 清单的服务端扩展和配置包，不是客户端启动器包。</li></ul>
 <p>导入不会执行包内脚本，也不证明组合后的插件/模组一定能启动。导入后必须验证。 Forge/NeoForge 和 CurseForge 文件 ID 下载尚未实现。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#cli">CLI →</a></nav>
 </section>
 <section class="doc-section" id="cli"><header class="doc-section-head"><span class="doc-section-kicker">11 / 运维</span><h2>CLI</h2></header>
 <p>CLI 与 TUI 使用同一套类型化 daemon API：</p>
@@ -194,6 +215,7 @@ mc cli backup list &lt;实例 ID&gt;
 mc cli task list
 mc cli modpack inspect /path/server.mrpack</code></pre></div>
 <p>生命周期命令返回的是状态观察；服务器可能仍是 <code>starting</code>。请继续轮询详情，直到观察到 就绪标记，或在 TUI 中查看。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#service-update-data">服务与数据 →</a></nav>
 </section>
 <section class="doc-section" id="service-update-data"><header class="doc-section-head"><span class="doc-section-kicker">12 / 运维</span><h2>服务、更新与数据</h2></header>
 <div class="docs-code"><div class="docs-code-bar"><span>终端</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>mc service install
@@ -204,8 +226,14 @@ mc update status
 mc update rollback --dry-run</code></pre></div>
 <p>用户服务监督 daemon；Java 由独立常驻 runner 持有。<code>mc service restart</code> 只重启 daemon， 不会杀死正在运行的服务器。卸载默认保留实例数据，只有明确要求清理时才可能删除。</p>
 <p><code>mc doctor</code> 会打印精确数据目录。世界位于 <code>&lt;state&gt;/instances/&lt;uuid&gt;/server/</code>。服务端运行时不要编辑 UUID 目录。配置、socket、 state 和 cache 路径可在 <code>config.toml</code> 或文档化环境变量中覆盖。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#troubleshooting">排错 →</a></nav>
 </section>
 <section class="doc-section" id="troubleshooting"><header class="doc-section-head"><span class="doc-section-kicker">13 / 运维</span><h2>排错</h2></header>
+<h3 id="先读操作失败弹窗">先读操作失败弹窗</h3>
+<p>创建、实例管理、控制台、备份、整合包检查和配置操作失败时，弹窗显示实际原因和恢复建议。 按 <code>d</code> 或 F3 展开错误代码与证据，↑/↓ 或滚轮滚动，Esc 或 Enter 关闭。 弹窗打开期间，普通按键、粘贴与点击不会触发背后的操作；关闭后原页面和草稿仍保留。 弹窗不会自动重试，也没有剪贴板复制功能。后台连接轮询失败仍显示在状态栏。</p>
+<p>按建议修正后，手动重新提交。需要报告问题时，记录原因、错误代码和相关日志，先检查其中的路径与敏感信息。</p>
+<figure class="doc-figure"><img src="../../assets/error-0.2.2.png" alt="错误详情展开 · v0.2.2 实际 TUI · 模拟 Java 检测失败" loading="lazy" width="771" height="504"><figcaption>错误详情展开 · v0.2.2 实际 TUI · 模拟 Java 检测失败</figcaption></figure>
+<h3 id="检查服务与环境">检查服务与环境</h3>
 <p>先运行：</p>
 <div class="docs-code"><div class="docs-code-bar"><span>终端</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>mc version --json
 mc doctor --json
@@ -217,14 +245,18 @@ mc status --json</code></pre></div>
 <div class="docs-code"><div class="docs-code-bar"><span>终端</span><button class="docs-code-copy" type="button" data-copy-label="复制" data-copied-label="已复制" data-failed-label="手动选择">复制</button></div><pre><code>mc service status --json
 mc service start
 mc doctor --json</code></pre></div>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#network-exposure">网络暴露 →</a></nav>
 </section>
 <section class="doc-section" id="network-exposure"><header class="doc-section-head"><span class="doc-section-kicker">14 / 运维</span><h2>网络暴露</h2></header>
 <p><code>/connect</code> 会列出本机、局域网和可能的外网地址，但不能证明远端朋友一定可连接。 端口转发、NAT、防火墙、运营商限制和 DNS 不在应用控制范围内。</p>
 <p>不要把管理主机直接暴露到公网。请使用专用用户、限制文件权限、保持 daemon socket 私有、 配置防火墙，并审查插件/模组权限。Minecraft 服务端和第三方代码可能存在漏洞。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#evidence-current-limitations">证据与限制 →</a></nav>
 </section>
 <section class="doc-section" id="evidence-current-limitations"><header class="doc-section-head"><span class="doc-section-kicker">15 / 可信信息</span><h2>证据与当前限制</h2></header>
-<p><a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md" target="_blank" rel="noreferrer">v0.2.1 验收记录</a>包含 224 项自动测试、四套 PTY、v8–v11 协议检查，以及隔离真实 Paper 的控制台、停服、备份、标记文件恢复和恢复后就绪演练。这些结果不能证明所有世界、插件组合、网络和客户端 场景都可用。真实 Minecraft 客户端加入和恢复后进入世界核验仍待完成。</p>
+<p><a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.2/docs/acceptance/0.2.2.md" target="_blank" rel="noreferrer">v0.2.2 验收记录</a>记录本轮 Rust、五套 PTY、协议窗口与双语网页验证。 此前的 <a href="https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md" target="_blank" rel="noreferrer">v0.2.1 真实 Paper 演练</a>完成控制台、停服、备份、标记文件恢复与恢复后就绪；本轮没有将它记为新的游戏进程验收。 这些检查不证明所有世界、插件、网络或客户端场景都可用。真实客户端进入恢复后的世界核验仍待完成。</p>
+<p>任务历史会持久保存，但 daemon 重启会将排队和执行中的任务标记为 <code>interrupted</code>，不会自动重放。 下载文件的续传能力不等于整个任务自动恢复。</p>
 <p>当前缺口包括 Vanilla、接管现有目录、完整 <code>server.properties</code>、在线/定时备份、 Forge/NeoForge、CurseForge 文件 ID 下载、签名/公证、签名自动更新器、状态迁移、 更新前任务排空和真实 Linux 服务验证。</p>
+<nav class="chapter-next" aria-label="下一章"><span>下一章</span><a href="#license-no-warranty-notice">许可证与免责声明 →</a></nav>
 </section>
 <section class="doc-section" id="license-no-warranty-notice"><header class="doc-section-head"><span class="doc-section-kicker">16 / 可信信息</span><h2>许可证与免责声明</h2></header>
 <p>项目采用 MIT OR Apache-2.0 许可证。许可证治理软件本身，不提供本手册之外的保证或支持 承诺。你需要对备份、访问控制、托管内容、第三方许可证、Minecraft EULA 和适用法律负责。</p>
@@ -240,7 +272,7 @@ mc doctor --json</code></pre></div>
 
       <aside class="docs-toc">
         <p>本页内容</p>
-        <nav aria-label="本页内容"><a href="#read-before-hosting" data-toc-link>托管世界前请先阅读</a><a href="#supported-scope" data-toc-link>支持范围</a><a href="#install" data-toc-link>安装</a><a href="#create-the-first-server" data-toc-link>创建第一个服务器</a><a href="#session-shell" data-toc-link>会话 shell</a><a href="#lifecycle-readiness" data-toc-link>生命周期与就绪</a><a href="#common-configuration" data-toc-link>常用服务端配置</a><a href="#backups-restore" data-toc-link>备份与恢复</a><a href="#players-logs-workspaces" data-toc-link>玩家、日志与工作区</a><a href="#fabric-addons-server-packs" data-toc-link>Fabric、扩展与整合包</a><a href="#cli" data-toc-link>CLI</a><a href="#service-update-data" data-toc-link>服务、更新与数据</a><a href="#troubleshooting" data-toc-link>排错</a><a href="#network-exposure" data-toc-link>网络暴露</a><a href="#evidence-current-limitations" data-toc-link>证据与当前限制</a><a href="#license-no-warranty-notice" data-toc-link>许可证与免责声明</a></nav>
+        <nav aria-label="本页内容"><a href="#read-before-hosting" data-toc-link>从这里开始</a><a href="#supported-scope" data-toc-link>支持范围</a><a href="#install" data-toc-link>安装</a><a href="#create-the-first-server" data-toc-link>创建第一个服务器</a><a href="#session-shell" data-toc-link>会话 shell</a><a href="#lifecycle-readiness" data-toc-link>生命周期与就绪</a><a href="#common-configuration" data-toc-link>常用服务端配置</a><a href="#backups-restore" data-toc-link>备份与恢复</a><a href="#players-logs-workspaces" data-toc-link>玩家、日志与工作区</a><a href="#fabric-addons-server-packs" data-toc-link>Fabric、扩展与整合包</a><a href="#cli" data-toc-link>CLI</a><a href="#service-update-data" data-toc-link>服务、更新与数据</a><a href="#troubleshooting" data-toc-link>排错</a><a href="#network-exposure" data-toc-link>网络暴露</a><a href="#evidence-current-limitations" data-toc-link>证据与当前限制</a><a href="#license-no-warranty-notice" data-toc-link>许可证与免责声明</a></nav>
       </aside>
     </div>
   </main>
@@ -253,8 +285,8 @@ mc doctor --json</code></pre></div>
     </div>
     <p>面向 macOS 与 Linux 的终端优先 Minecraft Java 服务端管理工具。</p>
     <div class="footer-links">
-      <a href="../../">首页</a>
-      <a href="../">文档</a>
+      <a href="../../zh-CN/">首页</a>
+      <a href="./">文档</a>
       <a href="../" hreflang="en">English</a>
       <a href="https://github.com/JUANWANG-BUAA/mc-server-tui" target="_blank" rel="noreferrer">GitHub</a>
     </div>

@@ -1,10 +1,16 @@
 # mc-server-tui 使用手册
 
-> 适用于 `v0.2.1`（未签名 alpha pre-release）。
+> 适用于 `v0.2.2`（未签名 alpha pre-release）。
 > 本文描述当前已发布的 alpha，不承诺生产稳定性、数据恢复成功、对所有整合包的兼容，
 > 也不承诺支持所有 Minecraft 版本。
 
-## 1. 托管世界前请先阅读
+## 1. 从这里开始
+
+这份教程带你完成三个结果：创建一个受管实例、用客户端连接它、为世界保留一份可校验的备份。
+首次使用按第 2–4 节操作；已有实例从第 5 节开始；遇到失败直接看第 13 节。
+每个操作都标明应该看到的结果。完整命令可以在应用内输入 `/help` 查看。
+
+### 托管世界前
 
 `mc-server-tui` 是独立的终端 Minecraft Java 服务端管理工具，与 Mojang、
 Microsoft、PaperMC、Modrinth、Fabric、Forge 均无隶属关系。Minecraft 及相关商标
@@ -24,12 +30,14 @@ Microsoft、PaperMC、Modrinth、Fabric、Forge 均无隶属关系。Minecraft �
 
 ## 2. 支持范围
 
-| 平台 | `v0.2.1` 发布目标 |
+| 平台 | `v0.2.2` 发布目标 |
 | --- | --- |
 | macOS 13+ Apple Silicon | `aarch64-apple-darwin` |
 | Linux x86_64 | `x86_64-unknown-linux-gnu` |
 | Linux arm64 | `aarch64-unknown-linux-gnu` |
 | Intel macOS | 当前版本不提供 |
+
+**准备好再继续：** 先安装匹配游戏版本的 Java；应用对 1.21.x 推荐 Java 21，对 26.x 推荐 Java 25+。Paper 向导只发现本机运行时，不自动安装 Java。
 
 TUI 依赖 Unix socket 和 Unix 进程语义，本版本不支持 Windows。建议使用至少 80×24
 的终端；40×12 可用，但会减少装饰和辅助信息。
@@ -41,10 +49,10 @@ Java 必须与 Minecraft/服务端版本匹配。向导会发现本机 Java 并�
 
 ### 使用 release 安装器
 
-`v0.2.1` 是 pre-release，请使用带 tag 的地址：
+`v0.2.2` 是 pre-release，请使用带 tag 的地址：
 
 ```sh
-TAG=v0.2.1
+TAG=v0.2.2
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -58,6 +66,16 @@ mc setup --no-service
 mc daemon run   # 终端 1
 mc tui          # 终端 2
 ```
+
+**应该看到：** `mc setup` 完成配置与服务初始化；运行 `mc` 后，空会话显示
+Paper、Fabric、整合包三个入口，底部显示管理服务已连接。输入命令或点击入口即可开始。
+输入中的内容会替换欢迎页，操作结果不会被欢迎内容遮住。
+
+**如果没有成功：** 找不到 `mc` 时，执行 `export PATH="$HOME/.local/bin:$PATH"`；
+管理服务未连接时，执行 `mc service status --json` 与 `mc service start`。
+需要查看将要写入的位置时，先运行 `mc setup --dry-run`。
+
+![首次使用欢迎页 · v0.2.2 实际 TUI · 演示数据](../site/assets/welcome-0.2.2.png)
 
 ### 从源码构建
 
@@ -82,7 +100,7 @@ mc doctor --json
 
 ## 4. 创建第一个服务器
 
-启动 `mc` 后输入：
+欢迎页中的 Paper 入口会打开向导。也可以在 `mc` 会话输入以下命令并按 Enter：
 
 ```text
 /create
@@ -93,6 +111,8 @@ Paper 引导流程包括：
 1. 实例名称与 Minecraft 版本；
 2. Java、内存范围和服务端端口；
 3. 服务端产物、下载来源、内存、端口与 EULA 的最终检查。
+
+![Paper 向导 · v0.2.1 截图，v0.2.2 沿用布局 · 演示数据](../site/assets/create-0.2.1.png)
 
 运行设置默认展示摘要，并保留实例名与游戏版本。Enter 接受当前设置，F3 或 Tab
 展开 Java、内存与端口。
@@ -109,13 +129,35 @@ Paper 引导流程包括：
 
 查看下载字节、来源、速度、阶段和取消状态。
 
-Fabric 建服：
+### 确认实例并首次连接
+
+**应该看到：** 创建任务完成，`/instances` 中出现新实例。先选择它，再启动：
+
+```text
+/instances
+/use <序号或名称>
+/start
+/connect
+```
+
+等待 Minecraft 状态显示就绪，再用相同游戏版本的 Java 客户端连接。
+同机通常为 `localhost:25565`，以 `/connect` 显示的端口为准；异机还要检查网络与防火墙。
+底部“管理服务已连接”不等于 Minecraft 已就绪。
+
+**如果没有成功：** `/tasks` 和 `/task <序号>` 查看建服失败原因，
+`/open` 或 `/logs` 查看启动日志。关闭错误弹窗后可以回到原来的页面修正设置。
+
+### 创建 Fabric
+
+点击 Fabric 入口只会填入 `/fabric ` 草稿，不会自动提交。
+补充名称、精确游戏版本，并在阅读且同意 Minecraft EULA 后加入确认参数：
 
 ```text
 /fabric MyFabricServer 1.21.11 --accept-eula
 ```
 
-该路径会解析稳定 Fabric loader、检查 Java 和端口，并创建受管实例。
+该路径会解析稳定 Fabric loader、准备兼容 Java、检查端口，并创建受管实例。
+参数不完整时只显示用法，不会创建服务器。
 
 ## 5. 会话 shell
 
@@ -176,17 +218,23 @@ Fabric 建服：
 
 ## 8. 备份与恢复
 
-当前只支持停服备份。
+当前只支持停服备份。先运行 `/stop`，等待状态变为 `stopped`，再执行 `/backup`。
+`/tasks` 中任务完成后，再进入 `/backups` 查看快照。
+
+**应该看到：** 快照有明确时间、文件数和大小。校验成功后才能据此继续恢复；
+列表中存在一条快照，不代表它已经通过本次校验。
 
 1. 停止服务器并等待状态为 `stopped`；
 2. 执行 `/backup`；
 3. 打开 `/backups` 并选择已验证快照；
 4. 按 `v` 复验，按 `Enter` 生成恢复计划；
 5. 检查受影响世界、增加/替换/移除目录、staging 空间和安全步骤；
-6. 输入精确的 `RESTORE` 确认并提交。
+6. 按 `c`，输入精确的 `RESTORE` 确认并提交。
 
 恢复使用事务和回滚证据，提交前不会报告成功。恢复完成后服务器保持停止，需要手动启动，
 并用 Minecraft 客户端验证世界内容。当前没有在线备份或定时备份。
+
+![备份管理 · v0.2.1 截图，v0.2.2 沿用布局 · 演示数据](../site/assets/backups-0.2.1.png)
 
 备份详情使用本地时间并标注 UTC 偏移；F3 查看技术证据。创建备份后按 `r` 刷新。
 恢复会替换预览列出的世界，不会合并备份之后的进度。按 `c` 后输入完整 `RESTORE` 确认。
@@ -261,6 +309,19 @@ state 和 cache 路径可在 `config.toml` 或文档化环境变量中覆盖。
 
 ## 13. 排错
 
+### 先读操作失败弹窗
+
+创建、实例管理、控制台、备份、整合包检查和配置操作失败时，弹窗显示实际原因和恢复建议。
+按 `d` 或 F3 展开错误代码与证据，↑/↓ 或滚轮滚动，Esc 或 Enter 关闭。
+弹窗打开期间，普通按键、粘贴与点击不会触发背后的操作；关闭后原页面和草稿仍保留。
+弹窗不会自动重试，也没有剪贴板复制功能。后台连接轮询失败仍显示在状态栏。
+
+按建议修正后，手动重新提交。需要报告问题时，记录原因、错误代码和相关日志，先检查其中的路径与敏感信息。
+
+![错误详情展开 · v0.2.2 实际 TUI · 模拟 Java 检测失败](../site/assets/error-0.2.2.png)
+
+### 检查服务与环境
+
 先运行：
 
 ```sh
@@ -300,9 +361,12 @@ mc doctor --json
 
 ## 15. 证据与当前限制
 
-[v0.2.1 验收记录](https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md)包含 224 项自动测试、四套 PTY、v8–v11
-协议检查，以及隔离真实 Paper 的控制台、停服、备份、标记文件恢复和恢复后就绪演练。这些结果不能证明所有世界、插件组合、网络和客户端
-场景都可用。真实 Minecraft 客户端加入和恢复后进入世界核验仍待完成。
+[v0.2.2 验收记录](https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.2/docs/acceptance/0.2.2.md)记录本轮 Rust、五套 PTY、协议窗口与双语网页验证。
+此前的 [v0.2.1 真实 Paper 演练](https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md)完成控制台、停服、备份、标记文件恢复与恢复后就绪；本轮没有将它记为新的游戏进程验收。
+这些检查不证明所有世界、插件、网络或客户端场景都可用。真实客户端进入恢复后的世界核验仍待完成。
+
+任务历史会持久保存，但 daemon 重启会将排队和执行中的任务标记为 `interrupted`，不会自动重放。
+下载文件的续传能力不等于整个任务自动恢复。
 
 当前缺口包括 Vanilla、接管现有目录、完整 `server.properties`、在线/定时备份、
 Forge/NeoForge、CurseForge 文件 ID 下载、签名/公证、签名自动更新器、状态迁移、

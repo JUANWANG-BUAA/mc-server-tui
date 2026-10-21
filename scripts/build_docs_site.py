@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import html
 import re
+import struct
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from build_landing_site import VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,7 +23,7 @@ class Section:
 
 
 EN_SECTIONS = (
-    Section("read-before-hosting", "Before hosting", "Get started"),
+    Section("read-before-hosting", "Start here", "Get started"),
     Section("supported-scope", "Supported scope", "Get started"),
     Section("install", "Install", "Get started"),
     Section("create-the-first-server", "First server", "Get started"),
@@ -40,7 +42,7 @@ EN_SECTIONS = (
 )
 
 ZH_SECTIONS = (
-    Section("read-before-hosting", "托管前须知", "开始使用"),
+    Section("read-before-hosting", "开始阅读", "开始使用"),
     Section("supported-scope", "支持范围", "开始使用"),
     Section("install", "安装", "开始使用"),
     Section("create-the-first-server", "创建首个服务器", "开始使用"),
@@ -73,14 +75,14 @@ PAGES = (
         "title": "User Guide · mc-server-tui",
         "description": (
             "Install, run, back up, troubleshoot, and understand the safety limits "
-            "of the mc-server-tui v0.2.1 Minecraft server manager."
+            "of the mc-server-tui v__VERSION__ Minecraft server manager."
         ),
-        "eyebrow": "USER GUIDE · V0.2.1 ALPHA",
-        "hero_title": "Run Minecraft.<br><em>Stay in the terminal.</em>",
+        "eyebrow": "USER GUIDE · V__VERSION__ ALPHA",
+        "hero_title": "Your first server.<br><em>Then your everyday workflow.</em>",
         "hero_lede": (
             "A complete field guide to installing the alpha, creating a Paper or "
             "Fabric server, running it day to day, and recovering a world with care. "
-            "Read the safety section before you trust it with a server."
+            "Follow the expected results at each step, and use the failure guide when an operation needs attention."
         ),
         "hero_meta": ("Unsigned alpha", "16 chapters", "About 20 minutes"),
         "quick_install": "Install",
@@ -98,7 +100,7 @@ PAGES = (
         "read_label": "Read",
         "source_note_label": "Alpha note",
         "source_note": (
-            "This guide documents the shipped v0.2.1 behavior. The release is "
+            "This guide documents the shipped v__VERSION__ behavior. The release is "
             "unsigned and does not promise production stability or data recovery."
         ),
         "source_note_link": "Read the full safety guidance",
@@ -120,18 +122,18 @@ PAGES = (
         "source": ROOT / "docs" / "USER_GUIDE.zh-CN.md",
         "output": ROOT / "site" / "docs" / "zh-CN" / "index.html",
         "asset_base": "../../assets/",
-        "home": "../../",
-        "docs_home": "../",
+        "home": "../../zh-CN/",
+        "docs_home": "./",
         "alternate": "../",
         "alternate_lang": "en",
         "alternate_label": "English",
         "title": "使用手册 · mc-server-tui",
         "description": (
-            "mc-server-tui v0.2.1 中文使用手册：安装、创建服务器、日常操作、"
+            "mc-server-tui v__VERSION__ 中文使用手册：安装、创建服务器、日常操作、"
             "备份恢复、排错以及 alpha 版本的安全边界。"
         ),
-        "eyebrow": "使用手册 · V0.2.1 ALPHA",
-        "hero_title": "把 Minecraft 服务端<br><em>留在终端里。</em>",
+        "eyebrow": "使用手册 · V__VERSION__ ALPHA",
+        "hero_title": "从第一个服务器，<br><em>学会日常管理。</em>",
         "hero_lede": (
             "从安装 alpha、创建 Paper 或 Fabric 服务器，到日常运行与谨慎恢复世界，"
             "这份手册覆盖完整操作流程。把重要世界交给它之前，请先阅读安全须知。"
@@ -152,7 +154,7 @@ PAGES = (
         "read_label": "阅读",
         "source_note_label": "Alpha 提示",
         "source_note": (
-            "本手册描述 v0.2.1 已发布行为。当前版本未签名，"
+            "本手册描述 v__VERSION__ 已发布行为。当前版本未签名，"
             "不承诺生产稳定性或数据一定能够恢复。"
         ),
         "source_note_link": "阅读完整安全说明",
@@ -238,7 +240,7 @@ def render_code(
     return (
         '<div class="docs-code">'
         '<div class="docs-code-bar">'
-        f'<span>{label}</span>'
+        f"<span>{label}</span>"
         f'<button class="docs-code-copy" type="button" '
         f'data-copy-label="{html.escape(copy_label, quote=True)}" '
         f'data-copied-label="{html.escape(copied_label, quote=True)}" '
@@ -271,6 +273,14 @@ def render_guide(page: dict[str, object]) -> tuple[str, list[tuple[str, str]]]:
     def close_section() -> None:
         nonlocal in_section
         if in_section:
+            if section_index + 1 < len(display_sections):
+                next_section = display_sections[section_index + 1]
+                next_label = "下一章" if page["lang"] == "zh-CN" else "Next chapter"
+                output.append(
+                    f'<nav class="chapter-next" aria-label="{next_label}">'
+                    f'<span>{next_label}</span><a href="#{next_section.anchor}">'
+                    f"{html.escape(next_section.label)} →</a></nav>"
+                )
             output.append("</section>")
             in_section = False
 
@@ -279,6 +289,10 @@ def render_guide(page: dict[str, object]) -> tuple[str, list[tuple[str, str]]]:
         stripped = line.strip()
 
         if not stripped:
+            i += 1
+            continue
+
+        if section_index == -1 and not stripped.startswith("## "):
             i += 1
             continue
 
@@ -310,7 +324,9 @@ def render_guide(page: dict[str, object]) -> tuple[str, list[tuple[str, str]]]:
             close_section()
             section_index += 1
             if section_index >= len(display_sections):
-                raise ValueError(f"More H2 headings than configured sections in {source}")
+                raise ValueError(
+                    f"More H2 headings than configured sections in {source}"
+                )
             meta = display_sections[section_index]
             title = re.sub(r"^\d+\.\s*", "", stripped[3:].strip())
             heading_text = html.escape(title, quote=False)
@@ -327,6 +343,23 @@ def render_guide(page: dict[str, object]) -> tuple[str, list[tuple[str, str]]]:
             i += 1
             continue
 
+        image = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", stripped)
+        if image:
+            label, target = image.groups()
+            if not target.startswith("../site/assets/"):
+                raise ValueError(f"Unsupported guide image path: {target}")
+            asset = str(page["asset_base"]) + target.removeprefix("../site/assets/")
+            image_path = source.parent / target
+            width, height = struct.unpack(">II", image_path.read_bytes()[16:24])
+            output.append(
+                '<figure class="doc-figure">'
+                f'<img src="{html.escape(asset, quote=True)}" '
+                f'alt="{html.escape(label, quote=True)}" loading="lazy" width="{width}" height="{height}">'
+                f"<figcaption>{html.escape(label)}</figcaption></figure>"
+            )
+            i += 1
+            continue
+
         if stripped.startswith("### "):
             title = stripped[4:].strip()
             base = slugify(title)
@@ -336,9 +369,7 @@ def render_guide(page: dict[str, object]) -> tuple[str, list[tuple[str, str]]]:
                 anchor = f"{base}-{counter}"
                 counter += 1
             seen.add(anchor)
-            output.append(
-                f'<h3 id="{anchor}">{html.escape(title, quote=False)}</h3>'
-            )
+            output.append(f'<h3 id="{anchor}">{html.escape(title, quote=False)}</h3>')
             i += 1
             continue
 
@@ -351,7 +382,7 @@ def render_guide(page: dict[str, object]) -> tuple[str, list[tuple[str, str]]]:
             output.append(
                 '<aside class="doc-callout doc-callout-warning">'
                 f'<span class="doc-callout-label">'
-                f'{html.escape(str(page["callout_label"]))}</span>'
+                f"{html.escape(str(page['callout_label']))}</span>"
                 f"<p>{inline(quote)}</p></aside>"
             )
             continue
@@ -384,9 +415,7 @@ def render_guide(page: dict[str, object]) -> tuple[str, list[tuple[str, str]]]:
                 while (
                     i < len(lines)
                     and lines[i].strip()
-                    and not re.match(
-                        r"^\s*(?:-\s+|\d+\.\s+|#{1,3}\s|>|```)", lines[i]
-                    )
+                    and not re.match(r"^\s*(?:-\s+|\d+\.\s+|#{1,3}\s|>|```)", lines[i])
                 ):
                     item += " " + lines[i].strip()
                     i += 1
@@ -432,7 +461,7 @@ def render_sidebar(page: dict[str, object]) -> str:
 
     output = ['<div class="docs-nav-groups">']
     for group, entries in groups.items():
-        output.append(f'<div class="docs-nav-group" data-doc-group>')
+        output.append('<div class="docs-nav-group" data-doc-group>')
         output.append(f'<p class="docs-nav-label">{html.escape(group)}</p>')
         for entry in entries:
             output.append(
@@ -469,28 +498,24 @@ def render_page(page: dict[str, object]) -> str:
     sidebar = render_sidebar(page)
     toc = render_toc(page, headings)
     mobile_nav = render_mobile_nav(page)
-    hero_meta = "".join(f"<span>{html.escape(item)}</span>" for item in page["hero_meta"])
+    hero_meta = "".join(
+        f"<span>{html.escape(item)}</span>" for item in page["hero_meta"]
+    )
 
     template = """<!doctype html>
 <html lang="__LANG__" data-theme="claude">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script>
-    document.documentElement.classList.add("js");
-    window.addEventListener("error", function () {
-      document.documentElement.classList.remove("js");
-    }, true);
-  </script>
   <title>__TITLE__</title>
   <meta name="description" content="__DESCRIPTION__">
-  <meta name="theme-color" content="#0b0b0c">
+  <meta name="theme-color" content="#f5f6ef">
   <link rel="canonical" href="__CANONICAL__">
   <link rel="alternate" hreflang="en" href="__CANONICAL_EN__">
   <link rel="alternate" hreflang="zh-CN" href="__CANONICAL_ZH__">
   <link rel="alternate" hreflang="x-default" href="__CANONICAL_EN__">
   <link rel="icon" href="__ASSET__favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="__ASSET__styles.css?v=20261020-docs3">
+  <link rel="stylesheet" href="__ASSET__styles.css?v=__VERSION__">
   <meta property="og:type" content="article">
   <meta property="og:title" content="__TITLE__">
   <meta property="og:description" content="__DESCRIPTION__">
@@ -500,8 +525,8 @@ def render_page(page: dict[str, object]) -> str:
   <meta name="twitter:title" content="__TITLE__">
   <meta name="twitter:description" content="__DESCRIPTION__">
   <meta name="twitter:image" content="https://juanwang-buaa.github.io/mc-server-tui/assets/session-claude-0.2.1.png">
-  <script src="__ASSET__app.js?v=20261020-docs3" defer></script>
-  <script src="__ASSET__docs.js?v=20261020-docs3" defer></script>
+  <script src="__ASSET__app.js?v=__VERSION__" defer></script>
+  <script src="__ASSET__docs.js?v=__VERSION__" defer></script>
 </head>
 <body class="docs-page">
   <a class="skip-link" href="#main">__SKIP__</a>
@@ -608,12 +633,16 @@ __ARTICLE__
         canonical = "https://juanwang-buaa.github.io/mc-server-tui/docs/zh-CN/"
         skip = "跳到正文"
         main_nav = "主导航"
-        footer_tagline = "面向 macOS 与 Linux 的终端优先 Minecraft Java 服务端管理工具。"
+        footer_tagline = (
+            "面向 macOS 与 Linux 的终端优先 Minecraft Java 服务端管理工具。"
+        )
     else:
         canonical = "https://juanwang-buaa.github.io/mc-server-tui/docs/"
         skip = "Skip to content"
         main_nav = "Main navigation"
-        footer_tagline = "Terminal-first Minecraft Java server management for macOS and Linux."
+        footer_tagline = (
+            "Terminal-first Minecraft Java server management for macOS and Linux."
+        )
 
     replacements = {
         "__LANG__": lang,
@@ -662,7 +691,7 @@ __ARTICLE__
     result = template
     for key, value in replacements.items():
         result = result.replace(key, value)
-    return result
+    return result.replace("__VERSION__", VERSION)
 
 
 def main() -> int:

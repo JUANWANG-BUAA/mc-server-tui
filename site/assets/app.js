@@ -1,199 +1,117 @@
 (() => {
-  "use strict";
-
-  const themes = {
-    claude: {
-      label: "Claude",
-      accent: "#d97757",
-      rgb: "217, 119, 87",
-      image: "assets/session-claude-0.2.1.png",
-    },
-    deepseek: {
-      label: "DeepSeek",
-      accent: "#4d6bfe",
-      rgb: "77, 107, 254",
-      image: "assets/session-deepseek-0.2.1.png",
-    },
-    codex: {
-      label: "Codex",
-      accent: "#10a37f",
-      rgb: "16, 163, 127",
-      image: "assets/session-codex-0.2.1.png",
-    },
-    kimi: {
-      label: "Kimi",
-      accent: "#a78bfa",
-      rgb: "167, 139, 250",
-      image: "assets/session-kimi-0.2.1.png",
-    },
-    pcl2: {
-      label: "PCL2",
-      accent: "#56b8e8",
-      rgb: "86, 184, 232",
-      image: "assets/session-pcl2-0.2.1.png",
-    },
-    mono: {
-      label: "Mono",
-      accent: "#d8d8d8",
-      rgb: "216, 216, 216",
-      image: "assets/session-mono-0.2.1.png",
-    },
-    ocean: {
-      label: "Ocean",
-      accent: "#6cb6c9",
-      rgb: "108, 182, 201",
-      image: "assets/session-ocean-0.2.1.png",
-    },
-  };
-
-  const root = document.documentElement;
-  const heroShot = document.querySelector("#hero-shot");
-  const themeShot = document.querySelector("#theme-shot");
-  const heroLabel = document.querySelector("#hero-theme-label");
-  const themeLabel = document.querySelector("#theme-preview-label");
-  const controls = [...document.querySelectorAll("[data-set-theme]")];
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const hasThemePreview = Boolean(heroShot || themeShot);
-
-  function transitionImage(image, source, label) {
-    if (!image) return;
-    image.dataset.requestedSource = source;
-    image.classList.add("is-switching");
-    const next = new Image();
-    next.onload = () => {
-      if (image.dataset.requestedSource !== source) return;
-      image.src = source;
-      image.alt = `mc-server-tui ${label} theme screenshot`;
-      requestAnimationFrame(() => image.classList.remove("is-switching"));
-    };
-    next.onerror = () => {
-      if (image.dataset.requestedSource === source) image.classList.remove("is-switching");
-    };
-    next.src = source;
-  }
-
-  function applyTheme(id, persist = true) {
-    const theme = themes[id] ? themes[id] : themes.claude;
-    const selected = themes[id] ? id : "claude";
-
-    root.style.setProperty("--accent", theme.accent);
-    root.style.setProperty("--accent-rgb", theme.rgb);
-    root.style.setProperty("--accent-soft", `rgba(${theme.rgb}, 0.12)`);
-    root.dataset.theme = selected;
-
-    if (heroLabel) heroLabel.textContent = theme.label.toUpperCase();
-    if (themeLabel) themeLabel.textContent = theme.label.toUpperCase();
-    transitionImage(heroShot, theme.image, theme.label);
-    transitionImage(themeShot, theme.image, theme.label);
-
-    controls.forEach((control) => {
-      const active = control.dataset.setTheme === selected;
-      control.classList.toggle("is-active", active);
-      control.setAttribute("aria-pressed", String(active));
-    });
-
-    if (persist) {
-      try {
-        localStorage.setItem("mcst-theme", selected);
-      } catch {
-        /* localStorage can be unavailable in private contexts. */
-      }
+    "use strict";
+    const themes = new Map([
+        ["claude", "Claude"],
+        ["deepseek", "DeepSeek"],
+        ["codex", "Codex"],
+        ["kimi", "Kimi"],
+        ["pcl2", "PCL2"],
+        ["mono", "Mono"],
+        ["ocean", "Ocean"],
+    ]);
+    const image = document.querySelector("#theme-shot");
+    const label = document.querySelector("#theme-preview-label");
+    const controls = [...document.querySelectorAll("[data-set-theme]")];
+    const assets = document.body.dataset.assets || "assets/";
+    function applyTheme(id, persist = true) {
+        if (!themes.has(id) || !image) return;
+        const name = themes.get(id);
+        image.src = `${assets}session-${id}-0.2.1.png`;
+        image.alt = `${name} · mc-server-tui`;
+        if (label) label.textContent = name;
+        controls.forEach((button) =>
+            button.setAttribute(
+                "aria-pressed",
+                String(button.dataset.setTheme === id),
+            ),
+        );
+        if (persist) {
+            try {
+                localStorage.setItem("mcst-preview-theme", id);
+            } catch {
+                /* Optional preference. */
+            }
+        }
     }
-  }
-
-  controls.forEach((control) => {
-    control.addEventListener("click", () => applyTheme(control.dataset.setTheme));
-  });
-
-  let savedTheme = "claude";
-  try {
-    const stored = localStorage.getItem("mcst-theme");
-    if (stored && themes[stored]) savedTheme = stored;
-  } catch {
-    /* Keep the default. */
-  }
-  applyTheme(savedTheme, false);
-
-  if (hasThemePreview) {
-    Object.values(themes).forEach((theme) => {
-      const image = new Image();
-      image.src = theme.image;
-    });
-  }
-
-  const copyButton = document.querySelector("#copy-install");
-  const installSnippet = document.querySelector("#install-snippet");
-  if (copyButton && installSnippet) {
-    copyButton.addEventListener("click", async () => {
-      const text = installSnippet.textContent
-        .split("\n")
-        .map((line) => line.replace(/^\$\s?/, ""))
-        .join("\n")
-        .trim();
-      let copied = false;
-      try {
-        await navigator.clipboard.writeText(text);
-        copied = true;
-      } catch {
-        const helper = document.createElement("textarea");
-        helper.value = text;
-        helper.setAttribute("readonly", "");
-        helper.style.position = "fixed";
-        helper.style.opacity = "0";
-        document.body.appendChild(helper);
-        helper.select();
-        copied = document.execCommand("copy");
-        helper.remove();
-      }
-      copyButton.textContent = copied ? "Copied" : "Select";
-      copyButton.classList.toggle("is-copied", copied);
-      window.setTimeout(() => {
-        copyButton.textContent = "Copy";
-        copyButton.classList.remove("is-copied");
-      }, 1800);
-    });
-  }
-
-  const revealItems = [...document.querySelectorAll("[data-reveal]")];
-  if (!prefersReducedMotion && "IntersectionObserver" in window) {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+    controls.forEach((button) =>
+        button.addEventListener("click", () =>
+            applyTheme(button.dataset.setTheme),
+        ),
     );
-    revealItems.forEach((item) => observer.observe(item));
-  } else {
-    revealItems.forEach((item) => item.classList.add("is-visible"));
-  }
+    try {
+        applyTheme(
+            localStorage.getItem("mcst-preview-theme") || "claude",
+            false,
+        );
+    } catch {
+        /* Default stays visible. */
+    }
 
-  const header = document.querySelector("#site-header");
-  const navLinks = [...document.querySelectorAll(".nav:not(.docs-top-nav) a[href^='#']")];
-  const sections = navLinks
-    .map((link) => document.querySelector(link.getAttribute("href")))
-    .filter(Boolean);
-
-  function updateHeader() {
-    if (header) header.classList.toggle("is-scrolled", window.scrollY > 10);
-    if (!sections.length) return;
-    const offset = window.innerHeight * 0.3;
-    let active = sections[0];
-    sections.forEach((section) => {
-      if (section.getBoundingClientRect().top <= offset) active = section;
+    const tabs = [...document.querySelectorAll("[data-view]")];
+    function activateTab(selected) {
+        tabs.forEach((tab) => {
+            const active = tab === selected;
+            tab.setAttribute("aria-selected", String(active));
+            tab.tabIndex = active ? 0 : -1;
+            const panel = document.getElementById(
+                tab.getAttribute("aria-controls"),
+            );
+            if (panel) panel.hidden = !active;
+        });
+    }
+    tabs.forEach((tab, index) => {
+        tab.addEventListener("click", () => activateTab(tab));
+        tab.addEventListener("keydown", (event) => {
+            const target =
+                event.key === "ArrowRight"
+                    ? tabs[(index + 1) % tabs.length]
+                    : event.key === "ArrowLeft"
+                      ? tabs[(index + tabs.length - 1) % tabs.length]
+                      : event.key === "Home"
+                        ? tabs[0]
+                        : event.key === "End"
+                          ? tabs.at(-1)
+                          : null;
+            if (target) {
+                event.preventDefault();
+                activateTab(target);
+                target.focus();
+            }
+        });
     });
-    navLinks.forEach((link) => {
-      link.classList.toggle("is-active", link.getAttribute("href") === `#${active.id}`);
-    });
-  }
 
-  updateHeader();
-  window.addEventListener("scroll", updateHeader, { passive: true });
-
-  const year = document.querySelector("#year");
-  if (year) year.textContent = String(new Date().getFullYear());
+    document
+        .querySelectorAll("[data-copy-target], .docs-code-copy")
+        .forEach((button) => {
+            let resetTimer;
+            const original = button.textContent;
+            button.setAttribute("aria-live", "polite");
+            button.addEventListener("click", async () => {
+                const code = button.dataset.copyTarget
+                    ? document.getElementById(button.dataset.copyTarget)
+                    : button.closest(".docs-code")?.querySelector("code");
+                if (!code) return;
+                try {
+                    await navigator.clipboard.writeText(code.textContent);
+                    button.textContent =
+                        button.dataset.copied ||
+                        button.dataset.copiedLabel ||
+                        "Copied";
+                } catch {
+                    const selection = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(code);
+                    selection?.removeAllRanges();
+                    selection?.addRange(range);
+                    button.textContent =
+                        button.dataset.failed ||
+                        button.dataset.failedLabel ||
+                        "Select commands";
+                }
+                window.clearTimeout(resetTimer);
+                resetTimer = window.setTimeout(() => {
+                    button.textContent = original;
+                }, 2200);
+            });
+        });
 })();

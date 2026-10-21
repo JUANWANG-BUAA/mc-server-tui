@@ -8,14 +8,19 @@ unsigned.
 
 1. Update workspace `Cargo.toml` and `Cargo.lock`; the tag must match exactly.
    Update both READMEs, guides, site metadata, changelog and versioned release notes.
-   Regenerate documentation with `python3 scripts/build_docs_site.py`.
+   Regenerate the site with `python3 scripts/build_landing_site.py` and
+   `python3 scripts/build_docs_site.py`. Both generators read the workspace version.
+   Verify both landing languages and both guides at desktop and mobile widths.
    Record actual acceptance and remaining limits in `docs/acceptance/<version>.md`.
 2. Run locally:
 
    ```sh
    cargo fmt --all --check
-   cargo clippy --workspace --all-targets -- -D warnings
-   cargo test --workspace
+   cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+   cargo test --workspace --all-targets --locked
+   cargo test --workspace --doc --locked
+   cargo build --workspace --locked
+   python3 scripts/check_docs.py
    ```
 
 3. Commit and push `main`.
@@ -24,8 +29,8 @@ unsigned.
 ## Cut a release
 
 ```sh
-git tag -a v0.2.1 -m "mc-server-tui 0.2.1"
-git push origin v0.2.1
+git tag -a v0.2.2 -m "mc-server-tui 0.2.2"
+git push origin v0.2.2
 ```
 
 The `Release` workflow then:
@@ -45,8 +50,8 @@ build before tagging.
 ## Review and publish
 
 ```sh
-gh release view v0.2.1
-gh release download v0.2.1 --pattern 'release-manifest.json' --dir /tmp/mcst-release
+gh release view v0.2.2
+gh release download v0.2.2 --pattern 'release-manifest.json' --dir /tmp/mcst-release
 ```
 
 Check:
@@ -61,8 +66,8 @@ Check:
 Then publish the draft, optionally as a pre-release:
 
 ```sh
-gh release edit v0.2.1 --notes-file docs/releases/0.2.1.md
-gh release edit v0.2.1 --draft=false --prerelease
+gh release edit v0.2.2 --notes-file docs/releases/0.2.2.md
+gh release edit v0.2.2 --draft=false --prerelease
 ```
 
 Do not describe unsigned artifacts as production-ready. Phase 2 adds signing,

@@ -1,6 +1,6 @@
 # 快速开始
 
-适用于 v0.2.1 未签名 alpha。重要世界请保留独立备份。
+适用于 v0.2.2 未签名 alpha。重要世界请保留独立备份。
 完整操作见[中文手册](USER_GUIDE.zh-CN.md)，英文见 [User guide](USER_GUIDE.md)。
 
 ## 安装与初始化
@@ -10,7 +10,7 @@
 建议终端至少 80×24。首次下载需要访问上游网络。
 
 ```sh
-TAG=v0.2.1
+TAG=v0.2.2
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc

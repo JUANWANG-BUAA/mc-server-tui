@@ -2,6 +2,15 @@
 
 The TUI uses the daemon API and durable task event cursor; rendering and input handling stay separate from daemon I/O. This makes the UI testable without contacting Paper or waiting on real downloads.
 
+## v0.2.2 validation (2026-10-21)
+
+The first-use session now exposes the shared Paper/Fabric/import entries. Failure
+modals preserve backend evidence and recovery policy and capture keyboard, mouse
+and paste input. Current local checks cover 258 workspace tests (104 TUI tests),
+five real-binary PTY flows with isolated fixtures, and the real daemon protocol
+window. The first-use PTY flow and generated-site validation run in CI.
+See [v0.2.2 acceptance](acceptance/0.2.2.md) for this release’s exact evidence.
+
 ## v0.2.1 design validation (2026-10-20)
 
 The current layout uses a three-line selected-instance header, one two-line task
@@ -26,7 +35,7 @@ Keep the TUI split along responsibilities so screen growth does not turn the run
 - `runtime.rs` owns the async event loop, request scheduling, and result delivery. Key mapping is isolated in `runtime/input.rs`; daemon access is behind `ManagementSource` in `source.rs`.
 - `shell_view.rs` and `transcript.rs` own the default session shell: transcript, composer, inline command completion, and the selected-instance header. `shell.rs` owns the static slash-command catalog and fuzzy completion. `app/shell.rs` owns command dispatch and transcript appends.
 - `view.rs` routes to the session shell, classic dashboard, wizard, task-detail, instance-detail, and world-backup renderers. Each screen renderer owns its layout and presentation, while `theme.rs` is the single palette and shared-style boundary.
-- `theme.rs` carries three near-black palettes (`Claude`, `Mono`, `Ocean`). The selected theme is process-global, switched with `F2` or `/theme`, saved under the platform config directory, and overridable with `MC_SERVER_TUI_THEME`.
+- `theme.rs` carries seven near-black palettes (`Claude`, `DeepSeek`, `Codex`, `Kimi`, `PCL2`, `Mono`, `Ocean`). The selected theme is process-global, switched with `F2` or `/theme`, saved under the platform config directory, and overridable with `MC_SERVER_TUI_THEME`.
 - Renderers consume state and return no I/O effects. User actions update state; the runtime observes the resulting queries/commands and schedules bounded asynchronous work. Keep daemon protocol details out of view modules.
 
 The shared themes use 24-bit RGB colors for the page, surfaces, focus, status, and key hints. The default is near-black with a warm accent; `DeepSeek` uses brand blue, `Codex` green, `Kimi` violet, `PCL2` sky blue, `Mono` is grayscale, and `Ocean` is low-saturation teal. Color is reserved for focus, selected markers, status words, spinners, and active progress. Crossterm honors `NO_COLOR`; the browser color-review command removes that variable only for the visual check. Status meaning remains available through text and symbols when color is unavailable. The instance header also reads `ps -o %cpu=,rss=` for the selected server PID and shows CPU/RSS next to configured memory; a missing process is shown as unavailable rather than fabricated.

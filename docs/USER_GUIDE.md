@@ -1,11 +1,18 @@
 # mc-server-tui User Guide
 
-> Applies to `v0.2.1` (unsigned alpha pre-release).
+> Applies to `v0.2.2` (unsigned alpha pre-release).
 > This guide describes the shipped alpha. It is not a promise of production
 > stability, data recovery, compatibility with every server pack, or support
 > for every Minecraft version.
 
-## 1. Read this before hosting a world
+## 1. Start here
+
+This guide takes you to three outcomes: a managed server, a client connection,
+and a verifiable world backup. For a first installation, follow chapters 2–4.
+For an existing instance, start at chapter 5. If an operation fails, use chapter 13.
+Each workflow includes an expected result; `/help` lists the commands in the app.
+
+### Before hosting a world
 
 `mc-server-tui` is an independent terminal-based Minecraft Java server manager.
 It is not affiliated with Mojang, Microsoft, PaperMC, Modrinth, Fabric, or
@@ -30,12 +37,14 @@ MIT OR Apache-2.0 license, without a guarantee of availability or recovery.
 
 ## 2. Supported scope
 
-| Platform | `v0.2.1` artifact |
+| Platform | `v0.2.2` artifact |
 | --- | --- |
 | macOS 13+ Apple Silicon | `aarch64-apple-darwin` |
 | Linux x86_64 | `x86_64-unknown-linux-gnu` |
 | Linux arm64 | `aarch64-unknown-linux-gnu` |
 | Intel macOS | Not published in this release |
+
+**Before continuing:** install Java for your game version. The app recommends Java 21 for 1.21.x and Java 25+ for 26.x. The Paper wizard discovers installed runtimes; it does not install Java.
 
 The TUI relies on a Unix socket and Unix process behavior. Windows is not
 supported by this release. Use a terminal at least 80×24; 40×12 is usable with
@@ -49,10 +58,10 @@ server version, plugins/mods, and client compatibility.
 
 ### Release installer
 
-`v0.2.1` is a pre-release, so use the tag-specific URL:
+`v0.2.2` is a pre-release, so use the tag-specific URL:
 
 ```sh
-TAG=v0.2.1
+TAG=v0.2.2
 curl -fsSL "https://github.com/JUANWANG-BUAA/mc-server-tui/releases/download/$TAG/install.sh" | sh
 mc setup
 mc
@@ -67,6 +76,17 @@ mc setup --no-service
 mc daemon run   # terminal 1
 mc tui          # terminal 2
 ```
+
+**Expected result:** setup finishes configuration and user-service initialization.
+Running `mc` opens a session with Paper, Fabric and pack-inspection entries, plus
+a connected management-service status. Type a command or click an entry to begin.
+Typing replaces the welcome content so results remain visible.
+
+**If it does not work:** if `mc` is missing, run `export PATH="$HOME/.local/bin:$PATH"`.
+If management is disconnected, use `mc service status --json` and `mc service start`.
+Use `mc setup --dry-run` to inspect the intended paths before writing them.
+
+![First-use welcome · actual v0.2.2 TUI · demonstration data](../site/assets/welcome-0.2.2.png)
 
 ### Build from source
 
@@ -91,7 +111,7 @@ mc doctor --json
 
 ## 4. Create the first server
 
-Start `mc`, then enter:
+Open the Paper entry on the welcome screen, or start `mc` and submit:
 
 ```text
 /create
@@ -102,6 +122,8 @@ The guided Paper flow asks for:
 1. instance name and Minecraft version;
 2. Java runtime, memory range, and server port;
 3. a review of the artifact, download source, memory, port, and EULA.
+
+![Paper wizard · v0.2.1 capture, layout retained in v0.2.2 · demonstration data](../site/assets/create-0.2.1.png)
 
 The runtime step retains your instance name and version and starts with a settings
 summary. Press Enter to accept, or F3 / Tab to adjust Java, memory and port.
@@ -119,7 +141,32 @@ After submission, use:
 
 to inspect download progress, source, speed, phases, and cancellation.
 
-For a Fabric server:
+### Select, start and connect
+
+**Expected result:** the create task completes and `/instances` lists the server.
+Select it before starting:
+
+```text
+/instances
+/use <number-or-name>
+/start
+/connect
+```
+
+Wait for Minecraft readiness, then connect with a Java client using the same
+game version. On the same machine, this is usually `localhost:25565`; use the
+port shown by `/connect`. Other machines also require appropriate networking.
+A connected management service is separate from a ready Minecraft process.
+
+**If it does not work:** inspect creation with `/tasks` and `/task <number>`;
+inspect startup with `/open` or `/logs`. Dismiss a failure dialog to return to
+its underlying page and correct the settings.
+
+### Create Fabric
+
+Clicking Fabric fills a `/fabric ` draft without submitting. Add the name and
+exact game version, then include the acceptance flag only after reviewing and
+agreeing to the Minecraft EULA:
 
 ```text
 /fabric MyFabricServer 1.21.11 --accept-eula
@@ -202,7 +249,12 @@ server is stopped and keep your own backup.
 
 ## 8. Backups and restore
 
-Backups are stopped-world only.
+Backups are stopped-world only. Run `/stop`, wait for `stopped`, then use `/backup`.
+Wait for the task to complete in `/tasks` before opening `/backups`.
+
+**Expected result:** the snapshot has a timestamp, file count and size. Verify
+it successfully before proceeding; being listed does not mean it has passed a
+fresh verification.
 
 1. Stop the server and wait for `stopped`.
 2. Run `/backup`.
@@ -211,6 +263,8 @@ Backups are stopped-world only.
 5. Review affected worlds, added/replaced/removed roots, staging space, and
    safety steps.
 6. Press `c`, type the exact `RESTORE` confirmation, then submit.
+
+![Backup manager · v0.2.1 capture, layout retained in v0.2.2 · demonstration data](../site/assets/backups-0.2.1.png)
 
 Backup details display local time with an explicit UTC offset. F3 reveals
 technical evidence. Restore replaces the listed world roots; progress after the
@@ -302,7 +356,23 @@ overridden in `config.toml` or with documented environment variables.
 
 ## 13. Troubleshooting
 
-Run first:
+### Read the operation-failure dialog
+
+Failures in creation, instance management, console, backup, pack inspection and
+configuration show their actual reason and recovery guidance. Use `d` or F3 for
+the error code and evidence; arrows or the mouse wheel scroll. Esc or Enter closes.
+While open, the dialog captures keys, paste and clicks. The underlying page and
+draft remain available after dismissal. It does not automatically retry or copy
+to the clipboard. Periodic connection failures remain in the status line.
+
+Correct the issue before submitting again. For a bug report, retain the reason,
+error code and relevant logs, reviewing paths and sensitive information first.
+
+![Expanded failure details · actual v0.2.2 TUI · simulated Java discovery failure](../site/assets/error-0.2.2.png)
+
+### Inspect the service and environment
+
+Start with:
 
 ```sh
 mc version --json
@@ -345,12 +415,14 @@ software and third-party code may contain vulnerabilities.
 
 ## 15. Evidence and current limitations
 
-The [v0.2.1 acceptance record](https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md) records 224 automatic tests,
-four PTY suites, v8–v11 protocol checks, and a real isolated Paper drill: console
-input, graceful stop, backup, marker-file restoration and post-restore readiness.
-These results do not prove every world, plugin combination, network, or client
-scenario. A real Minecraft client join and post-restore in-game verification
-still need to be performed.
+The [v0.2.2 acceptance record](https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.2/docs/acceptance/0.2.2.md) records this release’s Rust, five PTY flows, protocol-window and bilingual website checks.
+The earlier [v0.2.1 real Paper drill](https://github.com/JUANWANG-BUAA/mc-server-tui/blob/v0.2.1/docs/acceptance/0.2.1.md) covered console input, stop, backup, marker-file restoration and post-restore readiness; it is historical evidence, not a new game-process acceptance run.
+These checks do not prove every world, plugin, network or client scenario.
+A real client join and post-restore in-game verification remain open.
+
+Task history persists, but a daemon restart marks queued/running tasks
+`interrupted`; it does not automatically replay them. Resumable download files
+are separate from task recovery.
 
 Current gaps include Vanilla, existing-directory takeover, complete
 `server.properties` editing, online/scheduled backups, Forge/NeoForge,

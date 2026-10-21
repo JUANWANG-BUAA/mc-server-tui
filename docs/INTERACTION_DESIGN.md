@@ -2,7 +2,7 @@
 
 > v0.2.1 · 2026-10-20 · shipped interaction contract
 
-## Unreleased source changes
+## v0.2.2 first-use and failure handling
 
 The empty session transcript and classic dashboard share three first-use entries.
 Paper opens the existing wizard; Fabric fills `/fabric ` in the composer and asks
@@ -17,7 +17,7 @@ Esc/Enter closes; the existing draft/page remains available underneath. The dial
 captures keyboard, paste and mouse input. It offers recovery instructions without
 automatic retries or clipboard actions. Periodic connection failures stay inline.
 Next-action guidance uses commands for the selected instance and distinguishes
-connection loss from game state. These changes have not shipped in v0.2.1.
+connection loss from game state. These changes are part of v0.2.2; the following sections retain the v0.2.1 baseline.
 
 ## Reference direction
 
